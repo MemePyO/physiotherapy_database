@@ -73,6 +73,28 @@ def init_db():
         )
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            stored_path TEXT NOT NULL,
+            size INTEGER DEFAULT 0,
+            added_at TEXT DEFAULT ''
+        )
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS patient_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id INTEGER NOT NULL,
+            field TEXT NOT NULL,
+            old_value TEXT DEFAULT '',
+            new_value TEXT DEFAULT '',
+            changed_at TEXT DEFAULT ''
+        )
+    """)
+
     _ensure_column(conn, "patients", "created_at", "TEXT DEFAULT ''")
     _ensure_column(conn, "patients", "updated_at", "TEXT DEFAULT ''")
     _ensure_column(conn, "patients", "sex", "TEXT DEFAULT ''")
@@ -191,59 +213,68 @@ def get_all_patients(sort_by="name", sort_dir="asc"):
 
 
 def update_patient(patient_id, name=None, localitate=None, nr_zile=None, decision_date=None, diagnostic=None, objective=None, evaluation=None, observation=None, sex=None, dob=None):
-    """Update patient information."""
+    """Update patient information and record history for changed fields."""
     conn = _get_conn()
     cur = conn.cursor()
-    updates = []
-    params = []
+    cur.execute("SELECT * FROM patients WHERE id = ?", (patient_id,))
+    old_row = cur.fetchone()
+    old = dict(old_row) if old_row else {}
 
+    provided = {}
     if name is not None:
-        updates.append("name = ?")
-        params.append(str(name).strip())
+        provided["name"] = str(name).strip()
     if localitate is not None:
-        updates.append("localitate = ?")
-        params.append(localitate)
+        provided["localitate"] = localitate
     if nr_zile is not None:
-        updates.append("nr_zile = ?")
-        params.append(nr_zile)
+        provided["nr_zile"] = nr_zile
     if decision_date is not None:
-        updates.append("decision_date = ?")
-        params.append(decision_date)
+        provided["decision_date"] = decision_date
     if diagnostic is not None:
-        updates.append("diagnostic = ?")
-        params.append(diagnostic)
+        provided["diagnostic"] = diagnostic
     if objective is not None:
-        updates.append("objective = ?")
-        params.append(objective)
+        provided["objective"] = objective
     if evaluation is not None:
-        updates.append("evaluation = ?")
-        params.append(evaluation)
+        provided["evaluation"] = evaluation
     if observation is not None:
-        updates.append("observation = ?")
-        params.append(observation)
+        provided["observation"] = observation
     if sex is not None:
-        updates.append("sex = ?")
-        params.append(sex)
+        provided["sex"] = sex
     if dob is not None:
-        updates.append("dob = ?")
-        params.append(dob)
+        provided["dob"] = dob
 
-    updates.append("updated_at = ?")
-    params.append(_now())
-
-    if len(updates) == 1:
-        # only updated_at, nothing else changed; skip
+    if not provided:
         conn.close()
         return
 
+    updates = []
+    params = []
+    for f, v in provided.items():
+        updates.append(f"{f} = ?")
+        params.append(v)
+    updates.append("updated_at = ?")
+    params.append(_now())
     params.append(patient_id)
     try:
         cur.execute(f"UPDATE patients SET {', '.join(updates)} WHERE id = ?", params)
         conn.commit()
     except sqlite3.IntegrityError:
-        raise ValueError("Patient name already exists")
-    finally:
         conn.close()
+        raise ValueError("Patient name already exists")
+
+    now = _now()
+    for f, v in provided.items():
+        old_val = old.get(f, "")
+        if old_val is None:
+            old_val = ""
+        new_val = v if v is not None else ""
+        if str(old_val) != str(new_val):
+            try:
+                cur.execute("INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
+                            (patient_id, f, str(old_val), str(new_val), now))
+            except Exception:
+                pass
+    conn.commit()
+    conn.close()
 
 
 def delete_patient(patient_id):
@@ -358,6 +389,94 @@ def get_evaluation(patient_id):
 def get_observation(patient_id):
     p = get_patient(patient_id=patient_id)
     return p.get('observation', '') if p else ''
+
+
+
+def attachments_dir():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "attachments")
+
+
+def _patient_attach_folder(patient_id):
+    folder = os.path.join(attachments_dir(), str(patient_id))
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def add_attachment(patient_id, source_path):
+    import shutil
+    if not source_path or not os.path.exists(source_path):
+        raise ValueError("File not found")
+    folder = _patient_attach_folder(patient_id)
+    base = os.path.basename(source_path)
+    dest = os.path.join(folder, base)
+    if os.path.exists(dest):
+        stem, ext = os.path.splitext(base)
+        i = 1
+        while os.path.exists(os.path.join(folder, "%s_%d%s" % (stem, i, ext))):
+            i += 1
+        dest = os.path.join(folder, "%s_%d%s" % (stem, i, ext))
+    shutil.copy2(source_path, dest)
+    size = os.path.getsize(dest)
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO attachments (patient_id, filename, stored_path, size, added_at) VALUES (?, ?, ?, ?, ?)",
+                (patient_id, os.path.basename(dest), dest, size, _now()))
+    conn.commit()
+    aid = cur.lastrowid
+    conn.close()
+    return aid
+
+
+def list_attachments(patient_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM attachments WHERE patient_id = ? ORDER BY id DESC", (patient_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_attachment(att_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM attachments WHERE id = ?", (att_id,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def delete_attachment(att_id):
+    att = get_attachment(att_id)
+    if not att:
+        return
+    try:
+        if att.get("stored_path") and os.path.exists(att["stored_path"]):
+            os.remove(att["stored_path"])
+    except OSError:
+        pass
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM attachments WHERE id = ?", (att_id,))
+    conn.commit()
+    conn.close()
+
+
+def add_history(patient_id, field, old_value, new_value):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
+                (patient_id, field, str(old_value or ""), str(new_value or ""), _now()))
+    conn.commit()
+    conn.close()
+
+
+def list_history(patient_id, limit=200):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM patient_history WHERE patient_id = ? ORDER BY id DESC LIMIT ?", (patient_id, limit))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def verify_backup(path):

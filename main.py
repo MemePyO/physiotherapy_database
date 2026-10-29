@@ -355,10 +355,10 @@ class App(ctk.CTk):
         parent.grid_rowconfigure(1, weight=1)
 
         self.overview_title = ctk.CTkLabel(parent, text="Patient Overview", font=theme.FONT_TITLE, text_color=theme.TEXT)
-        self.overview_title.grid(row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 6))
+        self.overview_title.grid(row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 2))
 
         self.overview_content = ctk.CTkFrame(parent, fg_color="transparent")
-        self.overview_content.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, theme.PADDING))
+        self.overview_content.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, 4))
         self.overview_content.grid_columnconfigure(0, weight=1)
         self.overview_content.grid_rowconfigure(0, weight=1)
 
@@ -388,7 +388,7 @@ class App(ctk.CTk):
         f = self.overview_content
         f.grid_rowconfigure(1, weight=1)
         search_frame = ctk.CTkFrame(f, fg_color="transparent")
-        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         search_frame.grid_columnconfigure(1, weight=1)
         self.search_scope = ctk.CTkOptionMenu(search_frame, values=["Name", "Everything"], width=95,
                                              command=lambda v: (setattr(self, "search_scope", v.lower()), self.refresh_patients_db()))
@@ -400,12 +400,12 @@ class App(ctk.CTk):
         ctk.CTkButton(search_frame, text="\u00d7", width=26, command=self._clear_search).pack(side="left", padx=2)
 
         self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
-        self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
+        self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
         self.card_list.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkButton(f, text="+ New Patient", height=36, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+        ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       font=theme.FONT_BOLD, command=lambda: self._show_view("new")).grid(
-            row=2, column=0, sticky="ew", pady=(6, 0))
+            row=2, column=0, sticky="ew", pady=(2, 0))
         self.refresh_patients_db()
 
     def _view_trash(self):
@@ -559,13 +559,13 @@ class App(ctk.CTk):
     def _build_patient_card(self, p, first_line, selected):
         card = ctk.CTkFrame(self.card_list, fg_color=theme.SELECTED if selected else theme.PANEL,
                             corner_radius=theme.CARD_RADIUS, border_width=1, border_color=theme.BORDER)
-        card.pack(fill="x", pady=4)
+        card.pack(fill="x", pady=2)
         card.grid_columnconfigure(1, weight=1)
 
         av = ctk.CTkLabel(card, text=_initials(p.get('name','')), width=36, height=36,
                           corner_radius=18, fg_color=theme.ACCENT, text_color="white",
                           font=ctk.CTkFont(size=12, weight="bold"))
-        av.grid(row=0, column=0, rowspan=2, padx=10, pady=8)
+        av.grid(row=0, column=0, rowspan=2, padx=10, pady=4)
 
         name_lbl = ctk.CTkLabel(card, text=p.get('name',''), font=theme.FONT_BOLD, text_color=theme.TEXT, anchor="w")
         name_lbl.grid(row=0, column=1, sticky="w", pady=(8, 0))

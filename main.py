@@ -267,11 +267,13 @@ class App(ctk.CTk):
             btn.pack(pady=4)
             self._nav_buttons[key] = btn
             # tooltip
-            def _show_tip(e, t=tip):
+            def _show_tip(e=None, t=tip):
                 try:
+                    x = (e.x_root + 12) if e is not None else (btn.winfo_rootx() + 50)
+                    y = (e.y_root + 12) if e is not None else (btn.winfo_rooty() + 10)
                     tw = ctk.CTkToplevel(self)
                     tw.overrideredirect(True)
-                    tw.geometry(f"+{e.x_root+12}+{e.y_root+12}")
+                    tw.geometry(f"+{x}+{y}")
                     ctk.CTkLabel(tw, text=t, fg_color=theme.PANEL, text_color=theme.TEXT,
                                  corner_radius=6, padx=8, pady=4).pack()
                     btn._tooltip = tw
@@ -587,13 +589,15 @@ class App(ctk.CTk):
             card.configure(takefocus=True)
         except Exception:
             pass
-        card.bind("<Return>", lambda e, pid=p['id']: self._open_patient_by_id(pid))
-        card.bind("<space>", lambda e, pid=p['id']: self._open_patient_by_id(pid))
+        card.bind("<Return>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
+        card.bind("<space>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
         for w in (card, av, name_lbl, meta, preview):
-            w.bind("<Button-1>", lambda e, pid=p['id']: self._open_patient_by_id(pid))
-            w.bind("<Button-3>", lambda e, pid=p['id']: self._card_context(e, pid))
+            w.bind("<Button-1>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
+            w.bind("<Button-3>", lambda e=None, pid=p['id']: self._card_context(e, pid))
 
     def _card_context(self, event, pid):
+        if event is None:
+            return
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="Edit patient", command=lambda: self._edit_patient_by_id(pid))
         menu.add_command(label="Delete", command=lambda: self._delete_by_id(pid))

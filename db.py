@@ -281,15 +281,15 @@ def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, de
     conn.close()
 
 
-def delete_patient(patient_id: int) -> None:
-    """Soft-delete: move patient into deleted_patients for undo."""
+def delete_patient(patient_id: int) -> int | None:
+    """Soft-delete: move patient into deleted_patients for undo. Returns deleted_patients row id."""
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM patients WHERE id = ?", (patient_id,))
     row = cur.fetchone()
     if not row:
         conn.close()
-        return
+        return None
     d = dict(row)
     try:
         cur.execute("""
@@ -299,8 +299,10 @@ def delete_patient(patient_id: int) -> None:
               d.get('objective', ''), d.get('evaluation', ''), d.get('observation', ''),
               d.get('sex', ''), d.get('dob', ''), d.get('patient_code', ''),
               d.get('created_at', ''), d.get('updated_at', ''), _now()))
+        deleted_row_id = cur.lastrowid
         cur.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
         conn.commit()
+        return deleted_row_id
     finally:
         conn.close()
 

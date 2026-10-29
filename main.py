@@ -97,6 +97,8 @@ class App(ctk.CTk):
         self.search_scope = "everything"
         self.selected_patient_id = None
         self._current_panel = None
+        self._last_deleted_row_id = None
+        self._last_deleted_name = None
         self.patient_panels = {}
 
         self.grid_columnconfigure(0, weight=0)
@@ -121,6 +123,7 @@ class App(ctk.CTk):
         # Keyboard shortcuts
         self.bind("<Control-n>", lambda e: self._add_patient_db())
         self.bind("<Control-f>", lambda e: (self.search_entry.focus_set() if hasattr(self, "search_entry") else None, "break"))
+        self.bind("<Control-z>", self._undo_last_delete)
 
     def _on_app_close(self):
         try:
@@ -501,13 +504,51 @@ class App(ctk.CTk):
                             page.destroy()
                     except Exception:
                         pass
-                db.delete_patient(pid)
+                deleted_row_id = db.delete_patient(pid)
+                if deleted_row_id is not None:
+                    self._last_deleted_row_id = deleted_row_id
+                    self._last_deleted_name = (db.get_patient(patient_id=pid) or {}).get('name') if False else None
+                    try:
+                        # fetch name from deleted row
+                        for d in db.list_deleted():
+                            if d.get('id') == deleted_row_id:
+                                self._last_deleted_name = d.get('name')
+                                break
+                    except Exception:
+                        pass
                 if self.selected_patient_id == pid:
                     self.selected_patient_id = None
                     self._show_placeholder()
                 self.refresh_patients_db()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _show_undo_hint(self):
+        name = getattr(self, "_last_deleted_name", None) or "patient"
+        try:
+            self.statusBar if hasattr(self, "statusBar") else None
+        except Exception:
+            pass
+        try:
+            messagebox.showinfo(lang.t("app_name"), "Deleted '" + str(name) + "'. Press Ctrl+Z to undo.")
+        except Exception:
+            pass
+
+    def _undo_last_delete(self, event=None):
+        row_id = getattr(self, "_last_deleted_row_id", None)
+        if row_id is None:
+            return
+        try:
+            new_pid = db.restore_deleted(row_id)
+            self._last_deleted_row_id = None
+            self._last_deleted_name = None
+            self.refresh_patients_db()
+            if new_pid is not None:
+                self._open_patient_by_id(new_pid)
+            messagebox.showinfo(lang.t("app_name"), "Undo: patient restored.")
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+        return "break"
 
     def _copy_name_by_id(self, pid):
         p = db.get_patient(patient_id=pid)
@@ -909,7 +950,13 @@ class App(ctk.CTk):
                             page.destroy()
                     except Exception:
                         pass
-                db.delete_patient(patient_id)
+                deleted_row_id = db.delete_patient(patient_id)
+                if deleted_row_id is not None:
+                    self._last_deleted_row_id = deleted_row_id
+                    for d in db.list_deleted():
+                        if d.get('id') == deleted_row_id:
+                            self._last_deleted_name = d.get('name')
+                            break
                 self.refresh_patients_db()
                 self.known_patients = db.get_patient_names()
             except Exception as e:

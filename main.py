@@ -219,12 +219,12 @@ class App(ctk.CTk):
         logo.pack(pady=(12, 18))
 
         self._nav_buttons = {}
-        items = [("patients", "\u2630", "Patients", self._nav_patients, ("Segoe UI", 16)),
-                 ("new", "\u2795", "New", self._add_patient_db, ("Segoe UI", 16)),
-                 ("saveas", "\u2912", "Save as", self._save_as, ("Segoe UI", 16)),
-                 ("backup", "\u21BB", "Backup", self._backup_now, ("Segoe UI", 16)),
-                 ("trash", "\U0001F5D1", "Trash", self._show_trash, ("Segoe UI Emoji", 16)),
-                 ("settings", "\u2699", "Settings", self._nav_settings, ("Segoe UI", 16))]
+        items = [("patients", "\u2630", "Patients", lambda: self._show_view("patients"), ("Segoe UI", 16)),
+                 ("new", "\u2795", "New", lambda: (self._add_patient_db(), self._show_view("patients")), ("Segoe UI", 16)),
+                 ("saveas", "\u2912", "Save as", lambda: self._show_view("saveas"), ("Segoe UI", 16)),
+                 ("backup", "\u21BB", "Backup", lambda: self._show_view("backup"), ("Segoe UI", 16)),
+                 ("trash", "\U0001F5D1", "Trash", lambda: self._show_view("trash"), ("Segoe UI Emoji", 16)),
+                 ("settings", "\u2699", "Settings", lambda: self._show_view("settings"), ("Segoe UI", 16))]
         for key, glyph, tip, cmd, font in items:
             btn = ctk.CTkButton(side, text=glyph, width=44, height=44, corner_radius=12,
                                 fg_color="transparent", text_color=theme.TEXT, hover_color=theme.SIDEBAR_ACTIVE,
@@ -269,13 +269,43 @@ class App(ctk.CTk):
 
     def _build_overview(self, parent):
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(2, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
 
-        ctk.CTkLabel(parent, text="Patient Overview", font=theme.FONT_TITLE, text_color=theme.TEXT).grid(
-            row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 6))
+        self.overview_title = ctk.CTkLabel(parent, text="Patient Overview", font=theme.FONT_TITLE, text_color=theme.TEXT)
+        self.overview_title.grid(row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 6))
 
-        search_frame = ctk.CTkFrame(parent, fg_color="transparent")
-        search_frame.grid(row=1, column=0, sticky="ew", padx=theme.PADDING, pady=(0, 6))
+        self.overview_content = ctk.CTkFrame(parent, fg_color="transparent")
+        self.overview_content.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, theme.PADDING))
+        self.overview_content.grid_columnconfigure(0, weight=1)
+        self.overview_content.grid_rowconfigure(0, weight=1)
+
+        self._show_view("patients")
+
+    def _show_view(self, view):
+        for w in self.overview_content.winfo_children():
+            w.destroy()
+        self._current_view = view
+        titles = {"patients": "Patient Overview", "trash": "Trash (deleted)", "settings": "Settings",
+                  "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient"}
+        self.overview_title.configure(text=titles.get(view, view))
+        if view == "patients":
+            self._view_patients()
+        elif view == "trash":
+            self._view_trash()
+        elif view == "settings":
+            self._view_settings()
+        elif view == "saveas":
+            self._view_saveas()
+        elif view == "backup":
+            self._view_backup()
+        elif view == "new":
+            self._view_new_patient()
+
+    def _view_patients(self):
+        f = self.overview_content
+        f.grid_rowconfigure(1, weight=1)
+        search_frame = ctk.CTkFrame(f, fg_color="transparent")
+        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         search_frame.grid_columnconfigure(1, weight=1)
         self.search_scope = ctk.CTkOptionMenu(search_frame, values=["Name", "Everything"], width=95,
                                              command=lambda v: (setattr(self, "search_scope", v.lower()), self.refresh_patients_db()))
@@ -286,13 +316,120 @@ class App(ctk.CTk):
         self.search_entry.bind("<KeyRelease>", lambda e: self.refresh_patients_db())
         ctk.CTkButton(search_frame, text="\u00d7", width=26, command=self._clear_search).pack(side="left", padx=2)
 
-        self.card_list = ctk.CTkScrollableFrame(parent, fg_color="transparent")
-        self.card_list.grid(row=2, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, 6))
+        self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
+        self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
         self.card_list.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkButton(parent, text="+ New Patient", height=36, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
-                      font=theme.FONT_BOLD, command=self._add_patient_db).grid(
-            row=3, column=0, sticky="ew", padx=theme.PADDING, pady=(6, theme.PADDING))
+        ctk.CTkButton(f, text="+ New Patient", height=36, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+                      font=theme.FONT_BOLD, command=lambda: self._show_view("new")).grid(
+            row=2, column=0, sticky="ew", pady=(6, 0))
+        self.refresh_patients_db()
+
+    def _view_trash(self):
+        f = self.overview_content
+        f.grid_rowconfigure(0, weight=1)
+        cols = ("name", "localitate", "deleted_at")
+        tree = ttk.Treeview(f, columns=cols, show="headings", selectmode="browse")
+        tree.heading("name", text="Name")
+        tree.heading("localitate", text="Locality")
+        tree.heading("deleted_at", text="Deleted at")
+        tree.column("name", width=120)
+        tree.column("localitate", width=90)
+        tree.column("deleted_at", width=130)
+        tree.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
+        rows = db.list_deleted()
+        for r in rows:
+            tree.insert("", "end", iid=str(r["id"]), values=(r.get("name",""), r.get("localitate",""), r.get("deleted_at","")))
+        btns = ctk.CTkFrame(f, fg_color="transparent")
+        btns.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        def _restore():
+            sel = tree.selection()
+            if not sel: return
+            try:
+                db.restore_deleted(int(sel[0]))
+                tree.delete(sel[0])
+                self.refresh_patients_db()
+            except Exception as e:
+                messagebox.showerror(lang.t("app_name"), str(e))
+        def _restore_all():
+            for iid in list(tree.get_children()):
+                try:
+                    db.restore_deleted(int(iid)); tree.delete(iid)
+                except Exception as e:
+                    messagebox.showerror(lang.t("app_name"), str(e))
+            self.refresh_patients_db()
+        def _purge():
+            sel = tree.selection()
+            if not sel or not messagebox.askyesno(lang.t("app_name"), "Permanently delete?"): return
+            conn = db._get_conn()
+            conn.execute("DELETE FROM deleted_patients WHERE id = ?", (int(sel[0]),))
+            conn.commit(); conn.close()
+            tree.delete(sel[0])
+        def _empty():
+            if not messagebox.askyesno(lang.t("app_name"), "Empty trash?"): return
+            conn = db._get_conn()
+            conn.execute("DELETE FROM deleted_patients")
+            conn.commit(); conn.close()
+            for iid in list(tree.get_children()):
+                tree.delete(iid)
+        ctk.CTkButton(btns, text="Restore", width=80, command=_restore).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Restore all", width=90, command=_restore_all).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Purge", width=70, fg_color="#c0392b", command=_purge).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Empty", width=70, fg_color="#c0392b", command=_empty).pack(side="left", padx=2)
+
+    def _view_settings(self):
+        f = self.overview_content
+        f.grid_rowconfigure(0, weight=1)
+        scroll = ctk.CTkScrollableFrame(f, fg_color="transparent")
+        scroll.grid(row=0, column=0, sticky="nsew")
+        scroll.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(scroll, text="Language:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
+        lm = ctk.CTkOptionMenu(scroll, values=list(LANG_LABELS.values()), width=200, command=self._on_language_change)
+        lm.set(LANG_LABELS.get(lang.get_language(), "English"))
+        lm.pack(anchor="w", pady=(0,10))
+        ctk.CTkLabel(scroll, text="Theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
+        tf = ctk.CTkFrame(scroll, fg_color="transparent")
+        tf.pack(anchor="w", pady=(0,10))
+        ctk.CTkButton(tf, text="Light", width=90, command=lambda: ctk.set_appearance_mode("Light")).pack(side="left", padx=2)
+        ctk.CTkButton(tf, text="Dark", width=90, command=lambda: ctk.set_appearance_mode("Dark")).pack(side="left", padx=2)
+        ctk.CTkLabel(scroll, text="Data:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
+        df = ctk.CTkFrame(scroll, fg_color="transparent")
+        df.pack(anchor="w", pady=(0,10))
+        ctk.CTkButton(df, text="Backup now", width=110, command=self._backup_now).pack(side="left", padx=2)
+        ctk.CTkButton(df, text="Restore...", width=110, command=self._restore_backup).pack(side="left", padx=2)
+        ctk.CTkButton(df, text="Import...", width=110, command=self._import_data).pack(side="left", padx=2)
+        ctk.CTkButton(scroll, text="Open Trash", width=200, command=lambda: self._show_view("trash")).pack(anchor="w", pady=(8, 0))
+
+    def _view_saveas(self):
+        f = self.overview_content
+        f.grid_rowconfigure(0, weight=1)
+        inner = ctk.CTkFrame(f, fg_color="transparent")
+        inner.grid(row=0, column=0, sticky="nsew")
+        ctk.CTkLabel(inner, text="Choose format:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,6))
+        fmt = tk.StringVar(value="excel")
+        for val, lbl in [("excel", "Excel (.xlsx)"), ("csv", "CSV / Access"), ("pdf", "PDF"), ("word", "Word (.doc)")]:
+            ctk.CTkRadioButton(inner, text=lbl, variable=fmt, value=val).pack(anchor="w", pady=2)
+        def _go():
+            v = fmt.get()
+            if v == "excel": self._export_excel()
+            elif v == "csv": self._export_csv()
+            elif v == "pdf": self._export_pdf()
+            elif v == "word": self._export_word()
+        ctk.CTkButton(inner, text="Export", width=120, fg_color=theme.ACCENT, command=_go).pack(anchor="w", pady=(10,0))
+
+    def _view_backup(self):
+        f = self.overview_content
+        f.grid_rowconfigure(0, weight=1)
+        inner = ctk.CTkFrame(f, fg_color="transparent")
+        inner.grid(row=0, column=0, sticky="nsew")
+        ctk.CTkButton(inner, text="Backup now", width=140, command=self._backup_now).pack(anchor="w", pady=4)
+        ctk.CTkButton(inner, text="Restore backup...", width=140, command=self._restore_backup).pack(anchor="w", pady=4)
+
+    def _view_new_patient(self):
+        self._add_patient_db()
+        self._show_view("patients")
+
+
 
     def _show_placeholder(self):
         for w in self.file_host.winfo_children():

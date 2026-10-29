@@ -327,26 +327,35 @@ class SettingsDialog(ctk.CTkToplevel):
         self.lang_menu.set(LANG_LABELS.get(lang.get_language(), "English"))
         self.lang_menu.grid(row=2, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
 
+        # UI scale
+        ctk.CTkLabel(self, text="UI scale:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
+            row=3, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
+        scale_frame = ctk.CTkFrame(self, fg_color="transparent")
+        scale_frame.grid(row=4, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
+        for pct in (100, 125, 150):
+            ctk.CTkButton(scale_frame, text=str(pct) + "%", width=70,
+                          command=lambda p=pct: master._set_ui_scale(p / 100.0)).pack(side="left", padx=2)
+
         # Theme
         ctk.CTkLabel(self, text="Theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
-            row=3, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
+            row=5, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         theme_frame = ctk.CTkFrame(self, fg_color="transparent")
-        theme_frame.grid(row=4, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
+        theme_frame.grid(row=6, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
         ctk.CTkButton(theme_frame, text="Light", width=90, command=lambda: (ctk.set_appearance_mode("Light"), master._toggle_theme() if False else None)).pack(side="left", padx=2)
         ctk.CTkButton(theme_frame, text="Dark", width=90, command=lambda: ctk.set_appearance_mode("Dark")).pack(side="left", padx=2)
 
         # Backup / Restore / Import
         ctk.CTkLabel(self, text="Data:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
-            row=5, column=0, sticky="w", padx=theme.PADDING, pady=(8, 2))
+            row=7, column=0, sticky="w", padx=theme.PADDING, pady=(8, 2))
         data_frame = ctk.CTkFrame(self, fg_color="transparent")
-        data_frame.grid(row=6, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
+        data_frame.grid(row=8, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
         ctk.CTkButton(data_frame, text="Backup now", width=110, command=master._backup_now).pack(side="left", padx=2)
         ctk.CTkButton(data_frame, text="Restore...", width=110, command=master._restore_backup).pack(side="left", padx=2)
         ctk.CTkButton(data_frame, text="Import...", width=110, command=master._import_data).pack(side="left", padx=2)
 
         # Trash
         ctk.CTkButton(self, text="Open Trash (deleted patients)", width=220, command=master._show_trash).grid(
-            row=7, column=0, sticky="w", padx=theme.PADDING, pady=(8, 8))
+            row=9, column=0, sticky="w", padx=theme.PADDING, pady=(8, 8))
 
         ctk.CTkButton(self, text="Close", width=90, command=self.destroy).grid(
-            row=8, column=0, sticky="e", padx=theme.PADDING, pady=(8, theme.PADDING))
+            row=10, column=0, sticky="e", padx=theme.PADDING, pady=(8, theme.PADDING))

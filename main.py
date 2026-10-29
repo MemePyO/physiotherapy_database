@@ -118,6 +118,12 @@ class App(ctk.CTk):
                 self.geometry("1200x800")
             mode = settings.get("appearance", "Light")
             ctk.set_appearance_mode(mode)
+            scale = settings.get("ui_scale", 1.0)
+            try:
+                ctk.set_widget_scaling(scale)
+                ctk.set_window_scaling(scale)
+            except Exception:
+                pass
         except Exception:
             self.geometry("1200x800")
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
@@ -163,6 +169,8 @@ class App(ctk.CTk):
 
         self.refresh_patients_db()
         self._auto_backup()
+        self._sidebar_visible = True
+        self.bind("<Configure>", self._on_configure_responsive)
         # Keyboard shortcuts
         self.bind("<Control-n>", lambda e: self._add_patient_db())
         self.bind("<Control-f>", lambda e: (self.search_entry.focus_set() if hasattr(self, "search_entry") else None, "break"))
@@ -229,6 +237,7 @@ class App(ctk.CTk):
 
         right = ctk.CTkFrame(bar, fg_color="transparent")
         right.grid(row=0, column=1, sticky="e")
+        ctk.CTkButton(right, text="\u2630", width=40, font=theme.ICON_FONT_SMALL, command=self._toggle_sidebar).pack(side="left", padx=2)
         ctk.CTkButton(right, text="Theme", width=70, command=self._toggle_theme).pack(side="left", padx=2)
         self.lang_menu = ctk.CTkOptionMenu(right, values=list(LANG_LABELS.values()), width=95, command=self._on_language_change)
         self.lang_menu.set(LANG_LABELS.get(lang.get_language(), "English"))
@@ -244,23 +253,72 @@ class App(ctk.CTk):
         logo.pack(pady=(12, 18))
 
         self._nav_buttons = {}
-        items = [("patients", "\u2630", "Patients", lambda: self._show_view("patients"), ("Segoe UI", 16)),
-                 ("new", "\u2795", "New", lambda: (self._add_patient_db(), self._show_view("patients")), ("Segoe UI", 16)),
-                 ("saveas", "\u2912", "Save as", lambda: self._show_view("saveas"), ("Segoe UI", 16)),
-                 ("backup", "\u21BB", "Backup", lambda: self._show_view("backup"), ("Segoe UI", 16)),
-                 ("trash", "\U0001F5D1", "Trash", lambda: self._show_view("trash"), ("Segoe UI Emoji", 16)),
-                 ("settings", "\u2699", "Settings", lambda: self._show_view("settings"), ("Segoe UI", 16))]
+        items = [("patients", "\U0001F4CB", "Patients", lambda: self._show_view("patients"), theme.ICON_FONT),
+                 ("new", "\u2795", "New", lambda: (self._add_patient_db(), self._show_view("patients")), theme.ICON_FONT),
+                 ("saveas", "\U0001F4BE", "Save as", lambda: self._show_view("saveas"), theme.ICON_FONT),
+                 ("backup", "\U0001F5C4", "Backup", lambda: self._show_view("backup"), theme.ICON_FONT),
+                 ("trash", "\U0001F5D1", "Trash", lambda: self._show_view("trash"), theme.ICON_FONT),
+                 ("settings", "\u2699", "Settings", lambda: self._show_view("settings"), theme.ICON_FONT)]
         for key, glyph, tip, cmd, font in items:
             btn = ctk.CTkButton(side, text=glyph, width=44, height=44, corner_radius=12,
                                 fg_color="transparent", text_color=theme.TEXT, hover_color=theme.SIDEBAR_ACTIVE,
-                                font=font, command=cmd)
+                                font=font, command=cmd, border_width=2,
+                                border_color=theme.BORDER)
             btn.pack(pady=4)
             self._nav_buttons[key] = btn
+            # tooltip
+            def _show_tip(e, t=tip):
+                try:
+                    tw = ctk.CTkToplevel(self)
+                    tw.overrideredirect(True)
+                    tw.geometry(f"+{e.x_root+12}+{e.y_root+12}")
+                    ctk.CTkLabel(tw, text=t, fg_color=theme.PANEL, text_color=theme.TEXT,
+                                 corner_radius=6, padx=8, pady=4).pack()
+                    btn._tooltip = tw
+                    btn.after(1200, lambda: (tw.destroy() if tw.winfo_exists() else None))
+                except Exception:
+                    pass
+            def _hide_tip(e):
+                tw = getattr(btn, "_tooltip", None)
+                if tw is not None:
+                    try:
+                        if tw.winfo_exists():
+                            tw.destroy()
+                    except Exception:
+                        pass
+                    btn._tooltip = None
+            btn.bind("<Enter>", _show_tip)
+            btn.bind("<Leave>", _hide_tip)
         self._set_nav_active("patients")
 
     def _set_nav_active(self, key):
         for k, b in getattr(self, "_nav_buttons", {}).items():
             b.configure(fg_color=theme.SIDEBAR_ACTIVE if k == key else "transparent")
+
+    def _toggle_sidebar(self):
+        if getattr(self, "_sidebar_visible", True):
+            try:
+                self._sidebar.grid_remove()
+            except Exception:
+                pass
+            self._sidebar_visible = False
+        else:
+            try:
+                self._sidebar.grid()
+            except Exception:
+                pass
+            self._sidebar_visible = True
+
+    def _on_configure_responsive(self, event=None):
+        try:
+            if self.winfo_width() < 900 and getattr(self, "_sidebar_visible", True):
+                self._sidebar.grid_remove()
+                self._sidebar_visible = False
+            elif self.winfo_width() >= 950 and not getattr(self, "_sidebar_visible", False):
+                self._sidebar.grid()
+                self._sidebar_visible = True
+        except Exception:
+            pass
 
     def _nav_patients(self):
         self._set_nav_active("patients")
@@ -412,6 +470,13 @@ class App(ctk.CTk):
         lm = ctk.CTkOptionMenu(scroll, values=list(LANG_LABELS.values()), width=200, command=self._on_language_change)
         lm.set(LANG_LABELS.get(lang.get_language(), "English"))
         lm.pack(anchor="w", pady=(0,10))
+        ctk.CTkLabel(scroll, text="UI scale:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
+        sf = ctk.CTkFrame(scroll, fg_color="transparent")
+        sf.pack(anchor="w", pady=(0,10))
+        for pct in (100, 125, 150):
+            ctk.CTkButton(sf, text=str(pct) + "%", width=70,
+                          command=lambda p=pct: self._set_ui_scale(p / 100.0)).pack(side="left", padx=2)
+
         ctk.CTkLabel(scroll, text="Theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
         tf = ctk.CTkFrame(scroll, fg_color="transparent")
         tf.pack(anchor="w", pady=(0,10))
@@ -518,6 +583,12 @@ class App(ctk.CTk):
                                      command=lambda pid=p['id']: self._open_patient_by_id(pid))
             open_btn.grid(row=0, column=2, rowspan=3, padx=10)
 
+        try:
+            card.configure(takefocus=True)
+        except Exception:
+            pass
+        card.bind("<Return>", lambda e, pid=p['id']: self._open_patient_by_id(pid))
+        card.bind("<space>", lambda e, pid=p['id']: self._open_patient_by_id(pid))
         for w in (card, av, name_lbl, meta, preview):
             w.bind("<Button-1>", lambda e, pid=p['id']: self._open_patient_by_id(pid))
             w.bind("<Button-3>", lambda e, pid=p['id']: self._card_context(e, pid))
@@ -604,9 +675,23 @@ class App(ctk.CTk):
         for w in self.file_host.winfo_children():
             w.destroy()
         panel = PatientFilePanel(self.file_host, patient_id, on_close=self.refresh_patients_db)
-        panel.grid(row=0, column=0, sticky="nsew")
+        # slide-in animation
+        panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=40)
         self.patient_panels[patient_id] = panel
         self.refresh_patients_db()
+
+        def _step(i):
+            try:
+                if not panel.winfo_exists():
+                    return
+                if i >= 8:
+                    panel.place_configure(x=0)
+                    return
+                panel.place_configure(x=40 - int(40 * (i + 1) / 8))
+                panel.after(18, lambda: _step(i + 1))
+            except Exception:
+                pass
+        panel.after(10, lambda: _step(0))
 
 
     def _open_patient_file(self):
@@ -644,6 +729,19 @@ class App(ctk.CTk):
         except Exception:
             pass
         self.refresh_patients_db()
+
+    def _set_ui_scale(self, scale):
+        try:
+            ctk.set_widget_scaling(scale)
+            ctk.set_window_scaling(scale)
+        except Exception:
+            pass
+        try:
+            data = load_settings()
+            data["ui_scale"] = scale
+            save_settings(data)
+        except Exception:
+            pass
 
     def _toggle_theme(self):
         cur = ctk.get_appearance_mode()

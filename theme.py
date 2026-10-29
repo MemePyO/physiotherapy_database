@@ -29,6 +29,9 @@ FONT_BODY = ("Segoe UI", 11)
 FONT_BOLD = ("Segoe UI", 11, "bold")
 FONT_SMALL = ("Segoe UI", 10)
 FONT_SECTION = ("Segoe UI", 12, "bold")
+# Single consistent icon font (Segoe UI Emoji renders all glyphs as emoji, uniform style)
+ICON_FONT = ("Segoe UI Emoji", 18)
+ICON_FONT_SMALL = ("Segoe UI Emoji", 14)
 
 # Sizes
 SIDEBAR_W = 72

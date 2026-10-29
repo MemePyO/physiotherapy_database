@@ -364,8 +364,7 @@ class PatientFilePanel(ctk.CTkFrame):
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _edit_patient_info(self):
-        import main as _m
-        dlg = _m.EditPatientDialog(self, self.patient)
+        dlg = EditPatientDialog(self, self.patient)
         self.wait_window(dlg)
         if dlg.result:
             try:

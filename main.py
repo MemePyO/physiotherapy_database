@@ -15,9 +15,52 @@ logger = log.get_logger(__name__)
 from patient_panel import PatientFilePanel
 from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf
 from dialogs import (AddPatientDialog, SaveAsDialog, RestoreBackupDialog,
-                     TrashDialog, SettingsDialog)
+                     TrashDialog, SettingsDialog, ExportFieldsDialog)
 
 APP_NAME = "Patient Database"
+
+EXPORT_FIELDS = [
+    ("nr", "Nr."),
+    ("name", "Nume Pacient"),
+    ("localitate", "Localitate"),
+    ("sex", "Sex"),
+    ("dob", "DOB"),
+    ("patient_code", "Cod pacient"),
+    ("diagnostic", "Diagnostic"),
+    ("objective", "Obiectiv"),
+    ("evaluation", "Evaluare"),
+    ("observation", "Observatii"),
+    ("created_at", "Creat"),
+    ("updated_at", "Modificat"),
+]
+
+
+def _field_value(p, key, idx):
+    if key == "nr":
+        return idx
+    if key == "name":
+        return p.get("name", "")
+    if key == "localitate":
+        return p.get("localitate", "")
+    if key == "sex":
+        return p.get("sex", "")
+    if key == "dob":
+        return p.get("dob", "")
+    if key == "patient_code":
+        return p.get("patient_code", "")
+    if key == "diagnostic":
+        return p.get("diagnostic", "")
+    if key == "objective":
+        return p.get("objective", "")
+    if key == "evaluation":
+        return p.get("evaluation", "")
+    if key == "observation":
+        return p.get("observation", "")
+    if key == "created_at":
+        return p.get("created_at", "")
+    if key == "updated_at":
+        return p.get("updated_at", "")
+    return ""
 
 LANG_LABELS = {"en": "English", "ro": "Română"}
 
@@ -711,13 +754,28 @@ class App(ctk.CTk):
             from openpyxl import Workbook
             from openpyxl.styles import Font, Alignment, PatternFill
             from tkinter import filedialog
+            # remember last selection
+            import json as _json
+            settings = load_settings()
+            initial = settings.get("export_fields")
+            if not initial:
+                initial = [k for k, _ in EXPORT_FIELDS]
+            dlg = ExportFieldsDialog(self, EXPORT_FIELDS, initial=initial)
+            self.wait_window(dlg)
+            if not dlg.result:
+                return
+            chosen = dlg.result
+            # persist
+            settings["export_fields"] = chosen
+            save_settings(settings)
+
             path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], title="Save as Excel")
             if not path:
                 return
             wb = Workbook()
             ws = wb.active
             ws.title = "Pacienti"
-            headers = ["Nr.", "Nume Pacient", "Localitate", "Diagnostic", "Obiectiv", "Evaluare", "Observatii"]
+            headers = [h for k, h in EXPORT_FIELDS if k in chosen]
             ws.append(headers)
             for c in range(1, len(headers) + 1):
                 cell = ws.cell(row=1, column=c)
@@ -726,14 +784,12 @@ class App(ctk.CTk):
                 cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             patients = db.get_all_patients()
             for i, p in enumerate(patients, 1):
-                ws.append([i, p.get('name',''), p.get('localitate',''), p.get('diagnostic',''),
-                           p.get('objective',''), p.get('evaluation',''), p.get('observation','')])
+                ws.append([_field_value(p, k, i) for k in chosen])
             for row in ws.iter_rows(min_row=2):
                 for cell in row:
                     cell.alignment = Alignment(vertical="top", wrap_text=True)
-            widths = [6, 26, 16, 40, 40, 40, 40]
-            for idx, w in enumerate(widths, start=1):
-                ws.column_dimensions[chr(64 + idx)].width = w
+            for idx in range(1, len(headers) + 1):
+                ws.column_dimensions[chr(64 + idx)].width = 18
             ws.freeze_panes = "A2"
             wb.save(path)
             messagebox.showinfo(lang.t("app_name"), "Export Excel reusit")
@@ -961,25 +1017,6 @@ class App(ctk.CTk):
                 self.known_patients = db.get_patient_names()
             except Exception as e:
                 messagebox.showerror(lang.t("app_name"), str(e))
-    
-    def _export_excel(self):
-        try:
-            from openpyxl import Workbook
-            from tkinter import filedialog
-            path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], title="Export Excel")
-            if not path:
-                return
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Pacienti"
-            ws.append(["Nr.", "Nume Pacient", "Localitate", "Diagnostic", "Observatii"])
-            patients = db.get_all_patients()
-            for i, p in enumerate(patients, 1):
-                ws.append([i, p['name'], p.get('localitate',''), p.get('diagnostic',''), p.get('observation','')])
-            wb.save(path)
-            messagebox.showinfo(lang.t("app_name"), "Export Excel reusit")
-        except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
     
     def _export_access(self):
         try:

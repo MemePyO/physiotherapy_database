@@ -18,6 +18,18 @@ def _initials(name):
     return (parts[0][:1] + parts[-1][:1]).upper()
 
 
+
+def _validate_dob(text):
+    text = (text or "").strip()
+    if not text:
+        return True
+    try:
+        import datetime
+        datetime.datetime.strptime(text, "%d.%m.%Y")
+        return True
+    except ValueError:
+        return False
+
 class PatientFilePanel(ctk.CTkFrame):
     def __init__(self, master, patient_id, on_close=None):
         super().__init__(master, fg_color=theme.PANEL, corner_radius=theme.PANEL_RADIUS)
@@ -36,6 +48,7 @@ class PatientFilePanel(ctk.CTkFrame):
         self._build_header()
         self._build_sections()
         self._build_footer()
+        self._schedule_autosave()
 
     # ---- header ----
     def _build_header(self):
@@ -59,7 +72,9 @@ class PatientFilePanel(ctk.CTkFrame):
         dob = self.patient.get('dob', '') or 'NA'
         sex = self.patient.get('sex', '') or 'NA'
         loc = self.patient.get('localitate', '') or 'NA'
-        info_text = f"DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}"
+        code = self.patient.get('patient_code', '') or 'NA'
+        code = self.patient.get('patient_code', '') or 'NA'
+        info_text = f"Code: {code}   |   DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}"
         info_lbl = ctk.CTkLabel(frame, text=info_text, font=theme.FONT_SUB, text_color=theme.MUTED)
         info_lbl.grid(row=1, column=1, sticky="w")
         self.info_label = info_lbl
@@ -86,7 +101,7 @@ class PatientFilePanel(ctk.CTkFrame):
         sex = self.patient.get('sex', '') or 'NA'
         loc = self.patient.get('localitate', '') or 'NA'
         try:
-            self.info_label.configure(text=f"DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}")
+            self.info_label.configure(text=f"Code: {code}   |   DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}")
         except Exception:
             pass
         diag = self.patient.get('diagnostic', '') or ''
@@ -191,8 +206,10 @@ class PatientFilePanel(ctk.CTkFrame):
                       command=self._save_all).grid(row=0, column=1, sticky="e")
 
     # ---- save ----
-    def _save_all(self):
+    def _save_all(self, silent=False):
         try:
+            if not silent:
+                self.dirty_label.configure(text="Saving...")
             db.update_patient(self.patient_id,
                 diagnostic=self.diagnostic_text.get("1.0", "end-1c"),
                 objective=self.objective_text.get("1.0", "end-1c"),
@@ -200,7 +217,12 @@ class PatientFilePanel(ctk.CTkFrame):
                 observation=self.observation_text.get("1.0", "end-1c"))
             self.patient = db.get_patient(patient_id=self.patient_id)
             self._dirty = False
-            self.dirty_label.configure(text="")
+            if silent:
+                self.dirty_label.configure(text="Auto-saved")
+                self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+            else:
+                self.dirty_label.configure(text="Saved")
+                self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
             self._refresh_header_info()
             try:
                 self.modified_label.configure(text="Last modified: " + (self.patient.get('updated_at') or ''))
@@ -236,6 +258,22 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def is_dirty(self):
         return self._dirty
+
+    def _schedule_autosave(self):
+        try:
+            self.after(30000, self._auto_save)
+        except Exception:
+            pass
+
+    def _auto_save(self):
+        try:
+            if self._dirty and self.winfo_exists():
+                self.dirty_label.configure(text="Saving...")
+                self._save_all(silent=True)
+        except Exception:
+            pass
+        self._schedule_autosave()
+
 
 
 # ---- edit dialog (same as before, with locality combobox) ----
@@ -278,6 +316,9 @@ class EditPatientDialog(ctk.CTkToplevel):
         name = self.entry_name.get().strip()
         if not name:
             messagebox.showerror(lang.t("app_name"), lang.t("err_patient_name_required"))
+            return
+        if not _validate_dob(self.entry_dob.get()):
+            messagebox.showerror(lang.t("app_name"), "Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)")
             return
         sex = self.entry_sex.get().strip()
         if sex == "NA":

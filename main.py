@@ -67,6 +67,17 @@ def _initials(name):
         return parts[0][:2].upper()
     return (parts[0][:1] + parts[-1][:1]).upper()
 
+
+def _validate_dob(text):
+    text = (text or "").strip()
+    if not text:
+        return True
+    try:
+        datetime.datetime.strptime(text, "%d.%m.%Y")
+        return True
+    except ValueError:
+        return False
+
 class App(ctk.CTk):
     def __init__(self, patients_file=None):
         super().__init__()
@@ -633,13 +644,17 @@ class App(ctk.CTk):
             stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             dest = os.path.join(folder, "patients_" + stamp + ".db")
             shutil.copy2(db.db_path(), dest)
+            ok, info = db.verify_backup(dest)
             files = sorted([os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")])
             while len(files) > 7:
                 try:
                     os.remove(files.pop(0))
                 except OSError:
                     break
-            messagebox.showinfo(lang.t("app_name"), "Backup created:\n" + dest)
+            if ok:
+                messagebox.showinfo(lang.t("app_name"), "Backup created and verified (" + str(info) + " patients):\n" + dest)
+            else:
+                messagebox.showwarning(lang.t("app_name"), "Backup created but verification failed:\n" + str(info))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
@@ -877,6 +892,9 @@ class AddPatientDialog(ctk.CTkToplevel):
         if not name:
             messagebox.showerror(lang.t("app_name"), lang.t("err_patient_name_required"))
             return
+        if not _validate_dob(self.entry_dob.get()):
+            messagebox.showerror(lang.t("app_name"), "Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)")
+            return
         sex = self.entry_sex.get().strip()
         if sex == "NA":
             sex = ""
@@ -1023,9 +1041,27 @@ class TrashDialog(ctk.CTkToplevel):
             conn.commit()
             conn.close()
             tree.delete(sel[0])
+        def _restore_all():
+            for iid in list(tree.get_children()):
+                try:
+                    db.restore_deleted(int(iid))
+                    tree.delete(iid)
+                except Exception as e:
+                    messagebox.showerror(lang.t("app_name"), str(e))
+        def _empty_trash():
+            if not messagebox.askyesno(lang.t("app_name"), "Permanently delete ALL deleted patients?"):
+                return
+            conn = db._get_conn()
+            conn.execute("DELETE FROM deleted_patients")
+            conn.commit()
+            conn.close()
+            for iid in list(tree.get_children()):
+                tree.delete(iid)
         ctk.CTkButton(btns, text="Restore", width=80, command=_restore).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Purge", width=80, fg_color="#c0392b", command=_purge).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Close", width=80, command=self.destroy).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Restore all", width=90, command=_restore_all).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Purge", width=70, fg_color="#c0392b", command=_purge).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Empty trash", width=90, fg_color="#c0392b", command=_empty_trash).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text="Close", width=70, command=self.destroy).pack(side="left", padx=2)
 
 
 

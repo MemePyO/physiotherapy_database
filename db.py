@@ -31,9 +31,10 @@ def _ensure_column(conn, table, column, decl):
 
 def init_db():
     """Initialize database schema and migrate from patients.json if exists."""
+    # Pre-migration backup for safety
+    pre_migration_backup()
     conn = _get_conn()
     cur = conn.cursor()
-
     cur.execute("""
         CREATE TABLE IF NOT EXISTS patients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +48,7 @@ def init_db():
             observation TEXT DEFAULT '',
             sex TEXT DEFAULT '',
             dob TEXT DEFAULT '',
+            patient_code TEXT DEFAULT '',
             created_at TEXT DEFAULT '',
             updated_at TEXT DEFAULT ''
         )
@@ -64,6 +66,7 @@ def init_db():
             observation TEXT DEFAULT '',
             sex TEXT DEFAULT '',
             dob TEXT DEFAULT '',
+            patient_code TEXT DEFAULT '',
             created_at TEXT DEFAULT '',
             updated_at TEXT DEFAULT '',
             deleted_at TEXT DEFAULT ''
@@ -74,12 +77,15 @@ def init_db():
     _ensure_column(conn, "patients", "updated_at", "TEXT DEFAULT ''")
     _ensure_column(conn, "patients", "sex", "TEXT DEFAULT ''")
     _ensure_column(conn, "patients", "dob", "TEXT DEFAULT ''")
+    _ensure_column(conn, "patients", "patient_code", "TEXT DEFAULT ''")
     _ensure_column(conn, "deleted_patients", "sex", "TEXT DEFAULT ''")
     _ensure_column(conn, "deleted_patients", "dob", "TEXT DEFAULT ''")
+    _ensure_column(conn, "deleted_patients", "patient_code", "TEXT DEFAULT ''")
 
     conn.commit()
 
     migrate_from_json(conn)
+    conn.commit()
     conn.close()
 
 
@@ -125,10 +131,14 @@ def add_patient(name, localitate="", nr_zile="", decision_date="", sex="", dob="
 
     conn = _get_conn()
     cur = conn.cursor()
+    # generate patient code
+    cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM patients")
+    next_id = cur.fetchone()[0]
+    code = "PP-%04d" % next_id
     try:
         cur.execute(
-            "INSERT INTO patients (name, localitate, nr_zile, decision_date, sex, dob, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (name_str, localitate, nr_zile, decision_date, sex, dob, _now(), _now())
+            "INSERT INTO patients (name, localitate, nr_zile, decision_date, sex, dob, patient_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (name_str, localitate, nr_zile, decision_date, sex, dob, code, _now(), _now())
         )
         conn.commit()
         patient_id = cur.lastrowid
@@ -248,11 +258,11 @@ def delete_patient(patient_id):
     d = dict(row)
     try:
         cur.execute("""
-            INSERT INTO deleted_patients (patient_id, name, localitate, diagnostic, objective, evaluation, observation, sex, dob, created_at, updated_at, deleted_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO deleted_patients (patient_id, name, localitate, diagnostic, objective, evaluation, observation, sex, dob, patient_code, created_at, updated_at, deleted_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (d.get('id'), d.get('name'), d.get('localitate', ''), d.get('diagnostic', ''),
               d.get('objective', ''), d.get('evaluation', ''), d.get('observation', ''),
-              d.get('sex', ''), d.get('dob', ''),
+              d.get('sex', ''), d.get('dob', ''), d.get('patient_code', ''),
               d.get('created_at', ''), d.get('updated_at', ''), _now()))
         cur.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
         conn.commit()
@@ -280,11 +290,11 @@ def restore_deleted(deleted_row_id):
     d = dict(row)
     try:
         cur.execute("""
-            INSERT INTO patients (name, localitate, diagnostic, objective, evaluation, observation, sex, dob, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO patients (name, localitate, diagnostic, objective, evaluation, observation, sex, dob, patient_code, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (d.get('name'), d.get('localitate', ''), d.get('diagnostic', ''),
               d.get('objective', ''), d.get('evaluation', ''), d.get('observation', ''),
-              d.get('sex', ''), d.get('dob', ''),
+              d.get('sex', ''), d.get('dob', ''), d.get('patient_code', ''),
               d.get('created_at', '') or _now(), _now()))
         pid = cur.lastrowid
         cur.execute("DELETE FROM deleted_patients WHERE id = ?", (deleted_row_id,))
@@ -348,3 +358,33 @@ def get_evaluation(patient_id):
 def get_observation(patient_id):
     p = get_patient(patient_id=patient_id)
     return p.get('observation', '') if p else ''
+
+
+def verify_backup(path):
+    """Verify a backup db file is readable and has patients table."""
+    try:
+        conn = sqlite3.connect(path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM patients")
+        n = cur.fetchone()[0]
+        conn.close()
+        return True, n
+    except Exception as e:
+        return False, str(e)
+
+def pre_migration_backup():
+    """Create a backup of patients.db before schema migration, if it exists."""
+    dbp = db_path()
+    if not os.path.exists(dbp):
+        return None
+    import shutil, datetime
+    folder = os.path.join(os.path.dirname(dbp), "backup")
+    os.makedirs(folder, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(folder, "pre_migration_" + stamp + ".db")
+    try:
+        shutil.copy2(dbp, dest)
+        return dest
+    except Exception:
+        return None

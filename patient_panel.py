@@ -34,6 +34,36 @@ def _validate_dob(text):
         return False
 
 
+def _attach_tooltip(owner, widget, text):
+    """Show a small tooltip near the widget while the mouse hovers over it."""
+    def _show(e=None):
+        try:
+            tw = ctk.CTkToplevel(owner)
+            tw.overrideredirect(True)
+            tw.attributes("-topmost", True)
+            x = widget.winfo_rootx() + 8
+            y = widget.winfo_rooty() + widget.winfo_height() + 4
+            tw.geometry(f"+{x}+{y}")
+            ctk.CTkLabel(tw, text=text, fg_color=theme.PANEL, text_color=theme.TEXT,
+                         corner_radius=6, padx=8, pady=4, font=theme.FONT_SMALL).pack()
+            widget._tooltip = tw
+        except Exception:
+            pass
+
+    def _hide(e=None):
+        tw = getattr(widget, "_tooltip", None)
+        if tw is not None:
+            try:
+                if tw.winfo_exists():
+                    tw.destroy()
+            except Exception:
+                pass
+            widget._tooltip = None
+
+    widget.bind("<Enter>", _show, add="+")
+    widget.bind("<Leave>", _hide, add="+")
+
+
 def _make_simple_pdf(text):
     lines = text.split("\n")
     def esc(t):
@@ -161,11 +191,18 @@ class PatientFilePanel(ctk.CTkFrame):
             tab.grid_rowconfigure(1, weight=1)
             tb = ctk.CTkFrame(tab, fg_color="transparent")
             tb.grid(row=0, column=0, sticky="ew", pady=(4, 4))
+            tooltips = {
+                "bold": "Bold: wrap the selection in ** **",
+                "italic": "Italic: wrap the selection in * *",
+                "bullet": "Insert a bullet (\u2022) at the start of the current line",
+                "number": "Insert a numbered item (1.) at the start of the current line",
+            }
             for label, cmd_prefix in [("B", "bold"), ("I", "italic"), ("\u2022", "bullet"), ("1.", "number")]:
                 b = ctk.CTkButton(tb, text=label, width=34, height=26, fg_color=theme.ACCENT,
                                   hover_color=theme.ACCENT_DARK, font=theme.FONT_BOLD,
                                   command=lambda p=cmd_prefix, f=field: self._toolbar_action(f, p))
                 b.pack(side="left", padx=2)
+                _attach_tooltip(self, b, tooltips[cmd_prefix])
             cnt = ctk.CTkLabel(tb, text="", text_color=theme.MUTED, font=theme.FONT_SMALL)
             cnt.pack(side="right", padx=6)
             self.count_labels[field] = cnt

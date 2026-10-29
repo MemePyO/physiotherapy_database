@@ -476,6 +476,15 @@ def add_history(patient_id: int, field: str, old_value, new_value) -> None:
     conn.close()
 
 
+def delete_history(patient_id: int) -> None:
+    """Remove all history/audit entries for a patient."""
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM patient_history WHERE patient_id = ?", (patient_id,))
+    conn.commit()
+    conn.close()
+
+
 def list_history(patient_id: int, limit: int = 200) -> list[dict]:
     conn = _get_conn()
     cur = conn.cursor()

@@ -256,6 +256,8 @@ class PatientFilePanel(ctk.CTkFrame):
         hb = ctk.CTkFrame(hist_tab, fg_color="transparent")
         hb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
         ctk.CTkButton(hb, text="Refresh", width=80, command=self._load_history).pack(side="left", padx=2)
+        ctk.CTkButton(hb, text="Clear history", width=100, fg_color="#c0392b",
+                      hover_color="#a93226", command=self._clear_history).pack(side="left", padx=2)
 
     def _toolbar_action(self, field, action):
         txt = getattr(self, field + "_text")
@@ -519,6 +521,15 @@ class PatientFilePanel(ctk.CTkFrame):
                 self.hist_tree.insert("", "end", values=(h.get('changed_at', ''), h.get('field', ''), oldv, newv))
         except Exception:
             pass
+
+    def _clear_history(self):
+        if not messagebox.askyesno(lang.t("app_name"), "Delete all history for this patient?"):
+            return
+        try:
+            db.delete_history(self.patient_id)
+            self._load_history()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
 
 
 # ---- edit dialog ----

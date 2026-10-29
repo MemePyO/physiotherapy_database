@@ -352,15 +352,15 @@ class App(ctk.CTk):
 
     def _build_overview(self, parent):
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(1, weight=1)
+        parent.grid_rowconfigure(1, weight=0)
 
         self.overview_title = ctk.CTkLabel(parent, text="Patient Overview", font=theme.FONT_TITLE, text_color=theme.TEXT)
         self.overview_title.grid(row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 2))
 
         self.overview_content = ctk.CTkFrame(parent, fg_color="transparent")
-        self.overview_content.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, 4))
+        self.overview_content.grid(row=1, column=0, sticky="new", padx=theme.PADDING, pady=(0, 4))
         self.overview_content.grid_columnconfigure(0, weight=1)
-        self.overview_content.grid_rowconfigure(0, weight=1)
+        self.overview_content.grid_rowconfigure(0, weight=0)
 
         self._show_view("patients")
 

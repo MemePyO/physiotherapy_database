@@ -9,6 +9,8 @@ import customtkinter as ctk
 import db
 import lang
 import theme
+import log
+logger = log.get_logger(__name__)
 
 
 def _initials(name):

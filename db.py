@@ -4,23 +4,26 @@ import os
 import sqlite3
 from datetime import datetime
 
+import log
+logger = log.get_logger(__name__)
+
 
 def _now():
     return datetime.now().strftime("%d.%m.%Y %H:%M")
 
 
-def db_path():
+def db_path() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "patients.db")
 
 
-def _get_conn():
+def _get_conn() -> 'sqlite3.Connection':
     conn = sqlite3.connect(db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-def _ensure_column(conn, table, column, decl):
+def _ensure_column(conn, table: str, column: str, decl: str) -> None:
     cur = conn.cursor()
     cur.execute(f"PRAGMA table_info({table})")
     cols = [r[1] for r in cur.fetchall()]
@@ -29,7 +32,7 @@ def _ensure_column(conn, table, column, decl):
         conn.commit()
 
 
-def init_db():
+def init_db() -> None:
     """Initialize database schema and migrate from patients.json if exists."""
     # Pre-migration backup for safety
     pre_migration_backup()
@@ -111,7 +114,7 @@ def init_db():
     conn.close()
 
 
-def migrate_from_json(conn):
+def migrate_from_json(conn) -> None:
     """Migrate patient names from patients.json to database."""
     json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "patients.json")
     if not os.path.exists(json_path):
@@ -120,7 +123,8 @@ def migrate_from_json(conn):
     try:
         with open(json_path, encoding="utf-8") as f:
             names = json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.warning("migrate_from_json failed: %s", e)
         return
 
     if not isinstance(names, list):
@@ -145,7 +149,7 @@ def migrate_from_json(conn):
         pass
 
 
-def add_patient(name, localitate="", nr_zile="", decision_date="", sex="", dob=""):
+def add_patient(name: str, localitate: str = "", nr_zile: str = "", decision_date: str = "", sex: str = "", dob: str = "") -> int:
     """Add a new patient to the database."""
     name_str = str(name).strip()
     if not name_str:
@@ -174,7 +178,7 @@ def add_patient(name, localitate="", nr_zile="", decision_date="", sex="", dob="
         raise
 
 
-def get_patient(patient_id=None, name=None):
+def get_patient(patient_id: int | None = None, name: str | None = None) -> dict | None:
     """Get a patient by ID or name."""
     conn = _get_conn()
     cur = conn.cursor()
@@ -200,7 +204,7 @@ SORT_COLUMNS = {
 }
 
 
-def get_all_patients(sort_by="name", sort_dir="asc"):
+def get_all_patients(sort_by: str = "name", sort_dir: str = "asc") -> list[dict]:
     """Get all patients, optionally sorted."""
     col = SORT_COLUMNS.get(sort_by, "name")
     direction = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
@@ -212,7 +216,7 @@ def get_all_patients(sort_by="name", sort_dir="asc"):
     return [dict(row) for row in rows]
 
 
-def update_patient(patient_id, name=None, localitate=None, nr_zile=None, decision_date=None, diagnostic=None, objective=None, evaluation=None, observation=None, sex=None, dob=None):
+def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, decision_date=None, diagnostic=None, objective=None, evaluation=None, observation=None, sex=None, dob=None) -> None:
     """Update patient information and record history for changed fields."""
     conn = _get_conn()
     cur = conn.cursor()
@@ -277,7 +281,7 @@ def update_patient(patient_id, name=None, localitate=None, nr_zile=None, decisio
     conn.close()
 
 
-def delete_patient(patient_id):
+def delete_patient(patient_id: int) -> None:
     """Soft-delete: move patient into deleted_patients for undo."""
     conn = _get_conn()
     cur = conn.cursor()
@@ -301,7 +305,7 @@ def delete_patient(patient_id):
         conn.close()
 
 
-def list_deleted():
+def list_deleted() -> list[dict]:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM deleted_patients ORDER BY id DESC")
@@ -310,7 +314,7 @@ def list_deleted():
     return [dict(row) for row in rows]
 
 
-def restore_deleted(deleted_row_id):
+def restore_deleted(deleted_row_id: int) -> int | None:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM deleted_patients WHERE id = ?", (deleted_row_id,))
@@ -337,7 +341,7 @@ def restore_deleted(deleted_row_id):
         raise ValueError("Patient name already exists")
 
 
-def get_patient_names():
+def get_patient_names() -> list[str]:
     """Get all patient names for autocomplete."""
     conn = _get_conn()
     cur = conn.cursor()
@@ -347,7 +351,7 @@ def get_patient_names():
     return [row['name'] for row in rows]
 
 
-def get_localities():
+def get_localities() -> list[str]:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT localitate FROM patients WHERE localitate != '' ORDER BY localitate")
@@ -356,7 +360,7 @@ def get_localities():
     return [row['localitate'] for row in rows]
 
 
-def ensure_patient_exists(name):
+def ensure_patient_exists(name: str) -> int | None:
     """Ensure a patient exists in the database, create if not."""
     name_str = str(name).strip()
     if not name_str:
@@ -371,38 +375,38 @@ def ensure_patient_exists(name):
         return patient['id'] if patient else None
 
 
-def get_diagnostic(patient_id):
+def get_diagnostic(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
     return p.get('diagnostic', '') if p else ''
 
 
-def get_objective(patient_id):
+def get_objective(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
     return p.get('objective', '') if p else ''
 
 
-def get_evaluation(patient_id):
+def get_evaluation(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
     return p.get('evaluation', '') if p else ''
 
 
-def get_observation(patient_id):
+def get_observation(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
     return p.get('observation', '') if p else ''
 
 
 
-def attachments_dir():
+def attachments_dir() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "attachments")
 
 
-def _patient_attach_folder(patient_id):
+def _patient_attach_folder(patient_id: int) -> str:
     folder = os.path.join(attachments_dir(), str(patient_id))
     os.makedirs(folder, exist_ok=True)
     return folder
 
 
-def add_attachment(patient_id, source_path):
+def add_attachment(patient_id: int, source_path: str) -> int:
     import shutil
     if not source_path or not os.path.exists(source_path):
         raise ValueError("File not found")
@@ -427,7 +431,7 @@ def add_attachment(patient_id, source_path):
     return aid
 
 
-def list_attachments(patient_id):
+def list_attachments(patient_id: int) -> list[dict]:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM attachments WHERE patient_id = ? ORDER BY id DESC", (patient_id,))
@@ -436,7 +440,7 @@ def list_attachments(patient_id):
     return [dict(r) for r in rows]
 
 
-def get_attachment(att_id):
+def get_attachment(att_id: int) -> dict | None:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM attachments WHERE id = ?", (att_id,))
@@ -445,7 +449,7 @@ def get_attachment(att_id):
     return dict(row) if row else None
 
 
-def delete_attachment(att_id):
+def delete_attachment(att_id: int) -> None:
     att = get_attachment(att_id)
     if not att:
         return
@@ -461,7 +465,7 @@ def delete_attachment(att_id):
     conn.close()
 
 
-def add_history(patient_id, field, old_value, new_value):
+def add_history(patient_id: int, field: str, old_value, new_value) -> None:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
@@ -470,7 +474,7 @@ def add_history(patient_id, field, old_value, new_value):
     conn.close()
 
 
-def list_history(patient_id, limit=200):
+def list_history(patient_id: int, limit: int = 200) -> list[dict]:
     conn = _get_conn()
     cur = conn.cursor()
     cur.execute("SELECT * FROM patient_history WHERE patient_id = ? ORDER BY id DESC LIMIT ?", (patient_id, limit))
@@ -479,7 +483,7 @@ def list_history(patient_id, limit=200):
     return [dict(r) for r in rows]
 
 
-def verify_backup(path):
+def verify_backup(path: str) -> tuple[bool, object]:
     """Verify a backup db file is readable and has patients table."""
     try:
         conn = sqlite3.connect(path)
@@ -492,7 +496,7 @@ def verify_backup(path):
     except Exception as e:
         return False, str(e)
 
-def pre_migration_backup():
+def pre_migration_backup() -> str | None:
     """Create a backup of patients.db before schema migration, if it exists."""
     dbp = db_path()
     if not os.path.exists(dbp):

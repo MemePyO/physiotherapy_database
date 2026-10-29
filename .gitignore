@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 settings.json
+app.log
+attachments/
+tests/__pycache__/

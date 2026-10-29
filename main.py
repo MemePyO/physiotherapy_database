@@ -369,6 +369,13 @@ class App(ctk.CTk):
     def _show_view(self, view):
         for w in self.overview_content.winfo_children():
             w.destroy()
+        # reset any row/column weights left over from the previous view
+        for i in range(6):
+            try:
+                self.overview_content.grid_rowconfigure(i, weight=0)
+                self.overview_content.grid_columnconfigure(i, weight=0 if i else 1)
+            except Exception:
+                pass
         self._current_view = view
         titles = {"patients": "Patient Overview", "trash": "Trash (deleted)", "settings": "Settings",
                   "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient"}

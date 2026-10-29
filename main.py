@@ -56,6 +56,8 @@ def save_language(code):
 
 
 class App(ctk.CTk):
+    """Main application window: sidebar navigation, patient overview, and embedded patient file."""
+
     def __init__(self, patients_file=None):
         super().__init__()
         ctk.set_appearance_mode("light")

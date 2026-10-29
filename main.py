@@ -14,6 +14,7 @@ import log
 logger = log.get_logger(__name__)
 from patient_panel import PatientFilePanel
 from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf
+from tooltip import attach_tooltip, hide_tooltip
 from dialogs import (AddPatientDialog, SaveAsDialog, RestoreBackupDialog,
                      TrashDialog, SettingsDialog, ExportFieldsDialog)
 
@@ -171,6 +172,9 @@ class App(ctk.CTk):
         self._auto_backup()
         self._sidebar_visible = True
         self.bind("<Configure>", self._on_configure_responsive)
+        # never leave a tooltip behind when the window is hidden or the user clicks
+        self.bind("<Unmap>", lambda e: hide_tooltip(), add="+")
+        self.bind_all("<Button-1>", lambda e: hide_tooltip(), add="+")
         # Keyboard shortcuts
         self.bind("<Control-n>", lambda e: self._add_patient_db())
         self.bind("<Control-f>", lambda e: (self.search_entry.focus_set() if hasattr(self, "search_entry") else None, "break"))
@@ -266,31 +270,7 @@ class App(ctk.CTk):
                                 border_color=theme.BORDER)
             btn.pack(pady=4)
             self._nav_buttons[key] = btn
-            # tooltip
-            def _show_tip(e=None, t=tip):
-                try:
-                    x = (e.x_root + 12) if e is not None else (btn.winfo_rootx() + 50)
-                    y = (e.y_root + 12) if e is not None else (btn.winfo_rooty() + 10)
-                    tw = ctk.CTkToplevel(self)
-                    tw.overrideredirect(True)
-                    tw.geometry(f"+{x}+{y}")
-                    ctk.CTkLabel(tw, text=t, fg_color=theme.PANEL, text_color=theme.TEXT,
-                                 corner_radius=6, padx=8, pady=4).pack()
-                    btn._tooltip = tw
-                    btn.after(1200, lambda: (tw.destroy() if tw.winfo_exists() else None))
-                except Exception:
-                    pass
-            def _hide_tip(e):
-                tw = getattr(btn, "_tooltip", None)
-                if tw is not None:
-                    try:
-                        if tw.winfo_exists():
-                            tw.destroy()
-                    except Exception:
-                        pass
-                    btn._tooltip = None
-            btn.bind("<Enter>", _show_tip)
-            btn.bind("<Leave>", _hide_tip)
+            attach_tooltip(btn, tip)
         self._set_nav_active("patients")
 
     def _set_nav_active(self, key):

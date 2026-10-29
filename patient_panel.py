@@ -34,34 +34,10 @@ def _validate_dob(text):
         return False
 
 
-def _attach_tooltip(owner, widget, text):
-    """Show a small tooltip near the widget while the mouse hovers over it."""
-    def _show(e=None):
-        try:
-            tw = ctk.CTkToplevel(owner)
-            tw.overrideredirect(True)
-            tw.attributes("-topmost", True)
-            x = widget.winfo_rootx() + 8
-            y = widget.winfo_rooty() + widget.winfo_height() + 4
-            tw.geometry(f"+{x}+{y}")
-            ctk.CTkLabel(tw, text=text, fg_color=theme.PANEL, text_color=theme.TEXT,
-                         corner_radius=6, padx=8, pady=4, font=theme.FONT_SMALL).pack()
-            widget._tooltip = tw
-        except Exception:
-            pass
-
-    def _hide(e=None):
-        tw = getattr(widget, "_tooltip", None)
-        if tw is not None:
-            try:
-                if tw.winfo_exists():
-                    tw.destroy()
-            except Exception:
-                pass
-            widget._tooltip = None
-
-    widget.bind("<Enter>", _show, add="+")
-    widget.bind("<Leave>", _hide, add="+")
+def _attach_tooltip(widget, text, owner=None):
+    """Show a small in-window tooltip while the mouse hovers over the widget."""
+    from tooltip import attach_tooltip
+    attach_tooltip(widget, text)
 
 
 def _make_simple_pdf(text):
@@ -202,7 +178,7 @@ class PatientFilePanel(ctk.CTkFrame):
                                   hover_color=theme.ACCENT_DARK, font=theme.FONT_BOLD,
                                   command=lambda p=cmd_prefix, f=field: self._toolbar_action(f, p))
                 b.pack(side="left", padx=2)
-                _attach_tooltip(self, b, tooltips[cmd_prefix])
+                _attach_tooltip(b, tooltips[cmd_prefix])
             cnt = ctk.CTkLabel(tb, text="", text_color=theme.MUTED, font=theme.FONT_SMALL)
             cnt.pack(side="right", padx=6)
             self.count_labels[field] = cnt

@@ -94,7 +94,8 @@ class PatientFilePanel(ctk.CTkFrame):
     # ---- header ----
     def _build_header(self):
         frame = ctk.CTkFrame(self, fg_color="transparent")
-        frame.grid(row=0, column=0, sticky="ew", padx=theme.PADDING, pady=(theme.PADDING, 8))
+        pad = theme.PANE_PAD if theme.layout() == "stacked" else theme.PADDING
+        frame.grid(row=0, column=0, sticky="ew", padx=pad, pady=(pad, 8))
         frame.grid_columnconfigure(1, weight=1)
 
         av = ctk.CTkLabel(frame, text=_initials(self.patient['name']), width=theme.AVATAR_SIZE,
@@ -152,6 +153,9 @@ class PatientFilePanel(ctk.CTkFrame):
 
     # ---- tabs ----
     def _build_tabs(self):
+        if theme.layout() == "stacked":
+            self._build_stacked()
+            return
         self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, 8))
 
@@ -235,6 +239,104 @@ class PatientFilePanel(ctk.CTkFrame):
         ctk.CTkButton(hb, text="Clear history", width=100, fg_color="#c0392b",
                       hover_color="#a93226", command=self._clear_history).pack(side="left", padx=2)
 
+    def _build_stacked(self):
+        self.tabview = None
+        self.sections_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.sections_frame.grid(row=1, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
+        self.sections_frame.grid_columnconfigure(0, weight=1)
+
+        sections = [("diagnostic", "Diagnostic", theme.HEAD_DIAG, "#ffffff"),
+                    ("objective", "Obiectiv", theme.HEAD_OBJ, theme.TEXT),
+                    ("evaluation", "Evaluare", theme.HEAD_EVAL, "#ffffff"),
+                    ("observation", "Observa\u021bie", theme.HEAD_OBS, "#ffffff")]
+        self.texts = {}
+        self.count_labels = {}
+        tooltips = {
+            "bold": "Bold: wrap the selection in ** **",
+            "italic": "Italic: wrap the selection in * *",
+            "bullet": "Insert a bullet (\u2022) at the start of the current line",
+            "number": "Insert a numbered item (1.) at the start of the current line",
+        }
+        for field, title, head_color, text_color in sections:
+            card = ctk.CTkFrame(self.sections_frame, fg_color=theme.PANEL, corner_radius=theme.CARD_RADIUS,
+                                border_width=1, border_color=theme.BORDER)
+            card.pack(fill="x", pady=(0, 12))
+            card.grid_columnconfigure(0, weight=1)
+            card.grid_rowconfigure(1, weight=1)
+
+            head = ctk.CTkFrame(card, fg_color=head_color, corner_radius=0, height=30)
+            head.grid(row=0, column=0, sticky="ew")
+            head.grid_propagate(False)
+            head.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(head, text=title, font=theme.FONT_BOLD, text_color=text_color).grid(
+                row=0, column=0, sticky="w", padx=12)
+            tb = ctk.CTkFrame(head, fg_color="transparent")
+            tb.grid(row=0, column=1, sticky="e", padx=8)
+            for label, cmd_prefix in [("B", "bold"), ("I", "italic"), ("\u2022", "bullet"), ("1.", "number")]:
+                b = ctk.CTkButton(tb, text=label, width=26, height=22, fg_color="transparent",
+                                  text_color=text_color, hover_color=theme.ACCENT_LIGHT, font=theme.FONT_BOLD,
+                                  command=lambda p=cmd_prefix, f=field: self._toolbar_action(f, p))
+                b.pack(side="left", padx=1)
+                _attach_tooltip(b, tooltips[cmd_prefix])
+            cnt = ctk.CTkLabel(tb, text="", text_color=text_color, font=theme.FONT_SMALL)
+            cnt.pack(side="left", padx=6)
+            self.count_labels[field] = cnt
+
+            txt = ctk.CTkTextbox(card, corner_radius=0, border_width=0, fg_color=theme.PANEL,
+                                 text_color=theme.TEXT, font=theme.FONT_BODY, height=110)
+            txt.grid(row=1, column=0, sticky="nsew", padx=12, pady=8)
+            val = self.patient.get(field, '') or ''
+            txt.insert("1.0", val)
+            txt.bind("<KeyRelease>", lambda e, f=field, t=txt: (self._on_text_change(f, t), self.mark_dirty()))
+            setattr(self, field + "_text", txt)
+            self._update_count(field, txt)
+            self.texts[field] = txt
+
+        # Attachments + History tabs
+        self.aux_tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
+        self.aux_tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
+        self.aux_tabview.grid_columnconfigure(0, weight=1)
+
+        att_tab = self.aux_tabview.add("Attachments")
+        att_tab.grid_columnconfigure(0, weight=1)
+        att_tab.grid_rowconfigure(0, weight=1)
+        cols = ("filename", "size", "added_at")
+        self.attach_tree = ttk.Treeview(att_tab, columns=cols, show="headings", selectmode="browse")
+        self.attach_tree.heading("filename", text="File")
+        self.attach_tree.heading("size", text="Size")
+        self.attach_tree.heading("added_at", text="Added")
+        self.attach_tree.column("filename", width=200)
+        self.attach_tree.column("size", width=70)
+        self.attach_tree.column("added_at", width=120)
+        self.attach_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        ab = ctk.CTkFrame(att_tab, fg_color="transparent")
+        ab.grid(row=1, column=0, sticky="ew", pady=(4, 4))
+        ctk.CTkButton(ab, text="Attach file", width=100, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+                      command=self._attach_file).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text="Open", width=80, command=self._open_attachment).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text="Delete", width=80, fg_color="#c0392b", command=self._delete_attachment).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text="Refresh", width=80, command=self._load_attachments).pack(side="left", padx=2)
+
+        hist_tab = self.aux_tabview.add("History")
+        hist_tab.grid_columnconfigure(0, weight=1)
+        hist_tab.grid_rowconfigure(0, weight=1)
+        hcols = ("changed_at", "field", "old_value", "new_value")
+        self.hist_tree = ttk.Treeview(hist_tab, columns=hcols, show="headings", selectmode="browse")
+        self.hist_tree.heading("changed_at", text="When")
+        self.hist_tree.heading("field", text="Field")
+        self.hist_tree.heading("old_value", text="Old")
+        self.hist_tree.heading("new_value", text="New")
+        self.hist_tree.column("changed_at", width=120)
+        self.hist_tree.column("field", width=90)
+        self.hist_tree.column("old_value", width=160)
+        self.hist_tree.column("new_value", width=160)
+        self.hist_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        hb = ctk.CTkFrame(hist_tab, fg_color="transparent")
+        hb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
+        ctk.CTkButton(hb, text="Refresh", width=80, command=self._load_history).pack(side="left", padx=2)
+        ctk.CTkButton(hb, text="Clear history", width=100, fg_color="#c0392b",
+                      hover_color="#a93226", command=self._clear_history).pack(side="left", padx=2)
+
     def _toolbar_action(self, field, action):
         txt = getattr(self, field + "_text")
         try:
@@ -291,15 +393,19 @@ class PatientFilePanel(ctk.CTkFrame):
 
     # ---- footer ----
     def _build_footer(self):
+        row = 3 if theme.layout() == "stacked" else 2
+        pad = theme.PANE_PAD if theme.layout() == "stacked" else theme.PADDING
         frame = ctk.CTkFrame(self, fg_color="transparent")
-        frame.grid(row=2, column=0, sticky="ew", padx=theme.PADDING, pady=(0, theme.PADDING))
+        frame.grid(row=row, column=0, sticky="ew", padx=pad, pady=(0, pad))
         frame.grid_columnconfigure(0, weight=1)
         self.dirty_label = ctk.CTkLabel(frame, text="", text_color=theme.DANGER, font=theme.FONT_SMALL)
         self.dirty_label.grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(frame, text="\U0001F5A8  Print / PDF", width=120, height=36,
+        print_txt = "Print / PDF" if theme.layout() == "stacked" else "\U0001F5A8  Print / PDF"
+        save_txt = "Save Patient Record" if theme.layout() == "stacked" else "\U0001F4BE  Save Patient Record"
+        ctk.CTkButton(frame, text=print_txt, width=120, height=36,
                       fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_BOLD,
                       command=self._print_pdf).grid(row=0, column=1, sticky="e", padx=(0, 6))
-        ctk.CTkButton(frame, text="\U0001F4BE  Save Patient Record", width=180, height=36,
+        ctk.CTkButton(frame, text=save_txt, width=180, height=36,
                       fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_BOLD,
                       command=self._save_all).grid(row=0, column=2, sticky="e")
 

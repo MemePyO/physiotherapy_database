@@ -151,8 +151,7 @@ class App(ctk.CTk):
         self._last_deleted_row_id = None
         self._last_deleted_name = None
         self.patient_panels = {}
-
-        self.grid_columnconfigure(0, weight=0)
+        self._card_widgets = {}
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
@@ -820,6 +819,7 @@ class App(ctk.CTk):
         for w in card_list.winfo_children():
             w.destroy()
         self._visible_patient_ids = []
+        self._card_widgets = {}
         try:
             patients = db.get_all_patients(sort_by=self.sort_by, sort_dir=self.sort_dir)
             search_raw = ""
@@ -908,6 +908,12 @@ class App(ctk.CTk):
                                      fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_SMALL,
                                      command=lambda pid=p['id']: self._open_patient_by_id(pid))
             open_btn.grid(row=0, column=2, rowspan=3, padx=10)
+        else:
+            open_btn = ctk.CTkButton(card, text="Open \u203A", width=80, height=24, corner_radius=8,
+                                     fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_SMALL,
+                                     command=lambda pid=p['id']: self._open_patient_by_id(pid))
+            open_btn.grid(row=0, column=2, rowspan=3, padx=10)
+            open_btn.grid_remove()
 
         try:
             card.configure(takefocus=True)
@@ -920,6 +926,8 @@ class App(ctk.CTk):
         for w in (card, av, name_lbl, meta, preview):
             w.bind("<Button-1>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
             w.bind("<Button-3>", lambda e=None, pid=p['id']: self._card_context(e, pid))
+
+        self._card_widgets[p.get('id')] = (card, open_btn)
 
     def _card_context(self, event, pid):
         if event is None:
@@ -1022,6 +1030,34 @@ class App(ctk.CTk):
             except Exception:
                 pass
 
+    def _set_selected_card(self, pid):
+        """Toggle the selected highlight without rebuilding the card list."""
+        card_list = getattr(self, "card_list", None)
+        _canvas = None
+        _yview = None
+        try:
+            if card_list is not None and card_list.winfo_exists():
+                _canvas = card_list._parent_canvas
+                _yview = _canvas.yview()
+        except Exception:
+            pass
+        for cid, (card, btn) in list(getattr(self, "_card_widgets", {}).items()):
+            try:
+                if cid == pid:
+                    card.configure(fg_color=theme.SELECTED)
+                    btn.grid()
+                else:
+                    card.configure(fg_color=theme.PANEL)
+                    btn.grid_remove()
+            except Exception:
+                pass
+        try:
+            if _canvas is not None and _yview is not None:
+                self.update_idletasks()
+                _canvas.yview_moveto(_yview[0])
+        except Exception:
+            pass
+
     def _open_patient_by_id(self, patient_id):
         self._save_open_files()
         self.selected_patient_id = patient_id
@@ -1029,23 +1065,10 @@ class App(ctk.CTk):
             w.destroy()
         self.patient_panels = {}
         panel = PatientFilePanel(self.file_host, patient_id, on_close=self.refresh_patients_db)
-        # slide-in animation
-        panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=40)
+        # show immediately (no slide-in clip)
+        panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=0)
         self.patient_panels[patient_id] = panel
-        self.refresh_patients_db()
-
-        def _step(i):
-            try:
-                if not panel.winfo_exists():
-                    return
-                if i >= 4:
-                    panel.place_configure(x=0)
-                    return
-                panel.place_configure(x=40 - int(40 * (i + 1) / 4))
-                panel.after(12, lambda: _step(i + 1))
-            except Exception:
-                pass
-        panel.after(6, lambda: _step(0))
+        self._set_selected_card(patient_id)
 
 
     def _open_patient_file(self):

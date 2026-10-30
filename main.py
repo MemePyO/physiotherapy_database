@@ -211,16 +211,25 @@ class App(ctk.CTk):
         return "break"
 
     def _focus_search(self):
-        if hasattr(self, "search_entry"):
+        entry = getattr(self, "search_entry", None)
+        if entry is not None:
             try:
-                self.search_entry.focus_set()
+                if entry.winfo_exists():
+                    entry.focus_set()
+                    return
             except Exception:
                 pass
+        # medidash theme has no inline search box
+        try:
+            self._search_patients_dialog()
+        except Exception:
+            pass
 
     def _handle_escape(self, event=None):
         try:
-            if hasattr(self, "search_entry") and self.focus_get() is self.search_entry:
-                if self.search_entry.get():
+            entry = getattr(self, "search_entry", None)
+            if entry is not None and entry.winfo_exists() and self.focus_get() is entry:
+                if entry.get():
                     self._clear_search()
                     return "break"
             self._focus_search()
@@ -327,9 +336,12 @@ class App(ctk.CTk):
         # right actions
         right = ctk.CTkFrame(bar, fg_color="transparent")
         right.grid(row=0, column=2, sticky="e", padx=20)
-        ctk.CTkButton(right, text="\uE721", width=36, height=36, font=theme.ICON_FONT_SMALL,
+        ctk.CTkButton(right, text="\uE700", width=36, height=36, font=theme.ICON_FONT_SMALL,
                       fg_color="transparent", text_color=theme.MUTED, hover_color=theme.ACCENT_LIGHT,
                       command=self._toggle_sidebar).pack(side="left", padx=2)
+        ctk.CTkButton(right, text="\uE721", width=36, height=36, font=theme.ICON_FONT_SMALL,
+                      fg_color="transparent", text_color=theme.MUTED, hover_color=theme.ACCENT_LIGHT,
+                      command=self._search_patients_dialog).pack(side="left", padx=2)
         ctk.CTkButton(right, text="\uE70F", width=36, height=36, font=theme.ICON_FONT_SMALL,
                       fg_color="transparent", text_color=theme.MUTED, hover_color=theme.ACCENT_LIGHT,
                       command=self._edit_current_patient).pack(side="left", padx=2)
@@ -572,6 +584,32 @@ class App(ctk.CTk):
 
     def _view_patients(self):
         f = self.overview_content
+        medidash = (theme.active() == "medidash")
+        if medidash:
+            f.grid_rowconfigure(1, weight=1)
+            top = ctk.CTkFrame(f, fg_color="transparent")
+            top.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+            top.grid_columnconfigure(0, weight=1)
+            self.count_label = ctk.CTkLabel(top, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w")
+            self.count_label.grid(row=0, column=0, sticky="w")
+            self.sort_btn = ctk.CTkButton(top, text="\u21c5", width=30, command=self._show_sort_menu)
+            self.sort_btn.grid(row=0, column=1, padx=(6, 2))
+            attach_tooltip(self.sort_btn, "Sort patients")
+            clear_btn = ctk.CTkButton(top, text="\u00d7", width=26, command=self._clear_search)
+            clear_btn.grid(row=0, column=2, padx=(2, 0))
+            attach_tooltip(clear_btn, "Clear search")
+            self.search_entry = None
+
+            self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
+            self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
+            self.card_list.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+                          font=theme.FONT_BOLD, command=lambda: self._show_view("new")).grid(
+                row=2, column=0, sticky="ew", pady=(2, 0))
+            self.refresh_patients_db()
+            return
+
         f.grid_rowconfigure(2, weight=1)
         search_frame = ctk.CTkFrame(f, fg_color=theme.INPUT_BG, corner_radius=9,
                                     border_width=1, border_color=theme.BORDER)
@@ -773,7 +811,15 @@ class App(ctk.CTk):
         self._visible_patient_ids = []
         try:
             patients = db.get_all_patients(sort_by=self.sort_by, sort_dir=self.sort_dir)
-            search_raw = self.search_entry.get() if hasattr(self, "search_entry") else ""
+            search_raw = ""
+            entry = getattr(self, "search_entry", None)
+            try:
+                if entry is not None and entry.winfo_exists():
+                    search_raw = entry.get()
+            except Exception:
+                search_raw = ""
+            if not search_raw:
+                search_raw = getattr(self, "_search_text", "") or ""
             search = _norm(search_raw)
             scope = getattr(self, "search_scope", "everything")
             scope = scope.lower() if isinstance(scope, str) else "everything"
@@ -994,9 +1040,22 @@ class App(ctk.CTk):
             return
         self._delete_by_id(self.selected_patient_id)
 
+    def _search_patients_dialog(self):
+        try:
+            import tkinter.simpledialog as _sd
+            term = _sd.askstring("Search patients", "Search patients:", initialvalue=getattr(self, "_search_text", ""),
+                                 parent=self)
+        except Exception:
+            term = None
+        if term is None:
+            return
+        self._search_text = term.strip()
+        self.refresh_patients_db()
+
     def _clear_search(self):
         try:
-            self.search_entry.delete(0, "end")
+            if getattr(self, "search_entry", None) is not None and self.search_entry.winfo_exists():
+                self.search_entry.delete(0, "end")
         except Exception:
             pass
         self._search_text = ""

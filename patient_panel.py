@@ -88,8 +88,9 @@ class PatientFilePanel(ctk.CTkFrame):
         self._build_tabs()
         self._build_footer()
         self._schedule_autosave()
-        self._load_attachments()
-        self._load_history()
+        if theme.layout() != "stacked":
+            self._load_attachments()
+            self._load_history()
 
     # ---- header ----
     def _build_header(self):
@@ -292,51 +293,6 @@ class PatientFilePanel(ctk.CTkFrame):
             self._update_count(field, txt)
             self.texts[field] = txt
 
-        # Attachments + History tabs
-        self.aux_tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
-        self.aux_tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
-        self.aux_tabview.grid_columnconfigure(0, weight=1)
-
-        att_tab = self.aux_tabview.add("Attachments")
-        att_tab.grid_columnconfigure(0, weight=1)
-        att_tab.grid_rowconfigure(0, weight=1)
-        cols = ("filename", "size", "added_at")
-        self.attach_tree = ttk.Treeview(att_tab, columns=cols, show="headings", selectmode="browse")
-        self.attach_tree.heading("filename", text="File")
-        self.attach_tree.heading("size", text="Size")
-        self.attach_tree.heading("added_at", text="Added")
-        self.attach_tree.column("filename", width=200)
-        self.attach_tree.column("size", width=70)
-        self.attach_tree.column("added_at", width=120)
-        self.attach_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
-        ab = ctk.CTkFrame(att_tab, fg_color="transparent")
-        ab.grid(row=1, column=0, sticky="ew", pady=(4, 4))
-        ctk.CTkButton(ab, text="Attach file", width=100, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
-                      command=self._attach_file).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Open", width=80, command=self._open_attachment).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Delete", width=80, fg_color="#c0392b", command=self._delete_attachment).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Refresh", width=80, command=self._load_attachments).pack(side="left", padx=2)
-
-        hist_tab = self.aux_tabview.add("History")
-        hist_tab.grid_columnconfigure(0, weight=1)
-        hist_tab.grid_rowconfigure(0, weight=1)
-        hcols = ("changed_at", "field", "old_value", "new_value")
-        self.hist_tree = ttk.Treeview(hist_tab, columns=hcols, show="headings", selectmode="browse")
-        self.hist_tree.heading("changed_at", text="When")
-        self.hist_tree.heading("field", text="Field")
-        self.hist_tree.heading("old_value", text="Old")
-        self.hist_tree.heading("new_value", text="New")
-        self.hist_tree.column("changed_at", width=120)
-        self.hist_tree.column("field", width=90)
-        self.hist_tree.column("old_value", width=160)
-        self.hist_tree.column("new_value", width=160)
-        self.hist_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
-        hb = ctk.CTkFrame(hist_tab, fg_color="transparent")
-        hb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
-        ctk.CTkButton(hb, text="Refresh", width=80, command=self._load_history).pack(side="left", padx=2)
-        ctk.CTkButton(hb, text="Clear history", width=100, fg_color="#c0392b",
-                      hover_color="#a93226", command=self._clear_history).pack(side="left", padx=2)
-
     def _toolbar_action(self, field, action):
         txt = getattr(self, field + "_text")
         try:
@@ -393,7 +349,7 @@ class PatientFilePanel(ctk.CTkFrame):
 
     # ---- footer ----
     def _build_footer(self):
-        row = 3 if theme.layout() == "stacked" else 2
+        row = 2 if theme.layout() == "stacked" else 2
         pad = theme.PANE_PAD if theme.layout() == "stacked" else theme.PADDING
         frame = ctk.CTkFrame(self, fg_color="transparent")
         frame.grid(row=row, column=0, sticky="ew", padx=pad, pady=(0, pad))

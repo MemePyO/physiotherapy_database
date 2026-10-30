@@ -12,14 +12,36 @@ def _now():
     return datetime.now().strftime("%d.%m.%Y %H:%M")
 
 
+MAX_NAME_LEN = 200
+MAX_TEXT_LEN = 50000
+MAX_LOCALITY_LEN = 100
+
+
 def db_path() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "patients.db")
+
+
+def pre_operation_backup(label: str = "op") -> None:
+    """Copy the current DB to backup/ before a destructive operation."""
+    try:
+        import shutil, datetime
+        folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backup")
+        os.makedirs(folder, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest = os.path.join(folder, "pre_%s_%s.db" % (label, stamp))
+        shutil.copy2(db_path(), dest)
+    except Exception as e:
+        logger.warning("pre_operation_backup failed: %s", e)
 
 
 def _get_conn() -> 'sqlite3.Connection':
     conn = sqlite3.connect(db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except Exception as e:
+        logger.debug("WAL mode unavailable: %s", e)
     return conn
 
 
@@ -113,6 +135,34 @@ def init_db() -> None:
     conn.commit()
     conn.close()
 
+    # Integrity check (non-fatal: log result)
+    try:
+        ok = check_integrity()
+        if not ok:
+            logger.warning("Database integrity check FAILED")
+    except Exception as e:
+        logger.warning("Integrity check error: %s", e)
+
+
+def check_integrity() -> bool:
+    """Run PRAGMA integrity_check and foreign_key_check."""
+    try:
+        conn = _get_conn()
+        cur = conn.cursor()
+        cur.execute("PRAGMA integrity_check")
+        res = cur.fetchone()
+        ok = (res is not None and str(res[0]).lower() == "ok")
+        cur.execute("PRAGMA foreign_key_check")
+        fk_issues = cur.fetchall()
+        conn.close()
+        if fk_issues:
+            logger.warning("Foreign key issues: %s", fk_issues)
+            ok = False
+        return ok
+    except Exception as e:
+        logger.warning("check_integrity failed: %s", e)
+        return False
+
 
 def migrate_from_json(conn) -> None:
     """Migrate patient names from patients.json to database."""
@@ -154,7 +204,10 @@ def add_patient(name: str, localitate: str = "", nr_zile: str = "", decision_dat
     name_str = str(name).strip()
     if not name_str:
         raise ValueError("Patient name is required")
-
+    if len(name_str) > MAX_NAME_LEN:
+        raise ValueError("Patient name too long (max %d)" % MAX_NAME_LEN)
+    if len(localitate or "") > MAX_LOCALITY_LEN:
+        raise ValueError("Locality too long")
     conn = _get_conn()
     cur = conn.cursor()
     # generate patient code
@@ -226,9 +279,20 @@ def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, de
 
     provided = {}
     if name is not None:
-        provided["name"] = str(name).strip()
+        name = str(name).strip()
+        if not name:
+            raise ValueError("Patient name is required")
+        if len(name) > MAX_NAME_LEN:
+            raise ValueError("Patient name too long (max %d)" % MAX_NAME_LEN)
+        provided["name"] = name
     if localitate is not None:
+        if len(localitate) > MAX_LOCALITY_LEN:
+            raise ValueError("Locality too long")
         provided["localitate"] = localitate
+    for _f, _v in (("diagnostic", diagnostic), ("objective", objective),
+                    ("evaluation", evaluation), ("observation", observation)):
+        if _v is not None and len(_v) > MAX_TEXT_LEN:
+            raise ValueError("%s too long (max %d)" % (_f, MAX_TEXT_LEN))
     if nr_zile is not None:
         provided["nr_zile"] = nr_zile
     if decision_date is not None:
@@ -275,8 +339,8 @@ def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, de
             try:
                 cur.execute("INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
                             (patient_id, f, str(old_val), str(new_val), now))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("history insert failed: %s", e)
     conn.commit()
     conn.close()
 
@@ -372,7 +436,8 @@ def ensure_patient_exists(name: str) -> int | None:
         return patient['id']
     try:
         return add_patient(name_str)
-    except Exception:
+    except Exception as e:
+        logger.debug("add_patient failed, retrying lookup: %s", e)
         patient = get_patient(name=name_str)
         return patient['id'] if patient else None
 
@@ -412,8 +477,15 @@ def add_attachment(patient_id: int, source_path: str) -> int:
     import shutil
     if not source_path or not os.path.exists(source_path):
         raise ValueError("File not found")
+    size = os.path.getsize(source_path)
+    if size > 50 * 1024 * 1024:
+        raise ValueError("File too large (max 50 MB)")
     folder = _patient_attach_folder(patient_id)
     base = os.path.basename(source_path)
+    # sanitize filename: strip path traversal and control chars
+    base = base.replace("..", "_").replace(os.sep, "_").replace("/", "_").replace("\\", "_")
+    if not base or base in (".", ".."):
+        raise ValueError("Invalid filename")
     dest = os.path.join(folder, base)
     if os.path.exists(dest):
         stem, ext = os.path.splitext(base)
@@ -421,6 +493,9 @@ def add_attachment(patient_id: int, source_path: str) -> int:
         while os.path.exists(os.path.join(folder, "%s_%d%s" % (stem, i, ext))):
             i += 1
         dest = os.path.join(folder, "%s_%d%s" % (stem, i, ext))
+    # containment check
+    if os.path.commonpath([os.path.abspath(folder), os.path.abspath(dest)]) != os.path.abspath(folder):
+        raise ValueError("Invalid destination path")
     shutil.copy2(source_path, dest)
     size = os.path.getsize(dest)
     conn = _get_conn()
@@ -520,5 +595,6 @@ def pre_migration_backup() -> str | None:
     try:
         shutil.copy2(dbp, dest)
         return dest
-    except Exception:
+    except Exception as e:
+        logger.warning("pre_migration_backup failed: %s", e)
         return None

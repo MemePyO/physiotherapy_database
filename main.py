@@ -142,7 +142,6 @@ class App(ctk.CTk):
             self.known_patients = []
             self.list_error = str(exc)
 
-        self.patient_pages = {}
         _st = load_settings()
         self.sort_by = _st.get("sort_by", "name")
         self.sort_dir = _st.get("sort_dir", "asc")
@@ -711,12 +710,14 @@ class App(ctk.CTk):
         def _purge():
             sel = tree.selection()
             if not sel or not messagebox.askyesno(lang.t("app_name"), "Permanently delete?"): return
+            db.pre_operation_backup("purge")
             conn = db._get_conn()
             conn.execute("DELETE FROM deleted_patients WHERE id = ?", (int(sel[0]),))
             conn.commit(); conn.close()
             tree.delete(sel[0])
         def _empty():
             if not messagebox.askyesno(lang.t("app_name"), "Empty trash?"): return
+            db.pre_operation_backup("purge")
             conn = db._get_conn()
             conn.execute("DELETE FROM deleted_patients")
             conn.commit(); conn.close()
@@ -1243,7 +1244,7 @@ class App(ctk.CTk):
                 for i, p in enumerate(patients, 1):
                     w.writerow([i, p.get('name',''), p.get('localitate',''), p.get('diagnostic',''),
                                 p.get('objective',''), p.get('evaluation',''), p.get('observation','')])
-            messagebox.showinfo(lang.t("app_name"), "Export CSV reusit")
+            messagebox.showinfo(lang.t("app_name"), lang.t("status_exported_csv"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
@@ -1451,12 +1452,9 @@ class App(ctk.CTk):
             parts.append("}")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("".join(parts))
-            messagebox.showinfo(lang.t("app_name"), "Export Word reusit")
+            messagebox.showinfo(lang.t("app_name"), lang.t("status_exported_word"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
-
-    def _export_access(self):
-        self._export_csv()
 
     def _backup_now(self):
         try:
@@ -1502,6 +1500,7 @@ class App(ctk.CTk):
 
     def _import_data(self):
         try:
+            db.pre_operation_backup("import")
             from tkinter import filedialog
             path = filedialog.askopenfilename(title="Import (CSV/Excel)", filetypes=[("CSV", "*.csv"), ("Excel", "*.xlsx"), ("All", "*.*")])
             if not path:

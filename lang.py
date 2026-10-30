@@ -170,10 +170,10 @@ STRINGS = {
         "en": "Kept existing sheet {sheet}",
         "ro": "Foaia existentă {sheet} păstrată",
     },
-    "status_exported": {
-        "en": "Exported sheet {sheet}: {path}",
-        "ro": "Exportat foaia {sheet}: {path}",
-    },
+    "status_exported_csv": {"en": "CSV export successful", "ro": "Export CSV reușit"},
+    "status_exported_word": {"en": "Word export successful", "ro": "Export Word reușit"},
+    "msg_backup_created": {"en": "Backup created and verified ({n} patients):\\n{path}", "ro": "Backup creat și verificat ({n} pacienți):\\n{path}"},
+    "msg_backup_warn": {"en": "Backup created but verification failed:\\n{info}", "ro": "Backup creat dar verificarea a eșuat:\\n{info}"},
 
     # ---- generic errors (backend/shared) ----
     "err_days_whole": {

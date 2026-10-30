@@ -71,41 +71,97 @@ def _make_simple_pdf(text):
 
 
 class PatientFilePanel(ctk.CTkFrame):
-    def __init__(self, master, patient_id, on_close=None):
+    def __init__(self, master, patient_id, on_close=None, new=False):
         super().__init__(master, fg_color=theme.PANEL, corner_radius=theme.PANEL_RADIUS)
-        self.patient_id = patient_id
+        self.patient_id = None if new else patient_id
         self.on_close_callback = on_close
         self._dirty = False
+        self._is_new = bool(new) or (patient_id is None)
+        self.header_frame = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.patient = db.get_patient(patient_id=patient_id)
-        if not self.patient:
-            self.destroy()
-            return
+        if self._is_new:
+            self.patient = {"name": "", "patient_code": "", "dob": "", "sex": "", "localitate": "",
+                            "diagnostic": "", "objective": "", "evaluation": "", "observation": "",
+                            "updated_at": ""}
+        else:
+            self.patient = db.get_patient(patient_id=patient_id)
+            if not self.patient:
+                self.destroy()
+                return
 
         self._build_header()
         self._build_tabs()
         self._build_footer()
         self._schedule_autosave()
-        if theme.layout() != "stacked":
+        if not self._is_new and theme.layout() != "stacked":
             self._load_attachments()
             self._load_history()
 
     # ---- header ----
     def _build_header(self):
-        frame = ctk.CTkFrame(self, fg_color="transparent")
+        if not hasattr(self, "header_frame") or self.header_frame is None:
+            self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+            self.header_frame.grid(row=0, column=0, sticky="ew")
+        for w in self.header_frame.winfo_children():
+            w.destroy()
+        frame = self.header_frame
         pad = theme.PANE_PAD if theme.layout() == "stacked" else theme.PADDING
         frame.grid(row=0, column=0, sticky="ew", padx=pad, pady=(pad, 8))
         frame.grid_columnconfigure(1, weight=1)
 
-        av = ctk.CTkLabel(frame, text=_initials(self.patient['name']), width=theme.AVATAR_SIZE,
+        av = ctk.CTkLabel(frame, text=_initials(self.patient.get('name', '') or '?'), width=theme.AVATAR_SIZE,
                           height=theme.AVATAR_SIZE, corner_radius=theme.AVATAR_SIZE // 2,
                           fg_color=theme.ACCENT, text_color="white",
                           font=ctk.CTkFont(size=14, weight="bold"))
         av.grid(row=0, column=0, rowspan=4, padx=(0, 12))
 
+        if getattr(self, "_is_new", False):
+            # inline editable header
+            self.name_entry = ctk.CTkEntry(frame, placeholder_text="Patient name (required)", font=ctk.CTkFont(size=16, weight="bold"))
+            self.name_entry.grid(row=0, column=1, sticky="ew", pady=(0, 2))
+            self.name_entry.insert(0, self.patient.get('name', '') or '')
+
+            row = ctk.CTkFrame(frame, fg_color="transparent")
+            row.grid(row=1, column=1, sticky="ew", pady=(0, 2))
+            ctk.CTkLabel(row, text="Code:", font=theme.FONT_SMALL, text_color=theme.MUTED).pack(side="left")
+            self.code_label = ctk.CTkLabel(row, text="auto", font=theme.FONT_SMALL, text_color=theme.MUTED)
+            self.code_label.pack(side="left", padx=(4, 12))
+            ctk.CTkLabel(row, text="DOB (DD.MM.YYYY):", font=theme.FONT_SMALL, text_color=theme.MUTED).pack(side="left")
+            self.dob_entry = ctk.CTkEntry(row, width=110, placeholder_text="DD.MM.YYYY")
+            self.dob_entry.pack(side="left", padx=(4, 12))
+            self.dob_entry.insert(0, self.patient.get('dob', '') or '')
+            ctk.CTkLabel(row, text="Sex:", font=theme.FONT_SMALL, text_color=theme.MUTED).pack(side="left")
+            self.sex_menu = ctk.CTkOptionMenu(row, values=["", "M", "F"], width=70)
+            self.sex_menu.pack(side="left", padx=(4, 12))
+            self.sex_menu.set(self.patient.get('sex', '') or "")
+
+            loc_row = ctk.CTkFrame(frame, fg_color="transparent")
+            loc_row.grid(row=2, column=1, sticky="ew", pady=(0, 2))
+            ctk.CTkLabel(loc_row, text="Locality:", font=theme.FONT_SMALL, text_color=theme.MUTED).pack(side="left")
+            self.loc_entry = ctk.CTkEntry(loc_row, placeholder_text="Locality")
+            self.loc_entry.pack(side="left", fill="x", expand=True, padx=(4, 0))
+            self.loc_entry.insert(0, self.patient.get('localitate', '') or '')
+
+            diag = self.patient.get('diagnostic', '') or ''
+            first_line = diag.split(chr(10))[0].strip() if diag else ''
+            main_diag = utils._strip_inline_formatting(first_line) if first_line else 'NA'
+            diag_lbl = ctk.CTkLabel(frame, text="Diagnostic: " + main_diag, font=theme.FONT_BOLD, text_color=theme.ACCENT)
+            diag_lbl.grid(row=3, column=1, sticky="w")
+            self.diag_header_label = diag_lbl
+
+            self.modified_label = ctk.CTkLabel(frame, text="Not saved yet", font=theme.FONT_SMALL, text_color=theme.MUTED)
+            self.modified_label.grid(row=4, column=1, sticky="w", pady=(2, 0))
+
+            btns = ctk.CTkFrame(frame, fg_color="transparent")
+            btns.grid(row=0, column=2, rowspan=5, sticky="ne")
+            ctk.CTkButton(btns, text="Cancel", width=70, fg_color="#6b7280", hover_color="#4b5563",
+                          command=self._cancel_new).pack(side="top", padx=2, pady=2)
+            return
+
+        # existing patient header (unchanged)
         name_lbl = ctk.CTkLabel(frame, text=self.patient['name'], font=ctk.CTkFont(size=16, weight="bold"),
                                 text_color=theme.TEXT)
         name_lbl.grid(row=0, column=1, sticky="w")
@@ -122,7 +178,7 @@ class PatientFilePanel(ctk.CTkFrame):
 
         diag = self.patient.get('diagnostic', '') or ''
         first_line = diag.split(chr(10))[0].strip() if diag else ''
-        main_diag = first_line if first_line else 'NA'
+        main_diag = utils._strip_inline_formatting(first_line) if first_line else 'NA'
         diag_lbl = ctk.CTkLabel(frame, text="Diagnostic: " + main_diag, font=theme.FONT_BOLD, text_color=theme.ACCENT)
         diag_lbl.grid(row=2, column=1, sticky="w")
         self.diag_header_label = diag_lbl
@@ -137,6 +193,16 @@ class PatientFilePanel(ctk.CTkFrame):
                       command=self._edit_patient_info).pack(side="left", padx=2)
 
     def _refresh_header_info(self):
+        if getattr(self, "_is_new", False):
+            # update diag label from textbox content
+            try:
+                txt = getattr(self, "diagnostic_text", None)
+                if txt is not None:
+                    val = txt.get("1.0", "end-1c").split(chr(10))[0].strip()
+                    self.diag_header_label.configure(text="Diagnostic: " + (utils._strip_inline_formatting(val) if val else "NA"))
+            except Exception:
+                pass
+            return
         code = self.patient.get('patient_code', '') or 'NA'
         dob = self.patient.get('dob', '') or 'NA'
         sex = self.patient.get('sex', '') or 'NA'
@@ -147,7 +213,7 @@ class PatientFilePanel(ctk.CTkFrame):
             pass
         diag = self.patient.get('diagnostic', '') or ''
         first_line = diag.split(chr(10))[0].strip() if diag else ''
-        main_diag = first_line if first_line else 'NA'
+        main_diag = utils._strip_inline_formatting(first_line) if first_line else 'NA'
         try:
             self.diag_header_label.configure(text="Diagnostic: " + main_diag)
         except Exception:
@@ -376,6 +442,82 @@ class PatientFilePanel(ctk.CTkFrame):
 
     # ---- save ----
     def _save_all(self, silent=False):
+        # --- new patient: create row on first save ---
+        if getattr(self, "_is_new", False):
+            name = ""
+            try:
+                name = self.name_entry.get().strip()
+            except Exception:
+                name = ""
+            if not name:
+                messagebox.showerror(lang.t("app_name"), "Patient name is required.")
+                return
+            dob = ""
+            try:
+                dob = self.dob_entry.get().strip()
+            except Exception:
+                dob = ""
+            if dob and not _validate_dob(dob):
+                messagebox.showerror(lang.t("app_name"), "Invalid date (use DD.MM.YYYY).")
+                return
+            sex = ""
+            try:
+                sex = self.sex_menu.get()
+            except Exception:
+                sex = ""
+            loc = ""
+            try:
+                loc = self.loc_entry.get().strip()
+            except Exception:
+                loc = ""
+            code = ""
+            try:
+                code = self.code_entry.get().strip() if hasattr(self, "code_entry") else ""
+            except Exception:
+                code = ""
+            diag = self.diagnostic_text.get("1.0", "end-1c") if hasattr(self, "diagnostic_text") else ""
+            obj = self.objective_text.get("1.0", "end-1c") if hasattr(self, "objective_text") else ""
+            eva = self.evaluation_text.get("1.0", "end-1c") if hasattr(self, "evaluation_text") else ""
+            obs = self.observation_text.get("1.0", "end-1c") if hasattr(self, "observation_text") else ""
+            try:
+                pid = db.add_patient(name, loc, sex=sex, dob=dob)
+                db.update_patient(pid, name=name, localitate=loc, sex=sex, dob=dob,
+                                 diagnostic=diag, objective=obj, evaluation=eva, observation=obs)
+                self.patient_id = pid
+                self._is_new = False
+                self.patient = db.get_patient(patient_id=pid)
+                # rebuild header as read-only
+                self._build_header()
+                self._dirty = False
+                if not silent:
+                    self.dirty_label.configure(text="Saved")
+                    self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+                    messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
+                else:
+                    self.dirty_label.configure(text="Saved")
+                    self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+                self._refresh_header_info()
+                if theme.layout() != "stacked":
+                    self._load_attachments()
+                    self._load_history()
+                if self.on_close_callback:
+                    self.on_close_callback()
+                # update app selection
+                try:
+                    app = self.winfo_toplevel()
+                    if hasattr(app, "patient_panels"):
+                        app.patient_panels.pop(None, None)
+                        app.patient_panels[pid] = self
+                    if hasattr(app, "selected_patient_id"):
+                        app.selected_patient_id = pid
+                    if hasattr(app, "_set_selected_card"):
+                        app._set_selected_card(pid)
+                except Exception:
+                    pass
+            except Exception as e:
+                messagebox.showerror(lang.t("app_name"), str(e))
+            return
+
         try:
             if not silent:
                 self.dirty_label.configure(text="Saving...")
@@ -450,6 +592,8 @@ class PatientFilePanel(ctk.CTkFrame):
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _edit_patient_info(self):
+        if getattr(self, "_is_new", False):
+            return
         dlg = EditPatientDialog(self, self.patient)
         self.wait_window(dlg)
         if dlg.result:
@@ -468,6 +612,10 @@ class PatientFilePanel(ctk.CTkFrame):
                 messagebox.showerror(lang.t("app_name"), str(e))
 
     def mark_dirty(self):
+        if getattr(self, "_is_new", False):
+            self._dirty = True
+            self.dirty_label.configure(text="Unsaved changes *")
+            return
         self._dirty = True
         self.dirty_label.configure(text="Unsaved changes *")
 
@@ -490,11 +638,25 @@ class PatientFilePanel(ctk.CTkFrame):
         """Save pending edits; returns True when something was written."""
         if not getattr(self, "_dirty", False):
             return False
+        if getattr(self, "_is_new", False):
+            return False
         try:
             self._save_all(silent=silent)
             return True
         except Exception:
             return False
+
+    def _cancel_new(self):
+        try:
+            app = self.winfo_toplevel()
+            if hasattr(app, "_show_placeholder"):
+                app._show_placeholder()
+        except Exception:
+            pass
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
     def _schedule_autosave(self):
         try:
@@ -504,6 +666,8 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _auto_save(self):
         try:
+            if getattr(self, "_is_new", False):
+                return
             if self._dirty and self.winfo_exists():
                 self.dirty_label.configure(text="Saving...")
                 self._save_all(silent=True)

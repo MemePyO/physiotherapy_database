@@ -4,6 +4,13 @@ import re
 import unicodedata
 
 
+def _strip_inline_formatting(text):
+    """Return text with **bold** / *italic* markers removed (plain display)."""
+    if not text:
+        return text
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    return text
 def _apply_inline_formatting(widget):
     """Render **bold** and *italic* markdown inline in a CTkTextbox."""
     try:

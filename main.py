@@ -13,7 +13,8 @@ import theme
 import log
 logger = log.get_logger(__name__)
 from patient_panel import PatientFilePanel
-from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf
+from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf, _strip_inline_formatting
+import utils
 from tooltip import attach_tooltip, hide_tooltip
 from dialogs import (AddPatientDialog, SaveAsDialog, RestoreBackupDialog,
                      TrashDialog, SettingsDialog, ExportFieldsDialog)
@@ -176,7 +177,7 @@ class App(ctk.CTk):
         self.bind("<Unmap>", lambda e: hide_tooltip(), add="+")
         self.bind_all("<Button-1>", lambda e: hide_tooltip(), add="+")
         # Keyboard shortcuts
-        self.bind("<Control-n>", lambda e: self._add_patient_db())
+        self.bind("<Control-n>", lambda e: self._open_patient_by_id(None))
         self.bind("<Control-f>", lambda e: (self._focus_search(), "break")[1])
         self.bind("<Control-z>", self._undo_last_delete)
         self.bind("<Control-s>", self._save_current_panel)
@@ -368,7 +369,7 @@ class App(ctk.CTk):
 
         self._nav_buttons = {}
         items = [("patients", "\U0001F4CB", "Patients", lambda: self._show_view("patients"), theme.ICON_FONT),
-                 ("new", "\u2795", "New", lambda: (self._add_patient_db(), self._show_view("patients")), theme.ICON_FONT),
+                 ("new", "\u2795", "New", lambda: self._open_patient_by_id(None), theme.ICON_FONT),
                  ("saveas", "\U0001F4BE", "Save as", lambda: self._show_view("saveas"), theme.ICON_FONT),
                  ("backup", "\U0001F5C4", "Backup", lambda: self._show_view("backup"), theme.ICON_FONT),
                  ("trash", "\U0001F5D1", "Trash", lambda: self._show_view("trash"), theme.ICON_FONT),
@@ -392,7 +393,7 @@ class App(ctk.CTk):
 
         self._nav_buttons = {}
         items = [("patients", "\uE716", "Patients", lambda: self._show_view("patients")),
-                 ("new", "\uE710", "New patient", lambda: (self._add_patient_db(), self._show_view("patients"))),
+                 ("new", "\uE710", "New patient", lambda: self._open_patient_by_id(None)),
                  ("saveas", "\uE8A5", "Save as", lambda: self._show_view("saveas")),
                  ("backup", "\uE753", "Backup", lambda: self._show_view("backup")),
                  ("trash", "\uE74D", "Trash", lambda: self._show_view("trash"))]
@@ -609,7 +610,7 @@ class App(ctk.CTk):
             self.card_list.grid_columnconfigure(0, weight=1)
 
             ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
-                          font=theme.FONT_BOLD, command=lambda: self._show_view("new")).grid(
+                          font=theme.FONT_BOLD, command=lambda: self._open_patient_by_id(None)).grid(
                 row=2, column=0, sticky="ew", pady=(2, 0))
             self.refresh_patients_db()
             return
@@ -648,7 +649,7 @@ class App(ctk.CTk):
         self.card_list.grid_columnconfigure(0, weight=1)
 
         ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
-                      font=theme.FONT_BOLD, command=lambda: self._show_view("new")).grid(
+                      font=theme.FONT_BOLD, command=lambda: self._open_patient_by_id(None)).grid(
             row=3, column=0, sticky="ew", pady=(2, 0))
         self.refresh_patients_db()
 
@@ -837,7 +838,7 @@ class App(ctk.CTk):
             shown = 0
             for p in patients:
                 diag_text = p.get('diagnostic', '') or ''
-                first_line = diag_text.split(chr(10))[0] if diag_text else ''
+                first_line = utils._strip_inline_formatting(diag_text).split(chr(10))[0] if diag_text else ''
                 if scope == "name":
                     haystack = _norm(p.get('name', ''))
                 else:
@@ -1059,6 +1060,22 @@ class App(ctk.CTk):
             pass
 
     def _open_patient_by_id(self, patient_id):
+        # warn before discarding an unsaved new patient
+        for pid, panel in list(getattr(self, "patient_panels", {}).items()):
+            if getattr(panel, "_is_new", False) and getattr(panel, "_dirty", False):
+                if not messagebox.askyesno(lang.t("app_name"), "Discard unsaved new patient?"):
+                    return
+        if patient_id is None:
+            self._save_open_files()
+            for w in self.file_host.winfo_children():
+                w.destroy()
+            self.patient_panels = {}
+            panel = PatientFilePanel(self.file_host, None, on_close=self.refresh_patients_db, new=True)
+            panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=0)
+            self.patient_panels[None] = panel
+            self.selected_patient_id = None
+            self._show_placeholder() if False else None
+            return
         self._save_open_files()
         self.selected_patient_id = patient_id
         for w in self.file_host.winfo_children():

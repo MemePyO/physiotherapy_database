@@ -1,0 +1,30 @@
+import main, db
+from main import App
+
+a = App()
+a.geometry("1280x800")
+a.update()
+a._open_patient_by_id(None)
+a.update()
+panel = a.patient_panels.get(None)
+panel.name_entry.insert(0, "Test Inline4")
+panel.dob_entry.insert(0, "04.04.1993")
+panel.sex_menu.set("F")
+panel.loc_entry.insert(0, "Brasov")
+panel.diagnostic_text.insert("1.0", "diag")
+print("before save is_new:", panel._is_new)
+panel._save_all(silent=True)
+print("after save is_new:", panel._is_new)
+print("patient_id:", panel.patient_id)
+pid = panel.patient_id
+print("patient exists:", db.get_patient(patient_id=pid) is not None)
+print("panel in app dict:", pid in a.patient_panels)
+print("selected:", a.selected_patient_id)
+# cleanup
+row = db.delete_patient(pid)
+conn = db._get_conn()
+conn.execute("DELETE FROM deleted_patients WHERE id = ?", (row,))
+conn.commit()
+conn.close()
+a.destroy()
+print("ok")

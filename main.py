@@ -582,6 +582,11 @@ class App(ctk.CTk):
         elif view == "new":
             self._view_new_patient()
 
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
+
     def _view_patients(self):
         f = self.overview_content
         medidash = (theme.active() == "medidash")
@@ -806,6 +811,12 @@ class App(ctk.CTk):
                 return
         except Exception:
             return
+        try:
+            _canvas = card_list._parent_canvas
+            _yview = _canvas.yview()
+        except Exception:
+            _canvas = None
+            _yview = None
         for w in card_list.winfo_children():
             w.destroy()
         self._visible_patient_ids = []
@@ -854,6 +865,15 @@ class App(ctk.CTk):
                 self._show_list_empty(lang.t("empty_no_match", q=search_raw.strip()))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
+        try:
+            if "_canvas" in locals() and _canvas is not None and "_yview" in locals() and _yview is not None:
+                _canvas.yview_moveto(_yview[0])
+        except Exception:
+            pass
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
 
     def _show_list_empty(self, text):
         try:
@@ -1018,14 +1038,14 @@ class App(ctk.CTk):
             try:
                 if not panel.winfo_exists():
                     return
-                if i >= 8:
+                if i >= 4:
                     panel.place_configure(x=0)
                     return
-                panel.place_configure(x=40 - int(40 * (i + 1) / 8))
-                panel.after(18, lambda: _step(i + 1))
+                panel.place_configure(x=40 - int(40 * (i + 1) / 4))
+                panel.after(12, lambda: _step(i + 1))
             except Exception:
                 pass
-        panel.after(10, lambda: _step(0))
+        panel.after(6, lambda: _step(0))
 
 
     def _open_patient_file(self):

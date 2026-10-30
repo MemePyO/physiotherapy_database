@@ -37,13 +37,22 @@ _CLASSIC_FONT_BOLD = ("Segoe UI", 11, "bold")
 _CLASSIC_FONT_SMALL = ("Segoe UI", 10)
 _CLASSIC_FONT_SECTION = ("Segoe UI", 12, "bold")
 
+def _modern():
+    if _has_font("Bahnschrift"):
+        return "Bahnschrift"
+    if _has_font("Segoe UI Semibold"):
+        return "Segoe UI Semibold"
+    return _inter()
+
+
 _INTER = _inter()
-_MEDIDASH_FONT_TITLE = (_INTER, 22, "bold")
-_MEDIDASH_FONT_SUB = (_INTER, 12)
-_MEDIDASH_FONT_BODY = (_INTER, 11)
-_MEDIDASH_FONT_BOLD = (_INTER, 11, "bold")
-_MEDIDASH_FONT_SMALL = (_INTER, 10)
-_MEDIDASH_FONT_SECTION = (_INTER, 13, "bold")
+_MODERN = _modern()
+_MEDIDASH_FONT_TITLE = (_MODERN, 22, "bold")
+_MEDIDASH_FONT_SUB = (_MODERN, 12)
+_MEDIDASH_FONT_BODY = (_MODERN, 11)
+_MEDIDASH_FONT_BOLD = (_MODERN, 11, "bold")
+_MEDIDASH_FONT_SMALL = (_MODERN, 10)
+_MEDIDASH_FONT_SECTION = (_MODERN, 13, "bold")
 
 _MDL2 = _mdl2()
 _EMOJI = _emoji()

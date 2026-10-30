@@ -314,6 +314,10 @@ class PatientFilePanel(ctk.CTkFrame):
         self.sections_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.sections_frame.grid(row=1, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
         self.sections_frame.grid_columnconfigure(0, weight=1)
+        try:
+            utils._patch_scrollable(self.sections_frame)
+        except Exception:
+            pass
 
         sections = [("diagnostic", "Diagnostic", theme.HEAD_DIAG, "#ffffff"),
                     ("objective", "Obiectiv", theme.HEAD_OBJ, theme.TEXT),

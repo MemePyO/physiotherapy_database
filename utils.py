@@ -85,6 +85,24 @@ def _apply_inline_formatting(widget):
         pass
 
 
+def _patch_scrollable(sf):
+    """Make a CTkScrollableFrame's internal Configure binding safe (no crash on missing event)."""
+    def _handler(e=None):
+        try:
+            canvas = getattr(sf, "_parent_canvas", None)
+            if canvas is None:
+                return
+            bbox = canvas.bbox("all")
+            if bbox:
+                canvas.configure(scrollregion=bbox)
+        except Exception:
+            pass
+    try:
+        sf.bind("<Configure>", _handler)
+    except Exception:
+        pass
+
+
 def _norm(s):
     if s is None:
         return ""

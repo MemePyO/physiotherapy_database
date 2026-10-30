@@ -582,11 +582,6 @@ class App(ctk.CTk):
         elif view == "new":
             self._view_new_patient()
 
-        try:
-            self.update_idletasks()
-        except Exception:
-            pass
-
     def _view_patients(self):
         f = self.overview_content
         medidash = (theme.active() == "medidash")
@@ -608,6 +603,7 @@ class App(ctk.CTk):
             self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
             self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
             self.card_list.grid_columnconfigure(0, weight=1)
+            utils._patch_scrollable(self.card_list)
 
             ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                           font=theme.FONT_BOLD, command=lambda: self._open_patient_by_id(None)).grid(
@@ -647,6 +643,7 @@ class App(ctk.CTk):
         self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
         self.card_list.grid(row=2, column=0, sticky="nsew", pady=(0, 2))
         self.card_list.grid_columnconfigure(0, weight=1)
+        utils._patch_scrollable(self.card_list)
 
         ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       font=theme.FONT_BOLD, command=lambda: self._open_patient_by_id(None)).grid(
@@ -736,6 +733,7 @@ class App(ctk.CTk):
         scroll = ctk.CTkScrollableFrame(f, fg_color="transparent")
         scroll.grid(row=0, column=0, sticky="nsew")
         scroll.grid_columnconfigure(0, weight=1)
+        utils._patch_scrollable(scroll)
         ctk.CTkLabel(scroll, text="Language:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
         lm = ctk.CTkOptionMenu(scroll, values=list(LANG_LABELS.values()), width=200, command=self._on_language_change)
         lm.set(LANG_LABELS.get(lang.get_language(), "English"))
@@ -869,10 +867,6 @@ class App(ctk.CTk):
         try:
             if "_canvas" in locals() and _canvas is not None and "_yview" in locals() and _yview is not None:
                 _canvas.yview_moveto(_yview[0])
-        except Exception:
-            pass
-        try:
-            self.update_idletasks()
         except Exception:
             pass
 
@@ -1054,8 +1048,13 @@ class App(ctk.CTk):
                 pass
         try:
             if _canvas is not None and _yview is not None:
-                self.update_idletasks()
-                _canvas.yview_moveto(_yview[0])
+                def _restore_scroll():
+                    try:
+                        if _canvas.winfo_exists():
+                            _canvas.yview_moveto(_yview[0])
+                    except Exception:
+                        pass
+                self.after_idle(_restore_scroll)
         except Exception:
             pass
 

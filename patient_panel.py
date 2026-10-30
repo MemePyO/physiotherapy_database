@@ -10,6 +10,7 @@ import db
 import lang
 import theme
 import log
+import utils
 logger = log.get_logger(__name__)
 
 
@@ -193,7 +194,9 @@ class PatientFilePanel(ctk.CTkFrame):
             txt.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
             val = self.patient.get(field, '') or ''
             txt.insert("1.0", val)
-            txt.bind("<KeyRelease>", lambda e, f=field, t=txt: (self._on_text_change(f, t), self.mark_dirty()))
+            utils._apply_inline_formatting(txt)
+            txt.bind("<KeyRelease>", lambda e, f=field, t=txt: (self._on_text_change(f, t), self.mark_dirty(),
+                                                               self._schedule_format(t)))
             setattr(self, field + "_text", txt)
             self._update_count(field, txt)
             self.texts[field] = txt
@@ -288,7 +291,9 @@ class PatientFilePanel(ctk.CTkFrame):
             txt.grid(row=1, column=0, sticky="nsew", padx=12, pady=8)
             val = self.patient.get(field, '') or ''
             txt.insert("1.0", val)
-            txt.bind("<KeyRelease>", lambda e, f=field, t=txt: (self._on_text_change(f, t), self.mark_dirty()))
+            utils._apply_inline_formatting(txt)
+            txt.bind("<KeyRelease>", lambda e, f=field, t=txt: (self._on_text_change(f, t), self.mark_dirty(),
+                                                               self._schedule_format(t)))
             setattr(self, field + "_text", txt)
             self._update_count(field, txt)
             self.texts[field] = txt
@@ -316,6 +321,10 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._insert_line_prefix(txt, "\u2022 ")
             elif action == "number":
                 self._insert_line_prefix(txt, "1. ")
+        except Exception:
+            pass
+        try:
+            utils._apply_inline_formatting(txt)
         except Exception:
             pass
         self.mark_dirty()
@@ -461,6 +470,18 @@ class PatientFilePanel(ctk.CTkFrame):
     def mark_dirty(self):
         self._dirty = True
         self.dirty_label.configure(text="Unsaved changes *")
+
+    def _schedule_format(self, txt):
+        job = getattr(self, "_fmt_job", None)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+        try:
+            self._fmt_job = self.after(250, lambda t=txt: (utils._apply_inline_formatting(t), setattr(self, "_fmt_job", None)))
+        except Exception:
+            utils._apply_inline_formatting(txt)
 
     def is_dirty(self):
         return self._dirty

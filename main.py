@@ -177,10 +177,17 @@ class App(ctk.CTk):
         self.bind_all("<Button-1>", lambda e: hide_tooltip(), add="+")
         # Keyboard shortcuts
         self.bind("<Control-n>", lambda e: self._add_patient_db())
-        self.bind("<Control-f>", lambda e: (self.search_entry.focus_set() if hasattr(self, "search_entry") else None, "break"))
+        self.bind("<Control-f>", lambda e: (self._focus_search(), "break")[1])
         self.bind("<Control-z>", self._undo_last_delete)
+        self.bind("<Control-s>", self._save_current_panel)
+        self.bind("<Control-p>", self._print_current_panel)
+        self.bind("<Escape>", self._handle_escape)
 
     def _on_app_close(self):
+        try:
+            self._save_open_files()
+        except Exception:
+            pass
         try:
             data = load_settings()
             data["geometry"] = self.geometry()
@@ -188,6 +195,37 @@ class App(ctk.CTk):
         except Exception:
             pass
         self.destroy()
+
+    def _save_current_panel(self):
+        panel = getattr(self, "patient_panels", {}).get(self.selected_patient_id)
+        if panel is None or not panel.winfo_exists():
+            return "break"
+        panel._save_all(silent=True)
+        return "break"
+
+    def _print_current_panel(self):
+        panel = getattr(self, "patient_panels", {}).get(self.selected_patient_id)
+        if panel is not None and panel.winfo_exists():
+            panel._print_pdf()
+        return "break"
+
+    def _focus_search(self):
+        if hasattr(self, "search_entry"):
+            try:
+                self.search_entry.focus_set()
+            except Exception:
+                pass
+
+    def _handle_escape(self, event=None):
+        try:
+            if hasattr(self, "search_entry") and self.focus_get() is self.search_entry:
+                if self.search_entry.get():
+                    self._clear_search()
+                    return "break"
+            self._focus_search()
+        except Exception:
+            pass
+        return "break"
 
     def _build_menubar(self):
         menubar = tk.Menu(self)
@@ -216,9 +254,24 @@ class App(ctk.CTk):
         view_menu.add_cascade(label="Language", menu=lang_submenu)
         menubar.add_cascade(label="View", menu=view_menu)
         help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
         help_menu.add_command(label="About", command=lambda: messagebox.showinfo(lang.t("app_name"), "Patient Database\nSQLite-backed patient records."))
         menubar.add_cascade(label="Help", menu=help_menu)
         self.config(menu=menubar)
+
+    def _show_shortcuts(self):
+        text = (
+            "Ctrl+N   New patient\n"
+            "Ctrl+F   Focus search\n"
+            "Ctrl+S   Save current patient file\n"
+            "Ctrl+P   Print / PDF current patient\n"
+            "Ctrl+Z   Undo last delete\n"
+            "\n"
+            "\u2191 / \u2193    Previous / next patient\n"
+            "Enter    Open selected patient\n"
+            "Esc      Back to search"
+        )
+        messagebox.showinfo("Keyboard shortcuts", text)
 
     def _on_language_change(self, choice):
         code = "ro" if choice == "Română" else "en"
@@ -347,6 +400,20 @@ class App(ctk.CTk):
         self._show_view("patients")
 
     def _show_view(self, view):
+        job = getattr(self, "_search_job", None)
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+            self._search_job = None
+        try:
+            if hasattr(self, "search_entry") and self.search_entry.winfo_exists():
+                self._search_text = self.search_entry.get()
+            if isinstance(getattr(self, "search_scope", None), str):
+                self._search_scope_text = self.search_scope
+        except Exception:
+            pass
         for w in self.overview_content.winfo_children():
             w.destroy()
         # reset any row/column weights left over from the previous view
@@ -375,27 +442,67 @@ class App(ctk.CTk):
 
     def _view_patients(self):
         f = self.overview_content
-        f.grid_rowconfigure(1, weight=1)
+        f.grid_rowconfigure(2, weight=1)
         search_frame = ctk.CTkFrame(f, fg_color="transparent")
         search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         search_frame.grid_columnconfigure(1, weight=1)
-        self.search_scope = ctk.CTkOptionMenu(search_frame, values=["Name", "Everything"], width=95,
-                                             command=lambda v: (setattr(self, "search_scope", v.lower()), self.refresh_patients_db()))
-        self.search_scope.set("Everything")
-        self.search_scope.pack(side="left", padx=(0, 6))
+        self.search_scope_menu = ctk.CTkOptionMenu(search_frame, values=["Name", "Everything"], width=95,
+                                                   command=lambda v: (setattr(self, "search_scope", v.lower()),
+                                                                      self.refresh_patients_db()))
+        saved_scope = getattr(self, "_search_scope_text", "everything")
+        self.search_scope_menu.set("Name" if saved_scope == "name" else "Everything")
+        self.search_scope_menu.pack(side="left", padx=(0, 6))
+        self.search_scope = saved_scope
         self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Search patients...")
         self.search_entry.pack(side="left", fill="x", expand=True)
-        self.search_entry.bind("<KeyRelease>", lambda e: self.refresh_patients_db())
+        if getattr(self, "_search_text", ""):
+            self.search_entry.insert(0, self._search_text)
+        self.search_entry.bind("<KeyRelease>", self._on_search_key)
+        self.search_entry.bind("<Down>", lambda e: (self._navigate_patient(1), "break")[1])
+        self.search_entry.bind("<Up>", lambda e: (self._navigate_patient(-1), "break")[1])
+        self.search_entry.bind("<Return>", lambda e: (self._navigate_patient(1, open_first=True), "break")[1])
+        self.search_entry.bind("<Escape>", lambda e: (self._clear_search(), "break")[1])
         ctk.CTkButton(search_frame, text="\u00d7", width=26, command=self._clear_search).pack(side="left", padx=2)
+        self.sort_btn = ctk.CTkButton(search_frame, text="\u21c5", width=30, command=self._show_sort_menu)
+        self.sort_btn.pack(side="left", padx=(2, 0))
+        attach_tooltip(self.sort_btn, "Sort patients")
+
+        self.count_label = ctk.CTkLabel(f, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w")
+        self.count_label.grid(row=1, column=0, sticky="ew", pady=(0, 2))
 
         self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
-        self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
+        self.card_list.grid(row=2, column=0, sticky="nsew", pady=(0, 2))
         self.card_list.grid_columnconfigure(0, weight=1)
 
         ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       font=theme.FONT_BOLD, command=lambda: self._show_view("new")).grid(
-            row=2, column=0, sticky="ew", pady=(2, 0))
+            row=3, column=0, sticky="ew", pady=(2, 0))
         self.refresh_patients_db()
+
+    def _on_search_key(self, event=None):
+        """Debounce the search so typing does not rebuild the whole list per key."""
+        try:
+            if getattr(self, "_search_job", None):
+                self.after_cancel(self._search_job)
+        except Exception:
+            pass
+        try:
+            self._search_job = self.after(150, self.refresh_patients_db)
+        except Exception:
+            self.refresh_patients_db()
+
+    def _navigate_patient(self, delta, open_first=False):
+        """Move the current selection up/down in the filtered patient list."""
+        ids = list(getattr(self, "_visible_patient_ids", []))
+        if not ids:
+            return
+        if open_first or self.selected_patient_id not in ids:
+            target = ids[0]
+        else:
+            idx = ids.index(self.selected_patient_id) + delta
+            target = ids[max(0, min(idx, len(ids) - 1))]
+        if open_first or target != self.selected_patient_id:
+            self._open_patient_by_id(target)
 
     def _view_trash(self):
         f = self.overview_content
@@ -518,8 +625,16 @@ class App(ctk.CTk):
         lbl.place(relx=0.5, rely=0.5, anchor="center")
 
     def refresh_patients_db(self):
-        for w in self.card_list.winfo_children():
+        self._search_job = None
+        card_list = getattr(self, "card_list", None)
+        try:
+            if card_list is None or not card_list.winfo_exists():
+                return
+        except Exception:
+            return
+        for w in card_list.winfo_children():
             w.destroy()
+        self._visible_patient_ids = []
         try:
             patients = db.get_all_patients(sort_by=self.sort_by, sort_dir=self.sort_dir)
             search_raw = self.search_entry.get() if hasattr(self, "search_entry") else ""
@@ -539,11 +654,31 @@ class App(ctk.CTk):
                 if search and search not in haystack:
                     continue
                 shown += 1
+                self._visible_patient_ids.append(p.get('id'))
                 self._build_patient_card(p, first_line, (p.get('id') == self.selected_patient_id))
-            if hasattr(self, "status_label"):
-                pass
+            if hasattr(self, "count_label"):
+                if search:
+                    count_text = lang.t("overview_count", n=shown, total=len(patients))
+                else:
+                    count_text = lang.t("overview_count_all", n=shown)
+                try:
+                    count_text += "  \u00b7  " + self._sort_label()
+                except Exception:
+                    pass
+                self.count_label.configure(text=count_text)
+            if not patients:
+                self._show_list_empty(lang.t("empty_no_patients"))
+            elif not self._visible_patient_ids:
+                self._show_list_empty(lang.t("empty_no_match", q=search_raw.strip()))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _show_list_empty(self, text):
+        try:
+            ctk.CTkLabel(self.card_list, text=text, font=theme.FONT_SMALL, text_color=theme.MUTED,
+                         wraplength=280, justify="left").pack(anchor="w", padx=10, pady=12)
+        except Exception:
+            pass
 
     def _build_patient_card(self, p, first_line, selected):
         card = ctk.CTkFrame(self.card_list, fg_color=theme.SELECTED if selected else theme.PANEL,
@@ -578,6 +713,8 @@ class App(ctk.CTk):
             pass
         card.bind("<Return>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
         card.bind("<space>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
+        card.bind("<Down>", lambda e=None: (self._navigate_patient(1), "break")[1])
+        card.bind("<Up>", lambda e=None: (self._navigate_patient(-1), "break")[1])
         for w in (card, av, name_lbl, meta, preview):
             w.bind("<Button-1>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
             w.bind("<Button-3>", lambda e=None, pid=p['id']: self._card_context(e, pid))
@@ -612,7 +749,7 @@ class App(ctk.CTk):
                 deleted_row_id = db.delete_patient(pid)
                 if deleted_row_id is not None:
                     self._last_deleted_row_id = deleted_row_id
-                    self._last_deleted_name = (db.get_patient(patient_id=pid) or {}).get('name') if False else None
+                    self._last_deleted_name = None
                     try:
                         # fetch name from deleted row
                         for d in db.list_deleted():
@@ -625,17 +762,22 @@ class App(ctk.CTk):
                     self.selected_patient_id = None
                     self._show_placeholder()
                 self.refresh_patients_db()
+                self._show_undo_hint()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _show_undo_hint(self):
+        """Show a short, non-blocking 'Ctrl+Z to undo' banner after a delete."""
         name = getattr(self, "_last_deleted_name", None) or "patient"
         try:
-            self.statusBar if hasattr(self, "statusBar") else None
-        except Exception:
-            pass
-        try:
-            messagebox.showinfo(lang.t("app_name"), "Deleted '" + str(name) + "'. Press Ctrl+Z to undo.")
+            hint = ctk.CTkLabel(self.overview_content,
+                                text="Deleted \u201c" + str(name) + "\u201d \u00b7 Ctrl+Z to undo",
+                                fg_color=theme.DANGER, text_color="white", corner_radius=6,
+                                font=theme.FONT_SMALL, padx=10, pady=4)
+            hint.place(relx=0.5, rely=1.0, anchor="s", y=-46)
+            hint.lift()
+            self._undo_hint = hint
+            self.after(6000, lambda: hint.destroy() if hint.winfo_exists() else None)
         except Exception:
             pass
 
@@ -644,6 +786,14 @@ class App(ctk.CTk):
         if row_id is None:
             return
         try:
+            hint = getattr(self, "_undo_hint", None)
+            if hint is not None:
+                try:
+                    if hint.winfo_exists():
+                        hint.destroy()
+                except Exception:
+                    pass
+                self._undo_hint = None
             new_pid = db.restore_deleted(row_id)
             self._last_deleted_row_id = None
             self._last_deleted_name = None
@@ -661,10 +811,21 @@ class App(ctk.CTk):
             self.clipboard_clear()
             self.clipboard_append(p.get('name', ''))
 
+    def _save_open_files(self):
+        """Persist unsaved edits in open patient files before switching away or exiting."""
+        for pid, panel in list(getattr(self, "patient_panels", {}).items()):
+            try:
+                if panel.winfo_exists():
+                    panel.save_if_dirty()
+            except Exception:
+                pass
+
     def _open_patient_by_id(self, patient_id):
+        self._save_open_files()
         self.selected_patient_id = patient_id
         for w in self.file_host.winfo_children():
             w.destroy()
+        self.patient_panels = {}
         panel = PatientFilePanel(self.file_host, patient_id, on_close=self.refresh_patients_db)
         # slide-in animation
         panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=40)
@@ -702,23 +863,7 @@ class App(ctk.CTk):
             self.search_entry.delete(0, "end")
         except Exception:
             pass
-        self.refresh_patients_db()
-
-    def _on_language_change(self, choice):
-        code = "ro" if choice == "Română" else "en"
-        if code == lang.get_language():
-            return
-        lang.set_language(code)
-        save_language(code)
-        self._build_header_bar() if False else None
-        self.refresh_patients_db()
-        self.title(lang.t("app_name"))
-
-    def _clear_search(self):
-        try:
-            self.search_entry.delete(0, "end")
-        except Exception:
-            pass
+        self._search_text = ""
         self.refresh_patients_db()
 
     def _set_ui_scale(self, scale):
@@ -780,45 +925,83 @@ class App(ctk.CTk):
             pass
         self.refresh_patients_db()
 
+    SORT_LABELS = [("name", "Name"), ("updated", "Last modified"),
+                   ("localitate", "Locality"), ("created", "Created")]
+
+    def _sort_label(self):
+        label = dict(self.SORT_LABELS).get(self.sort_by, "Name")
+        return label + (" \u2191" if self.sort_dir == "asc" else " \u2193")
+
+    def _show_sort_menu(self):
+        menu = tk.Menu(self, tearoff=0)
+        for key, label in self.SORT_LABELS:
+            mark = " \u2713" if self.sort_by == key else ""
+            menu.add_command(label=label + mark, command=lambda k=key: self._sort_by(k))
+        menu.add_separator()
+        menu.add_command(label="Ascending" + (" \u2713" if self.sort_dir == "asc" else ""),
+                         command=lambda: self._set_sort_dir("asc"))
+        menu.add_command(label="Descending" + (" \u2713" if self.sort_dir == "desc" else ""),
+                         command=lambda: self._set_sort_dir("desc"))
+        try:
+            x = self.sort_btn.winfo_rootx()
+            y = self.sort_btn.winfo_rooty() + self.sort_btn.winfo_height()
+            menu.tk_popup(x, y)
+        except Exception:
+            pass
+        finally:
+            try:
+                menu.grab_release()
+            except Exception:
+                pass
+
+    def _set_sort_dir(self, direction):
+        if direction == self.sort_dir:
+            return
+        self.sort_dir = direction
+        try:
+            data = load_settings()
+            data["sort_by"] = self.sort_by
+            data["sort_dir"] = self.sort_dir
+            save_settings(data)
+        except Exception:
+            pass
+        self.refresh_patients_db()
+
     def _show_context_menu(self, event):
-        iid = self.patients_db_tree.identify_row(event.y)
-        if iid:
-            self.patients_db_tree.selection_set(iid)
+        """Right-click context menu for the patient card list."""
+        if event is None:
+            return
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="Open", command=self._open_patient_file)
-        menu.add_command(label="Edit patient", command=self._edit_selected_patient)
-        menu.add_command(label="Copy name", command=self._copy_selected_name)
+        menu.add_command(label="Edit patient", command=self._edit_current_patient)
+        menu.add_command(label="Copy name", command=self._copy_current_name)
         menu.add_separator()
         menu.add_command(label="Delete", command=self._delete_patient_db)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
-            menu.grab_release()
+            try:
+                menu.grab_release()
+            except Exception:
+                pass
 
-    def _edit_selected_patient(self):
-        sel = self.patients_db_tree.selection()
-        if not sel:
-            return
-        patient_id = int(sel[0])
-        page = self.patient_pages.get(patient_id)
-        if page is not None and page.winfo_exists():
-            # open edit dialog via the page
-            page._edit_patient_info()
-            return
-        # fallback: open file then edit
-        self._open_patient_file()
-        page = self.patient_pages.get(patient_id)
-        if page is not None and page.winfo_exists():
-            page._edit_patient_info()
+    def _edit_current_patient(self):
+        panel = getattr(self, "patient_panels", {}).get(self.selected_patient_id)
+        if panel is not None and panel.winfo_exists():
+            panel._edit_patient_info()
+        elif self.selected_patient_id is not None:
+            self._open_patient_by_id(self.selected_patient_id)
+            panel = self.patient_panels.get(self.selected_patient_id)
+            if panel is not None and panel.winfo_exists():
+                panel._edit_patient_info()
 
-    def _copy_selected_name(self):
-        sel = self.patients_db_tree.selection()
-        if not sel:
+    def _copy_current_name(self):
+        if self.selected_patient_id is None:
             return
-        values = self.patients_db_tree.item(sel[0])['values']
-        name = values[1] if len(values) > 1 else ""
-        self.clipboard_clear()
-        self.clipboard_append(name)
+        p = db.get_patient(patient_id=self.selected_patient_id)
+        if p:
+            self.clipboard_clear()
+            self.clipboard_append(p.get('name', ''))
 
     def _save_as(self):
         dlg = SaveAsDialog(self)
@@ -1047,9 +1230,6 @@ class App(ctk.CTk):
         except Exception:
             pass
 
-    def _keyboard_shortcuts(self, event):
-        pass
-
     def _add_patient_db(self):
         dlg = AddPatientDialog(self)
         self.wait_window(dlg)
@@ -1075,47 +1255,7 @@ class App(ctk.CTk):
                 self.known_patients = db.get_patient_names()
             except Exception as e:
                 messagebox.showerror(lang.t("app_name"), str(e))
-    
 
-    def _delete_patient_db(self):
-        sel = self.patients_db_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), lang.t("msg_select_patient"))
-            return
-        patient_id = int(sel[0])
-        values = self.patients_db_tree.item(sel[0])['values']
-        name = values[1]
-        if messagebox.askyesno(lang.t("app_name"), lang.t("confirm_delete_patient", name=name)):
-            try:
-                # Close any open patient file window for this patient
-                page = self.patient_pages.pop(patient_id, None)
-                if page is not None:
-                    try:
-                        if page.winfo_exists():
-                            page.destroy()
-                    except Exception:
-                        pass
-                deleted_row_id = db.delete_patient(patient_id)
-                if deleted_row_id is not None:
-                    self._last_deleted_row_id = deleted_row_id
-                    for d in db.list_deleted():
-                        if d.get('id') == deleted_row_id:
-                            self._last_deleted_name = d.get('name')
-                            break
-                self.refresh_patients_db()
-                self.known_patients = db.get_patient_names()
-            except Exception as e:
-                messagebox.showerror(lang.t("app_name"), str(e))
-    
-    def _export_access(self):
-        try:
-            from tkinter import filedialog
-            path = filedialog.asksaveasfilename(defaultextension=".mdb", filetypes=[("Access", "*.mdb;*.accdb")], title="Export Access")
-            if not path:
-                return
-            messagebox.showinfo(lang.t("app_name"), "Pentru export Access instaleaza pyodbc si MS Access Driver")
-        except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
 
 
 def main():

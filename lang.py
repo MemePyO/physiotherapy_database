@@ -140,6 +140,26 @@ STRINGS = {
         "en": "{n} patients | {k} known names",
         "ro": "{n} pacienți | {k} nume cunoscute",
     },
+    "overview_count": {
+        "en": "{n} of {total} patients",
+        "ro": "{n} din {total} pacienți",
+    },
+    "overview_count_all": {
+        "en": "{n} patients",
+        "ro": "{n} pacienți",
+    },
+    "empty_no_patients": {
+        "en": "No patients yet. Use “+ New Patient” to add the first one.",
+        "ro": "Niciun pacient încă. Folosiți „+ New Patient” pentru a adăuga primul.",
+    },
+    "empty_no_match": {
+        "en": "No patient matches “{q}”.",
+        "ro": "Niciun pacient nu corespunde „{q}”.",
+    },
+    "hint_list_keys": {
+        "en": "Tip: ↑/↓ moves between patients, Enter opens the file.",
+        "ro": "Sugestie: ↑/↓ schimbă pacientul, Enter deschide fișa.",
+    },
     "status_list_error": {
         "en": " | name list problem: {err}",
         "ro": " | problemă listă nume: {err}",

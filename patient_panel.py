@@ -403,6 +403,16 @@ class PatientFilePanel(ctk.CTkFrame):
     def is_dirty(self):
         return self._dirty
 
+    def save_if_dirty(self, silent=True):
+        """Save pending edits; returns True when something was written."""
+        if not getattr(self, "_dirty", False):
+            return False
+        try:
+            self._save_all(silent=silent)
+            return True
+        except Exception:
+            return False
+
     def _schedule_autosave(self):
         try:
             self.after(30000, self._auto_save)

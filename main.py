@@ -889,6 +889,9 @@ class App(ctk.CTk):
         card.pack(fill="x", pady=1)
         card.grid_columnconfigure(1, weight=1)
 
+        av = ctk.CTkLabel(card, text=_initials(p.get('name','')), width=theme.AVATAR_SIZE, height=theme.AVATAR_SIZE,
+                          corner_radius=theme.AVATAR_SIZE // 2, fg_color=theme.ACCENT, text_color="white",
+                          font=ctk.CTkFont(size=12, weight="bold"))
         av.grid(row=0, column=0, rowspan=3, padx=8, pady=1)
 
         name_lbl = ctk.CTkLabel(card, text=p.get('name',''), font=theme.FONT_BOLD, text_color=theme.TEXT, anchor="w")

@@ -45,6 +45,21 @@ def _get_conn() -> 'sqlite3.Connection':
     return conn
 
 
+from contextlib import contextmanager
+
+@contextmanager
+def _conn():
+    """Context manager that guarantees the connection is closed."""
+    conn = _get_conn()
+    try:
+        yield conn
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def _ensure_column(conn, table: str, column: str, decl: str) -> None:
     cur = conn.cursor()
     cur.execute(f"PRAGMA table_info({table})")

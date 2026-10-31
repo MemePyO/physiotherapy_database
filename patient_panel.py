@@ -200,8 +200,8 @@ class PatientFilePanel(ctk.CTkFrame):
                 if txt is not None:
                     val = txt.get("1.0", "end-1c").split(chr(10))[0].strip()
                     self.diag_header_label.configure(text="Diagnostic: " + (utils._strip_inline_formatting(val) if val else "NA"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("suppressed exception")
             return
         code = self.patient.get('patient_code', '') or 'NA'
         dob = self.patient.get('dob', '') or 'NA'
@@ -209,16 +209,15 @@ class PatientFilePanel(ctk.CTkFrame):
         loc = self.patient.get('localitate', '') or 'NA'
         try:
             self.info_label.configure(text=f"Code: {code}   |   DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         diag = self.patient.get('diagnostic', '') or ''
         first_line = diag.split(chr(10))[0].strip() if diag else ''
         main_diag = utils._strip_inline_formatting(first_line) if first_line else 'NA'
         try:
             self.diag_header_label.configure(text="Diagnostic: " + main_diag)
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
     # ---- tabs ----
     def _build_tabs(self):
         if theme.layout() == "stacked":
@@ -318,9 +317,8 @@ class PatientFilePanel(ctk.CTkFrame):
         self.sections_frame.grid_columnconfigure(0, weight=1)
         try:
             utils._patch_scrollable(self.sections_frame)
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
         sections = [("diagnostic", "Diagnostic", theme.HEAD_DIAG, "#ffffff"),
                     ("objective", "Obiectiv", theme.HEAD_OBJ, theme.TEXT),
                     ("evaluation", "Evaluare", theme.HEAD_EVAL, "#ffffff"),
@@ -394,12 +392,12 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._insert_line_prefix(txt, "\u2022 ")
             elif action == "number":
                 self._insert_line_prefix(txt, "1. ")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         try:
             utils._apply_inline_formatting(txt)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         self.mark_dirty()
 
     def _insert_line_prefix(self, txt, prefix):
@@ -423,9 +421,8 @@ class PatientFilePanel(ctk.CTkFrame):
             if content == "":
                 lines = 0
             self.count_labels[field].configure(text=f"{chars} ch \u00b7 {lines} ln")
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
     def _update_title_star(self):
         pass
 
@@ -519,8 +516,8 @@ class PatientFilePanel(ctk.CTkFrame):
                         app.selected_patient_id = pid
                     if hasattr(app, "_set_selected_card"):
                         app._set_selected_card(pid)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("suppressed exception")
             except Exception as e:
                 messagebox.showerror(lang.t("app_name"), str(e))
             return
@@ -544,8 +541,8 @@ class PatientFilePanel(ctk.CTkFrame):
             self._refresh_header_info()
             try:
                 self.modified_label.configure(text=lang.t("ui_last_modified") + " " + (self.patient.get('updated_at') or 'NA'))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("suppressed exception")
             if self.on_close_callback:
                 self.on_close_callback()
             if not silent:
@@ -592,8 +589,8 @@ class PatientFilePanel(ctk.CTkFrame):
             try:
                 if os.name == "nt":
                     os.startfile(path, "print")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("suppressed exception")
             messagebox.showinfo(lang.t("app_name"), "PDF saved:\n" + path)
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -611,8 +608,8 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._refresh_header_info()
                 try:
                     self.modified_label.configure(text="Last modified: " + (self.patient.get('updated_at') or 'NA'))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("suppressed exception")
                 if self.on_close_callback:
                     self.on_close_callback()
             except Exception as e:
@@ -631,8 +628,8 @@ class PatientFilePanel(ctk.CTkFrame):
         if job is not None:
             try:
                 self.after_cancel(job)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("suppressed exception")
         try:
             self._fmt_job = self.after(250, lambda t=txt: (utils._apply_inline_formatting(t), setattr(self, "_fmt_job", None)))
         except Exception:
@@ -658,19 +655,17 @@ class PatientFilePanel(ctk.CTkFrame):
             app = self.winfo_toplevel()
             if hasattr(app, "_show_placeholder"):
                 app._show_placeholder()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         try:
             self.destroy()
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
     def _schedule_autosave(self):
         try:
             self.after(30000, self._auto_save)
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
     def _auto_save(self):
         try:
             if getattr(self, "_is_new", False):
@@ -678,8 +673,8 @@ class PatientFilePanel(ctk.CTkFrame):
             if self._dirty and self.winfo_exists():
                 self.dirty_label.configure(text="Saving...")
                 self._save_all(silent=True)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         self._schedule_autosave()
 
     # ---- attachments ----
@@ -687,17 +682,16 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             for r in self.attach_tree.get_children():
                 self.attach_tree.delete(r)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         try:
             for a in db.list_attachments(self.patient_id):
                 size = a.get('size', 0)
                 size_str = (str(round(size / 1024, 1)) + " KB") if size >= 1024 else (str(size) + " B")
                 self.attach_tree.insert("", "end", iid=str(a['id']),
                                         values=(a.get('filename', ''), size_str, a.get('added_at', '')))
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
     def _attach_file(self):
         path = filedialog.askopenfilename(title="Attach file", filetypes=[("All files", "*.*")])
         if not path:
@@ -801,8 +795,8 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             for r in self.hist_tree.get_children():
                 self.hist_tree.delete(r)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("suppressed exception")
         try:
             for h in db.list_history(self.patient_id):
                 oldv = h.get('old_value', '') or ''
@@ -812,9 +806,8 @@ class PatientFilePanel(ctk.CTkFrame):
                 if len(newv) > 40:
                     newv = newv[:37] + "..."
                 self.hist_tree.insert("", "end", values=(h.get('changed_at', ''), h.get('field', ''), oldv, newv))
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug("suppressed exception")
     def _clear_history(self):
         if not messagebox.askyesno(lang.t("app_name"), "Delete all history for this patient?"):
             return

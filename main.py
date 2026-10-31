@@ -11,6 +11,7 @@ import lang
 import db
 import theme
 import log
+from version import __version__
 logger = log.get_logger(__name__)
 from patient_panel import PatientFilePanel
 from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf, _strip_inline_formatting
@@ -264,7 +265,7 @@ class App(ctk.CTk):
         menubar.add_cascade(label="View", menu=view_menu)
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
-        help_menu.add_command(label="About", command=lambda: messagebox.showinfo(lang.t("app_name"), "Patient Database\nSQLite-backed patient records."))
+        help_menu.add_command(label="About", command=lambda: messagebox.showinfo(lang.t("app_name"), "Patient Database\nVersion " + __version__ + "\nSQLite-backed patient records."))
         menubar.add_cascade(label="Help", menu=help_menu)
         self.config(menu=menubar)
 

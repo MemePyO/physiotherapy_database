@@ -284,6 +284,7 @@ class PatientFilePanel(ctk.CTkFrame):
         ab.grid(row=1, column=0, sticky="ew", pady=(4, 4))
         ctk.CTkButton(ab, text="Attach file", width=100, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       command=self._attach_file).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text="Preview", width=80, command=self._preview_attachment).pack(side="left", padx=2)
         ctk.CTkButton(ab, text="Open", width=80, command=self._open_attachment).pack(side="left", padx=2)
         ctk.CTkButton(ab, text="Delete", width=80, fg_color="#c0392b", command=self._delete_attachment).pack(side="left", padx=2)
         ctk.CTkButton(ab, text="Refresh", width=80, command=self._load_attachments).pack(side="left", padx=2)
@@ -726,6 +727,59 @@ class PatientFilePanel(ctk.CTkFrame):
                 subprocess.Popen(["xdg-open", path])
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _preview_attachment(self):
+        sel = self.attach_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Select an attachment.")
+            return
+        att = db.get_attachment(int(sel[0]))
+        if not att:
+            return
+        path = att.get('stored_path', '')
+        if not path or not os.path.exists(path):
+            messagebox.showerror(lang.t("app_name"), "File not found.")
+            return
+        ext = os.path.splitext(path)[1].lower()
+        image_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
+        try:
+            if ext in image_exts:
+                from PIL import Image, ImageTk
+                img = Image.open(path)
+                # scale to fit
+                max_w, max_h = 900, 700
+                img.thumbnail((max_w, max_h))
+                self._show_preview_image(img, title=os.path.basename(path))
+            elif ext == ".pdf":
+                import fitz
+                doc = fitz.open(path)
+                if doc.page_count == 0:
+                    messagebox.showinfo(lang.t("app_name"), "Empty PDF.")
+                    return
+                page = doc[0]
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                from PIL import Image
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                img.thumbnail((900, 700))
+                self._show_preview_image(img, title=os.path.basename(path) + " (page 1/%d)" % doc.page_count)
+                doc.close()
+            else:
+                # fallback to OS viewer
+                self._open_attachment()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _show_preview_image(self, img, title="Preview"):
+        from PIL import ImageTk
+        win = ctk.CTkToplevel(self)
+        win.title(title)
+        win.geometry("920x740")
+        lbl = ctk.CTkLabel(win, text="")
+        lbl.pack(expand=True, fill="both", padx=10, pady=10)
+        tk_img = ImageTk.PhotoImage(img)
+        lbl.configure(image=tk_img)
+        lbl.image = tk_img  # keep ref
+        ctk.CTkButton(win, text="Close", command=win.destroy).pack(pady=8)
 
     def _delete_attachment(self):
         sel = self.attach_tree.selection()

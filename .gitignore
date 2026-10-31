@@ -4,3 +4,6 @@ settings.json
 app.log
 attachments/
 tests/__pycache__/
+build/
+dist/
+*.spec

@@ -11,6 +11,8 @@ def _fresh_app(monkeypatch, tmp_path):
     db.init_db()
     import main
     main.theme.set_theme("classic")
+    main.theme.set_appearance("Light")
+    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0})
     app = main.App()
     app.update()
     return app

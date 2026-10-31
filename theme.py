@@ -153,17 +153,87 @@ PALETTES = {
         "RIGHT_BG": "#ffffff",
         "ICON_STYLE": "mdl2" if _MDL2 else "emoji",
     },
+    "medidash-dark": {
+        "BG": "#0f172a",
+        "PANEL": "#1f2937",
+        "BORDER": "#374151",
+        "TEXT": "#f9fafb",
+        "MUTED": "#9ca3af",
+        "ACCENT": "#2f6fed",
+        "ACCENT_DARK": "#1d4ed8",
+        "ACCENT_LIGHT": "#1e3a8a",
+        "SELECTED": "#1e3a5f",
+        "DANGER": "#ef4444",
+        "SEC_DIAG": "#2563eb",
+        "SEC_OBJ": "#3b82f6",
+        "SEC_EVAL": "#6b7280",
+        "SEC_OBS": "#4b5563",
+        "SIDEBAR_BG": "#111827",
+        "SIDEBAR_ACTIVE": "#2f6fed",
+        "FONT_TITLE": _MEDIDASH_FONT_TITLE,
+        "FONT_SUB": _MEDIDASH_FONT_SUB,
+        "FONT_BODY": _MEDIDASH_FONT_BODY,
+        "FONT_BOLD": _MEDIDASH_FONT_BOLD,
+        "FONT_SMALL": _MEDIDASH_FONT_SMALL,
+        "FONT_SECTION": _MEDIDASH_FONT_SECTION,
+        "ICON_FONT": ((_MDL2 or _EMOJI), 18),
+        "ICON_FONT_SMALL": ((_MDL2 or _EMOJI), 14),
+        "SIDEBAR_W": 64,
+        "AVATAR_SIZE": 44,
+        "CARD_RADIUS": 10,
+        "PANEL_RADIUS": 10,
+        "PADDING": 24,
+        "RAIL_W": 64,
+        "TOPBAR_H": 56,
+        "LIST_W": 436,
+        "PANE_PAD": 26,
+        "BTN_RADIUS": 8,
+        "TOPBAR_BG": "#1f2937",
+        "RAIL_BG": "#111827",
+        "INPUT_BG": "#374151",
+        "HEAD_DIAG": "#2563eb",
+        "HEAD_OBJ": "#3b82f6",
+        "HEAD_EVAL": "#6b7280",
+        "HEAD_OBS": "#4b5563",
+        "HEAD_TEXT_DARK": False,
+        "RIGHT_BG": "#1f2937",
+        "ICON_STYLE": "mdl2" if _MDL2 else "emoji",
+    },
 }
 
+_base = "classic"
+_appearance = "Light"
 _active = "classic"
 
 
+def _resolve_name():
+    if _base == "medidash" and _appearance == "Dark" and "medidash-dark" in PALETTES:
+        return "medidash-dark"
+    return _base
+
+
 def set_theme(name):
-    global _active
-    if name not in PALETTES:
+    global _base, _active
+    if name not in ("classic", "medidash"):
         name = "classic"
-    _active = name
-    _apply(PALETTES[name])
+    _base = name
+    _active = _resolve_name()
+    _apply(PALETTES[_active])
+
+
+def set_appearance(mode):
+    global _appearance, _active
+    _appearance = "Dark" if str(mode).lower().startswith("d") else "Light"
+    _active = _resolve_name()
+    _apply(PALETTES[_active])
+
+
+def base():
+    return _base
+
+
+def appearance():
+    return _appearance
 
 
 def active():
@@ -171,14 +241,16 @@ def active():
 
 
 def layout():
-    return "stacked" if _active == "medidash" else "tabs"
+    return "stacked" if _active.startswith("medidash") else "tabs"
 
 
 def _apply(palette):
     globals().update(palette)
 
 
-# initialise with the classic palette
+# initialise with the classic palette (light)
 _apply(PALETTES["classic"])
 _active = "classic"
+_base = "classic"
+_appearance = "Light"
 

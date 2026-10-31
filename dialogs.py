@@ -353,8 +353,8 @@ class SettingsDialog(ctk.CTkToplevel):
             row=7, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         theme_frame = ctk.CTkFrame(self, fg_color="transparent")
         theme_frame.grid(row=8, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
-        ctk.CTkButton(theme_frame, text="Light", width=90, command=lambda: (ctk.set_appearance_mode("Light"), master._toggle_theme() if False else None)).pack(side="left", padx=2)
-        ctk.CTkButton(theme_frame, text="Dark", width=90, command=lambda: ctk.set_appearance_mode("Dark")).pack(side="left", padx=2)
+        ctk.CTkButton(theme_frame, text="Light", width=90, command=lambda: master._apply_appearance("Light")).pack(side="left", padx=2)
+        ctk.CTkButton(theme_frame, text="Dark", width=90, command=lambda: master._apply_appearance("Dark")).pack(side="left", padx=2)
 
         # Backup / Restore / Import
         ctk.CTkLabel(self, text="Data:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(

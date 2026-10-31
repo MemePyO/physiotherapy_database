@@ -13,6 +13,8 @@ def _fresh_app(monkeypatch, tmp_path, theme="classic"):
     pid = db.add_patient("Ana", "Cluj", sex="F", dob="01.02.1990")
     db.update_patient(pid, diagnostic="diag", objective="obj", evaluation="eva", observation="obs")
     main.theme.set_theme(theme)
+    main.theme.set_appearance("Light")
+    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": theme, "appearance": "Light", "ui_scale": 1.0})
     app = main.App()
     app.update()
     return app, pid

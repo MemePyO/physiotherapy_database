@@ -11,7 +11,9 @@ def _fresh_app(monkeypatch, tmp_path):
     monkeypatch.setattr(db, "db_path", lambda: dbfile)
     db.init_db()
     db.add_patient("Ana", "Cluj")
+    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0})
     main.theme.set_theme("classic")
+    main.theme.set_appearance("Light")
     app = main.App()
     app.update()
     return app

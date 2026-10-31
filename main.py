@@ -120,13 +120,14 @@ class App(ctk.CTk):
             else:
                 self.geometry("1200x800")
             mode = settings.get("appearance", "Light")
-            ctk.set_appearance_mode(mode)
             scale = settings.get("ui_scale", 1.0)
             try:
                 ctk.set_widget_scaling(scale)
                 ctk.set_window_scaling(scale)
             except Exception:
                 pass
+            theme._appearance = mode
+            ctk.set_appearance_mode(mode)
             theme.set_theme(settings.get("ui_theme", "classic"))
         except Exception:
             self.geometry("1200x800")
@@ -296,7 +297,7 @@ class App(ctk.CTk):
         self.title(lang.t("app_name"))
 
     def _build_header_bar(self):
-        if theme.active() == "medidash":
+        if theme.active().startswith("medidash"):
             self._build_header_bar_medidash()
             return
         bar = ctk.CTkFrame(self, fg_color="transparent")
@@ -359,7 +360,7 @@ class App(ctk.CTk):
         self._account_btn = account
 
     def _build_sidebar(self):
-        if theme.active() == "medidash":
+        if theme.active().startswith("medidash"):
             self._build_sidebar_medidash()
             return
         side = ctk.CTkFrame(self, width=theme.SIDEBAR_W, fg_color=theme.SIDEBAR_BG, corner_radius=0)
@@ -417,7 +418,7 @@ class App(ctk.CTk):
         self._set_nav_active("patients")
 
     def _set_nav_active(self, key):
-        if theme.active() == "medidash":
+        if theme.active().startswith("medidash"):
             for k, b in getattr(self, "_nav_buttons", {}).items():
                 if k == key:
                     b.configure(fg_color=theme.ACCENT, text_color="#ffffff")
@@ -461,7 +462,7 @@ class App(ctk.CTk):
         self.wait_window(dlg)
 
     def _build_content(self):
-        if theme.active() == "medidash":
+        if theme.active().startswith("medidash"):
             self._build_content_medidash()
             return
         content = ctk.CTkFrame(self, fg_color="transparent")
@@ -512,7 +513,7 @@ class App(ctk.CTk):
 
 
     def _build_overview(self, parent):
-        if theme.active() == "medidash":
+        if theme.active().startswith("medidash"):
             self._build_overview_medidash(parent)
             return
         parent.grid_columnconfigure(0, weight=1)
@@ -587,7 +588,7 @@ class App(ctk.CTk):
 
     def _view_patients(self):
         f = self.overview_content
-        medidash = (theme.active() == "medidash")
+        medidash = (theme.active().startswith("medidash"))
         if medidash:
             f.grid_rowconfigure(1, weight=1)
             top = ctk.CTkFrame(f, fg_color="transparent")
@@ -753,8 +754,8 @@ class App(ctk.CTk):
         ctk.CTkLabel(scroll, text="Theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
         tf = ctk.CTkFrame(scroll, fg_color="transparent")
         tf.pack(anchor="w", pady=(0,10))
-        ctk.CTkButton(tf, text="Light", width=90, command=lambda: ctk.set_appearance_mode("Light")).pack(side="left", padx=2)
-        ctk.CTkButton(tf, text="Dark", width=90, command=lambda: ctk.set_appearance_mode("Dark")).pack(side="left", padx=2)
+        ctk.CTkButton(tf, text="Light", width=90, command=lambda: self._apply_appearance("Light")).pack(side="left", padx=2)
+        ctk.CTkButton(tf, text="Dark", width=90, command=lambda: self._apply_appearance("Dark")).pack(side="left", padx=2)
         ctk.CTkLabel(scroll, text="Interface theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
         itf = ctk.CTkFrame(scroll, fg_color="transparent")
         itf.pack(anchor="w", pady=(0,10))
@@ -1159,30 +1160,29 @@ class App(ctk.CTk):
         except Exception:
             pass
 
-    def _apply_ui_theme(self, name):
-        if name not in ("classic", "medidash"):
-            name = "classic"
-        # persist unsaved work first
-        self._save_open_files()
+    def _toggle_theme(self):
+        cur = ctk.get_appearance_mode()
+        new_mode = "Dark" if cur == "Light" else "Light"
+        ctk.set_appearance_mode(new_mode)
+        try:
+            theme.set_appearance(new_mode)
+        except Exception:
+            pass
+        if theme.base() == "medidash":
+            self._rebuild_ui()
         try:
             data = load_settings()
-            data["ui_theme"] = name
+            data["appearance"] = new_mode
             save_settings(data)
         except Exception:
             pass
-        # remember state
+
+    def _rebuild_ui(self):
+        self._save_open_files()
         view = getattr(self, "_current_view", "patients")
         pid = self.selected_patient_id
         search_text = getattr(self, "_search_text", "")
         search_scope = getattr(self, "_search_scope_text", "everything")
-        # switch palette
-        theme.set_theme(name)
-        if name == "medidash":
-            try:
-                ctk.set_appearance_mode("Light")
-            except Exception:
-                pass
-        # rebuild shell
         for w in (getattr(self, "_header", None), getattr(self, "_sidebar", None), getattr(self, "_content", None)):
             try:
                 if w is not None and w.winfo_exists():
@@ -1199,14 +1199,10 @@ class App(ctk.CTk):
         self._build_header_bar()
         self._build_sidebar()
         self._build_content()
-        # restore search state
         self._search_text = search_text
         self._search_scope_text = search_scope
-        if name != "medidash":
-            pass
-        # restore view + patient
         try:
-            self._show_view(view if view != "patients" else "patients")
+            self._show_view(view if view else "patients")
         except Exception:
             self._show_view("patients")
         if pid is not None:
@@ -1230,7 +1226,7 @@ class App(ctk.CTk):
         menu.add_separator()
         menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
         menu.add_command(label="About", command=lambda: messagebox.showinfo(lang.t("app_name"),
-                                                                         "Patient Database\nSQLite-backed patient records."))
+                                                                         "Patient Database\nVersion " + __version__ + "\nSQLite-backed patient records."))
         try:
             btn = getattr(self, "_account_btn", None)
             x = btn.winfo_rootx() if (btn is not None and btn.winfo_exists()) else self.winfo_rootx()
@@ -1242,18 +1238,56 @@ class App(ctk.CTk):
             except Exception:
                 pass
 
-    def _toggle_theme(self):
-        cur = ctk.get_appearance_mode()
-        new_mode = "Dark" if cur == "Light" else "Light"
-        ctk.set_appearance_mode(new_mode)
+    def _apply_appearance(self, mode):
+        mode = "Dark" if str(mode).lower().startswith("d") else "Light"
+        ctk.set_appearance_mode(mode)
+        try:
+            theme.set_appearance(mode)
+        except Exception:
+            pass
+        if theme.base() == "medidash":
+            self._rebuild_ui()
         try:
             data = load_settings()
-            data["appearance"] = new_mode
+            data["appearance"] = mode
             save_settings(data)
         except Exception:
             pass
-        if hasattr(self, "theme_btn"):
-            self.theme_btn.configure(text=new_mode)
+    def _apply_ui_theme(self, name):
+        if name not in ("classic", "medidash"):
+            name = "classic"
+        self._save_open_files()
+        try:
+            data = load_settings()
+            data["ui_theme"] = name
+            save_settings(data)
+        except Exception:
+            pass
+        theme.set_theme(name)
+        self._rebuild_ui()
+
+    def _show_account_menu(self):
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label="Language: " + lang.get_language().upper())
+        menu.add_command(label="Toggle light/dark", command=self._toggle_theme)
+        menu.add_separator()
+        menu.add_command(label="Theme: Classic", command=lambda: self._apply_ui_theme("classic"))
+        menu.add_command(label="Theme: MediDashboard", command=lambda: self._apply_ui_theme("medidash"))
+        menu.add_separator()
+        menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
+        menu.add_command(label="About", command=lambda: messagebox.showinfo(lang.t("app_name"),
+                                                                         "Patient Database\nVersion " + __version__ + "\nSQLite-backed patient records."))
+        try:
+            btn = getattr(self, "_account_btn", None)
+            x = btn.winfo_rootx() if (btn is not None and btn.winfo_exists()) else self.winfo_rootx()
+            y = (btn.winfo_rooty() + btn.winfo_height()) if (btn is not None and btn.winfo_exists()) else self.winfo_rooty()
+            menu.tk_popup(x, y)
+        finally:
+            try:
+                menu.grab_release()
+            except Exception:
+                pass
+
 
     def _export_csv(self):
         try:

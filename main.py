@@ -886,23 +886,20 @@ class App(ctk.CTk):
     def _build_patient_card(self, p, first_line, selected):
         card = ctk.CTkFrame(self.card_list, fg_color=theme.SELECTED if selected else theme.PANEL,
                             corner_radius=theme.CARD_RADIUS, border_width=1, border_color=theme.BORDER)
-        card.pack(fill="x", pady=2)
+        card.pack(fill="x", pady=1)
         card.grid_columnconfigure(1, weight=1)
 
-        av = ctk.CTkLabel(card, text=_initials(p.get('name','')), width=theme.AVATAR_SIZE, height=theme.AVATAR_SIZE,
-                          corner_radius=theme.AVATAR_SIZE // 2, fg_color=theme.ACCENT, text_color="white",
-                          font=ctk.CTkFont(size=12, weight="bold"))
-        av.grid(row=0, column=0, rowspan=3, padx=10, pady=2)
+        av.grid(row=0, column=0, rowspan=3, padx=8, pady=1)
 
         name_lbl = ctk.CTkLabel(card, text=p.get('name',''), font=theme.FONT_BOLD, text_color=theme.TEXT, anchor="w")
-        name_lbl.grid(row=0, column=1, sticky="w", pady=(4, 0))
+        name_lbl.grid(row=0, column=1, sticky="w", pady=(2, 0))
 
         meta = ctk.CTkLabel(card, text=p.get('localitate','') or "\u2014", font=theme.FONT_SMALL, text_color=theme.CARD_META, anchor="w")
         meta.grid(row=1, column=1, sticky="w")
 
         preview = ctk.CTkLabel(card, text=(first_line[:50] + ("..." if len(first_line) > 50 else "")) or "No diagnostic",
                                font=theme.FONT_SMALL, text_color=theme.CARD_META, anchor="w")
-        preview.grid(row=2, column=1, sticky="w", pady=(0, 4))
+        preview.grid(row=2, column=1, sticky="w", pady=(0, 2))
 
         if selected:
             open_btn = ctk.CTkButton(card, text=lang.t("ui_open_file") + " \u203A", width=80, height=24, corner_radius=8,
@@ -976,6 +973,18 @@ class App(ctk.CTk):
                 self._show_undo_hint()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _show_status_banner(self, text):
+        """Show a short status message at the bottom of the overview panel."""
+        try:
+            banner = ctk.CTkLabel(self.overview_content, text=text, fg_color=theme.ACCENT,
+                                  text_color="white", corner_radius=6, font=theme.FONT_SMALL,
+                                  padx=10, pady=4)
+            banner.place(relx=0.5, rely=1.0, anchor="s", y=-8)
+            banner.lift()
+            self.after(4000, lambda b=banner: (b.destroy() if utils._exists(b) else None))
+        except Exception:
+            pass
 
     def _show_undo_hint(self):
         """Show a short, non-blocking 'Ctrl+Z to undo' banner after a delete."""
@@ -1303,7 +1312,7 @@ class App(ctk.CTk):
                 for i, p in enumerate(patients, 1):
                     w.writerow([i, p.get('name',''), p.get('localitate',''), p.get('diagnostic',''),
                                 p.get('objective',''), p.get('evaluation',''), p.get('observation','')])
-            messagebox.showinfo(lang.t("app_name"), lang.t("status_exported_csv"))
+            self._show_status_banner(lang.t("status_exported_csv"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
@@ -1461,7 +1470,7 @@ class App(ctk.CTk):
                 ws.column_dimensions[chr(64 + idx)].width = 18
             ws.freeze_panes = "A2"
             wb.save(path)
-            messagebox.showinfo(lang.t("app_name"), "Export Excel reusit")
+            self._show_status_banner(lang.t("ui_export_excel_ok"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
@@ -1487,7 +1496,7 @@ class App(ctk.CTk):
             pdf = _make_simple_pdf(text)
             with open(path, "wb") as fh:
                 fh.write(pdf)
-            messagebox.showinfo(lang.t("app_name"), "Export PDF reusit")
+            self._show_status_banner(lang.t("ui_export_ok"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 

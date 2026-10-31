@@ -10,6 +10,8 @@ import lang
 import theme
 import utils
 import log
+
+LANG_LABELS = {"en": "English", "ro": "Română"}
 logger = log.get_logger(__name__)
 
 

@@ -103,6 +103,14 @@ def _patch_scrollable(sf):
         pass
 
 
+def _exists(w):
+    """Safe winfo_exists that never raises on destroyed widgets."""
+    try:
+        return bool(w is not None and w.winfo_exists())
+    except Exception:
+        return False
+
+
 def _norm(s):
     if s is None:
         return ""

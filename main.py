@@ -988,7 +988,7 @@ class App(ctk.CTk):
             hint.place(relx=0.5, rely=1.0, anchor="s", y=-46)
             hint.lift()
             self._undo_hint = hint
-            self.after(6000, lambda: hint.destroy() if hint.winfo_exists() else None)
+            self.after(6000, lambda: hint.destroy() if utils._exists(hint) else None)
         except Exception:
             pass
 

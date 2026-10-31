@@ -498,11 +498,11 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._dirty = False
                 if not silent:
                     self.dirty_label.configure(text="Saved")
-                    self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+                    self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
                     messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
                 else:
                     self.dirty_label.configure(text="Saved")
-                    self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+                    self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
                 self._refresh_header_info()
                 if theme.layout() != "stacked":
                     self._load_attachments()
@@ -537,10 +537,10 @@ class PatientFilePanel(ctk.CTkFrame):
             self._dirty = False
             if silent:
                 self.dirty_label.configure(text="Auto-saved")
-                self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+                self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
             else:
                 self.dirty_label.configure(text="Saved")
-                self.after(2000, lambda: self.dirty_label.configure(text="") if self.winfo_exists() else None)
+                self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
             self._refresh_header_info()
             try:
                 self.modified_label.configure(text="Last modified: " + (self.patient.get('updated_at') or ''))

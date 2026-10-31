@@ -179,7 +179,10 @@ class App(ctk.CTk):
         # Keyboard shortcuts
         self.bind("<Control-n>", lambda e: self._open_patient_by_id(None))
         self.bind("<Control-f>", lambda e: (self._focus_search(), "break")[1])
-        self.bind("<Control-z>", self._undo_last_delete)
+        self.bind("<Control-z>", self._handle_ctrl_z)
+        self.bind("<Control-y>", self._handle_ctrl_y)
+        self.bind("<Control-Z>", self._handle_ctrl_z)
+        self.bind("<Control-Y>", self._handle_ctrl_y)
         self.bind("<Control-s>", self._save_current_panel)
         self.bind("<Control-p>", self._print_current_panel)
         self.bind("<Escape>", self._handle_escape)
@@ -987,6 +990,27 @@ class App(ctk.CTk):
             self.after(6000, lambda: hint.destroy() if hint.winfo_exists() else None)
         except Exception:
             pass
+
+    def _handle_ctrl_z(self, event=None):
+        w = self.focus_get()
+        if isinstance(w, tk.Text):
+            try:
+                w.event_generate("<<Undo>>")
+            except Exception:
+                pass
+            return "break"
+        self._undo_last_delete(event)
+        return "break"
+
+    def _handle_ctrl_y(self, event=None):
+        w = self.focus_get()
+        if isinstance(w, tk.Text):
+            try:
+                w.event_generate("<<Redo>>")
+            except Exception:
+                pass
+            return "break"
+        return "break"
 
     def _undo_last_delete(self, event=None):
         row_id = getattr(self, "_last_deleted_row_id", None)

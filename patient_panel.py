@@ -256,7 +256,8 @@ class PatientFilePanel(ctk.CTkFrame):
             self.count_labels[field] = cnt
 
             txt = ctk.CTkTextbox(tab, corner_radius=0, border_width=1, border_color=theme.BORDER,
-                                 fg_color=theme.PANEL, text_color=theme.TEXT, font=theme.FONT_BODY)
+                                 fg_color=theme.PANEL, text_color=theme.TEXT, font=theme.FONT_BODY,
+                                 undo=True, autoseparators=True, maxundo=200)
             txt.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
             val = self.patient.get(field, '') or ''
             txt.insert("1.0", val)
@@ -358,7 +359,8 @@ class PatientFilePanel(ctk.CTkFrame):
             self.count_labels[field] = cnt
 
             txt = ctk.CTkTextbox(card, corner_radius=0, border_width=0, fg_color=theme.PANEL,
-                                 text_color=theme.TEXT, font=theme.FONT_BODY, height=110)
+                                 text_color=theme.TEXT, font=theme.FONT_BODY, height=110,
+                                 undo=True, autoseparators=True, maxundo=200)
             txt.grid(row=1, column=0, sticky="nsew", padx=12, pady=8)
             val = self.patient.get(field, '') or ''
             txt.insert("1.0", val)

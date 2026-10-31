@@ -1654,6 +1654,10 @@ class App(ctk.CTk):
 
 
 def main():
+    try:
+        ctk.deactivate_automatic_dpi_awareness()
+    except Exception:
+        pass
     app = App()
     app.mainloop()
 

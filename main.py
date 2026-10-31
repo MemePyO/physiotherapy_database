@@ -892,17 +892,17 @@ class App(ctk.CTk):
         av = ctk.CTkLabel(card, text=_initials(p.get('name','')), width=theme.AVATAR_SIZE, height=theme.AVATAR_SIZE,
                           corner_radius=theme.AVATAR_SIZE // 2, fg_color=theme.ACCENT, text_color="white",
                           font=ctk.CTkFont(size=12, weight="bold"))
-        av.grid(row=0, column=0, rowspan=2, padx=10, pady=4)
+        av.grid(row=0, column=0, rowspan=3, padx=10, pady=2)
 
         name_lbl = ctk.CTkLabel(card, text=p.get('name',''), font=theme.FONT_BOLD, text_color=theme.TEXT, anchor="w")
-        name_lbl.grid(row=0, column=1, sticky="w", pady=(8, 0))
+        name_lbl.grid(row=0, column=1, sticky="w", pady=(4, 0))
 
-        meta = ctk.CTkLabel(card, text=p.get('localitate','') or "\u2014", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w")
+        meta = ctk.CTkLabel(card, text=p.get('localitate','') or "\u2014", font=theme.FONT_SMALL, text_color=theme.CARD_META, anchor="w")
         meta.grid(row=1, column=1, sticky="w")
 
         preview = ctk.CTkLabel(card, text=(first_line[:50] + ("..." if len(first_line) > 50 else "")) or "No diagnostic",
-                               font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w")
-        preview.grid(row=2, column=1, sticky="w", pady=(2, 8))
+                               font=theme.FONT_SMALL, text_color=theme.CARD_META, anchor="w")
+        preview.grid(row=2, column=1, sticky="w", pady=(0, 4))
 
         if selected:
             open_btn = ctk.CTkButton(card, text=lang.t("ui_open_file") + " \u203A", width=80, height=24, corner_radius=8,

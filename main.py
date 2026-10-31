@@ -519,7 +519,7 @@ class App(ctk.CTk):
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(1, weight=1)
 
-        self.overview_title = ctk.CTkLabel(parent, text="Patient Overview", font=theme.FONT_TITLE, text_color=theme.TEXT)
+        self.overview_title = ctk.CTkLabel(parent, text=lang.t("ui_patient_overview"), font=theme.FONT_TITLE, text_color=theme.TEXT)
         self.overview_title.grid(row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 2))
 
         self.overview_content = ctk.CTkFrame(parent, fg_color="transparent")
@@ -534,7 +534,7 @@ class App(ctk.CTk):
         parent.grid_rowconfigure(1, weight=1)
         parent.configure(fg_color=theme.PANEL)
 
-        self.overview_title = ctk.CTkLabel(parent, text="Patient Overview", font=theme.FONT_TITLE, text_color=theme.TEXT)
+        self.overview_title = ctk.CTkLabel(parent, text=lang.t("ui_patient_overview"), font=theme.FONT_TITLE, text_color=theme.TEXT)
         self.overview_title.grid(row=0, column=0, sticky="w", padx=theme.PANE_PAD, pady=(theme.PANE_PAD, 2))
 
         self.overview_content = ctk.CTkFrame(parent, fg_color="transparent")
@@ -609,7 +609,7 @@ class App(ctk.CTk):
             self.card_list.grid_columnconfigure(0, weight=1)
             utils._patch_scrollable(self.card_list)
 
-            ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+            ctk.CTkButton(f, text=lang.t("ui_new_patient"), height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                           font=theme.FONT_BOLD, command=lambda: self._open_patient_by_id(None)).grid(
                 row=2, column=0, sticky="ew", pady=(2, 0))
             self.refresh_patients_db()
@@ -627,7 +627,7 @@ class App(ctk.CTk):
         self.search_scope_menu.set("Name" if saved_scope == "name" else "Everything")
         self.search_scope_menu.pack(side="left", padx=(0, 6))
         self.search_scope = saved_scope
-        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Search patients...")
+        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text=lang.t("ui_search_patients"))
         self.search_entry.pack(side="left", fill="x", expand=True)
         if getattr(self, "_search_text", ""):
             self.search_entry.insert(0, self._search_text)
@@ -649,7 +649,7 @@ class App(ctk.CTk):
         self.card_list.grid_columnconfigure(0, weight=1)
         utils._patch_scrollable(self.card_list)
 
-        ctk.CTkButton(f, text="+ New Patient", height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+        ctk.CTkButton(f, text=lang.t("ui_new_patient"), height=32, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       font=theme.FONT_BOLD, command=lambda: self._open_patient_by_id(None)).grid(
             row=3, column=0, sticky="ew", pady=(2, 0))
         self.refresh_patients_db()
@@ -684,9 +684,9 @@ class App(ctk.CTk):
         f.grid_rowconfigure(0, weight=1)
         cols = ("name", "localitate", "deleted_at")
         tree = ttk.Treeview(f, columns=cols, show="headings", selectmode="browse")
-        tree.heading("name", text="Name")
-        tree.heading("localitate", text="Locality")
-        tree.heading("deleted_at", text="Deleted at")
+        tree.heading("name", text=lang.t("ui_name"))
+        tree.heading("localitate", text=lang.t("ui_locality"))
+        tree.heading("deleted_at", text=lang.t("ui_deleted_at"))
         tree.column("name", width=120)
         tree.column("localitate", width=90)
         tree.column("deleted_at", width=130)
@@ -728,10 +728,10 @@ class App(ctk.CTk):
             conn.commit(); conn.close()
             for iid in list(tree.get_children()):
                 tree.delete(iid)
-        ctk.CTkButton(btns, text="Restore", width=80, command=_restore).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Restore all", width=90, command=_restore_all).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Purge", width=70, fg_color="#c0392b", command=_purge).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Empty", width=70, fg_color="#c0392b", command=_empty).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("ui_restore"), width=80, command=_restore).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("ui_restore_all"), width=90, command=_restore_all).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("ui_purge"), width=70, fg_color="#c0392b", command=_purge).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("ui_empty_trash"), width=70, fg_color="#c0392b", command=_empty).pack(side="left", padx=2)
 
     def _view_settings(self):
         f = self.overview_content
@@ -740,34 +740,34 @@ class App(ctk.CTk):
         scroll.grid(row=0, column=0, sticky="nsew")
         scroll.grid_columnconfigure(0, weight=1)
         utils._patch_scrollable(scroll)
-        ctk.CTkLabel(scroll, text="Language:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
+        ctk.CTkLabel(scroll, text=lang.t("ui_language"), font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
         lm = ctk.CTkOptionMenu(scroll, values=list(LANG_LABELS.values()), width=200, command=self._on_language_change)
         lm.set(LANG_LABELS.get(lang.get_language(), "English"))
         lm.pack(anchor="w", pady=(0,10))
-        ctk.CTkLabel(scroll, text="UI scale:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
+        ctk.CTkLabel(scroll, text=lang.t("ui_ui_scale"), font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
         sf = ctk.CTkFrame(scroll, fg_color="transparent")
         sf.pack(anchor="w", pady=(0,10))
         for pct in (100, 125, 150):
             ctk.CTkButton(sf, text=str(pct) + "%", width=70,
                           command=lambda p=pct: self._set_ui_scale(p / 100.0)).pack(side="left", padx=2)
 
-        ctk.CTkLabel(scroll, text="Theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
+        ctk.CTkLabel(scroll, text=lang.t("ui_theme_label"), font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(0,2))
         tf = ctk.CTkFrame(scroll, fg_color="transparent")
         tf.pack(anchor="w", pady=(0,10))
         ctk.CTkButton(tf, text="Light", width=90, command=lambda: self._apply_appearance("Light")).pack(side="left", padx=2)
         ctk.CTkButton(tf, text="Dark", width=90, command=lambda: self._apply_appearance("Dark")).pack(side="left", padx=2)
-        ctk.CTkLabel(scroll, text="Interface theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
+        ctk.CTkLabel(scroll, text=lang.t("ui_interface_theme"), font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
         itf = ctk.CTkFrame(scroll, fg_color="transparent")
         itf.pack(anchor="w", pady=(0,10))
         ctk.CTkButton(itf, text="Classic", width=90, command=lambda: self.after(50, lambda: self._apply_ui_theme("classic"))).pack(side="left", padx=2)
         ctk.CTkButton(itf, text="MediDashboard", width=120, command=lambda: self.after(50, lambda: self._apply_ui_theme("medidash"))).pack(side="left", padx=2)
-        ctk.CTkLabel(scroll, text="Data:", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
+        ctk.CTkLabel(scroll, text=lang.t("ui_data"), font=theme.FONT_BOLD, text_color=theme.TEXT).pack(anchor="w", pady=(8,2))
         df = ctk.CTkFrame(scroll, fg_color="transparent")
         df.pack(anchor="w", pady=(0,10))
         ctk.CTkButton(df, text="Backup now", width=110, command=self._backup_now).pack(side="left", padx=2)
         ctk.CTkButton(df, text="Restore...", width=110, command=self._restore_backup).pack(side="left", padx=2)
         ctk.CTkButton(df, text="Import...", width=110, command=self._import_data).pack(side="left", padx=2)
-        ctk.CTkButton(scroll, text="Open Trash", width=200, command=lambda: self._show_view("trash")).pack(anchor="w", pady=(8, 0))
+        ctk.CTkButton(scroll, text=lang.t("ui_open_trash"), width=200, command=lambda: self._show_view("trash")).pack(anchor="w", pady=(8, 0))
 
     def _view_saveas(self):
         f = self.overview_content
@@ -803,7 +803,7 @@ class App(ctk.CTk):
     def _show_placeholder(self):
         for w in self.file_host.winfo_children():
             w.destroy()
-        lbl = ctk.CTkLabel(self.file_host, text="Select a patient to view their file",
+        lbl = ctk.CTkLabel(self.file_host, text=lang.t("ui_select_patient_file"),
                            font=theme.FONT_SUB, text_color=theme.MUTED)
         lbl.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -905,12 +905,12 @@ class App(ctk.CTk):
         preview.grid(row=2, column=1, sticky="w", pady=(2, 8))
 
         if selected:
-            open_btn = ctk.CTkButton(card, text="Open \u203A", width=80, height=24, corner_radius=8,
+            open_btn = ctk.CTkButton(card, text=lang.t("ui_open_file") + " \u203A", width=80, height=24, corner_radius=8,
                                      fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_SMALL,
                                      command=lambda pid=p['id']: self._open_patient_by_id(pid))
             open_btn.grid(row=0, column=2, rowspan=3, padx=10)
         else:
-            open_btn = ctk.CTkButton(card, text="Open \u203A", width=80, height=24, corner_radius=8,
+            open_btn = ctk.CTkButton(card, text=lang.t("ui_open_file") + " \u203A", width=80, height=24, corner_radius=8,
                                      fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_SMALL,
                                      command=lambda pid=p['id']: self._open_patient_by_id(pid))
             open_btn.grid(row=0, column=2, rowspan=3, padx=10)
@@ -982,7 +982,7 @@ class App(ctk.CTk):
         name = getattr(self, "_last_deleted_name", None) or "patient"
         try:
             hint = ctk.CTkLabel(self.overview_content,
-                                text="Deleted \u201c" + str(name) + "\u201d \u00b7 Ctrl+Z to undo",
+                                text=lang.t("ui_deleted_patient", name=str(name)) + " \u00b7 " + lang.t("ui_ctrl_z_undo"),
                                 fg_color=theme.DANGER, text_color="white", corner_radius=6,
                                 font=theme.FONT_SMALL, padx=10, pady=4)
             hint.place(relx=0.5, rely=1.0, anchor="s", y=-46)
@@ -1032,7 +1032,7 @@ class App(ctk.CTk):
             self.refresh_patients_db()
             if new_pid is not None:
                 self._open_patient_by_id(new_pid)
-            messagebox.showinfo(lang.t("app_name"), "Undo: patient restored.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("ui_restore_patient"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
         return "break"

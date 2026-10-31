@@ -31,8 +31,8 @@ class ExportFieldsDialog(ctk.CTkToplevel):
         self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        ctk.CTkLabel(self, text="Available fields", font=theme.FONT_BOLD).grid(row=0, column=0, padx=8, pady=(8, 2))
-        ctk.CTkLabel(self, text="Selected (in order)", font=theme.FONT_BOLD).grid(row=0, column=2, padx=8, pady=(8, 2))
+        ctk.CTkLabel(self, text=lang.t("ui_available_fields"), font=theme.FONT_BOLD).grid(row=0, column=0, padx=8, pady=(8, 2))
+        ctk.CTkLabel(self, text=lang.t("ui_selected_in_order"), font=theme.FONT_BOLD).grid(row=0, column=2, padx=8, pady=(8, 2))
 
         self.avail = tk.Listbox(self, selectmode="single", exportselection=False)
         self.avail.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
@@ -318,11 +318,11 @@ class SettingsDialog(ctk.CTkToplevel):
         self.grab_set()
         self.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self, text="Settings", font=theme.FONT_TITLE, text_color=theme.TEXT).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_settings"), font=theme.FONT_TITLE, text_color=theme.TEXT).grid(
             row=0, column=0, sticky="w", padx=theme.PADDING, pady=(theme.PADDING, 8))
 
         # Language
-        ctk.CTkLabel(self, text="Language:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_language"), font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
             row=1, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         self.lang_menu = ctk.CTkOptionMenu(self, values=list(LANG_LABELS.values()), width=200,
                                           command=master._on_language_change)
@@ -330,7 +330,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.lang_menu.grid(row=2, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
 
         # UI scale
-        ctk.CTkLabel(self, text="UI scale:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_ui_scale"), font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
             row=3, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         scale_frame = ctk.CTkFrame(self, fg_color="transparent")
         scale_frame.grid(row=4, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
@@ -339,35 +339,35 @@ class SettingsDialog(ctk.CTkToplevel):
                           command=lambda p=pct: master._set_ui_scale(p / 100.0)).pack(side="left", padx=2)
 
         # Interface theme
-        ctk.CTkLabel(self, text="Interface theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_interface_theme"), font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
             row=5, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         itf_frame = ctk.CTkFrame(self, fg_color="transparent")
         itf_frame.grid(row=6, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
-        ctk.CTkButton(itf_frame, text="Classic", width=90,
+        ctk.CTkButton(itf_frame, text=lang.t("ui_theme_classic"), width=90,
                       command=lambda: (master._apply_ui_theme("classic"), self.destroy())).pack(side="left", padx=2)
-        ctk.CTkButton(itf_frame, text="MediDashboard", width=120,
+        ctk.CTkButton(itf_frame, text=lang.t("ui_theme_medidash"), width=120,
                       command=lambda: (master._apply_ui_theme("medidash"), self.destroy())).pack(side="left", padx=2)
 
         # Theme
-        ctk.CTkLabel(self, text="Theme:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_theme_label"), font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
             row=7, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         theme_frame = ctk.CTkFrame(self, fg_color="transparent")
         theme_frame.grid(row=8, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
-        ctk.CTkButton(theme_frame, text="Light", width=90, command=lambda: master._apply_appearance("Light")).pack(side="left", padx=2)
-        ctk.CTkButton(theme_frame, text="Dark", width=90, command=lambda: master._apply_appearance("Dark")).pack(side="left", padx=2)
+        ctk.CTkButton(theme_frame, text=lang.t("ui_light"), width=90, command=lambda: master._apply_appearance("Light")).pack(side="left", padx=2)
+        ctk.CTkButton(theme_frame, text=lang.t("ui_dark"), width=90, command=lambda: master._apply_appearance("Dark")).pack(side="left", padx=2)
 
         # Backup / Restore / Import
-        ctk.CTkLabel(self, text="Data:", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_data"), font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
             row=9, column=0, sticky="w", padx=theme.PADDING, pady=(8, 2))
         data_frame = ctk.CTkFrame(self, fg_color="transparent")
         data_frame.grid(row=10, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
-        ctk.CTkButton(data_frame, text="Backup now", width=110, command=master._backup_now).pack(side="left", padx=2)
-        ctk.CTkButton(data_frame, text="Restore...", width=110, command=master._restore_backup).pack(side="left", padx=2)
-        ctk.CTkButton(data_frame, text="Import...", width=110, command=master._import_data).pack(side="left", padx=2)
+        ctk.CTkButton(data_frame, text=lang.t("ui_backup_now"), width=110, command=master._backup_now).pack(side="left", padx=2)
+        ctk.CTkButton(data_frame, text=lang.t("ui_restore_backup"), width=110, command=master._restore_backup).pack(side="left", padx=2)
+        ctk.CTkButton(data_frame, text=lang.t("ui_import"), width=110, command=master._import_data).pack(side="left", padx=2)
 
         # Trash
-        ctk.CTkButton(self, text="Open Trash (deleted patients)", width=220, command=master._show_trash).grid(
+        ctk.CTkButton(self, text=lang.t("ui_open_trash"), width=220, command=master._show_trash).grid(
             row=11, column=0, sticky="w", padx=theme.PADDING, pady=(8, 8))
 
-        ctk.CTkButton(self, text="Close", width=90, command=self.destroy).grid(
+        ctk.CTkButton(self, text=lang.t("ui_close"), width=90, command=self.destroy).grid(
             row=12, column=0, sticky="e", padx=theme.PADDING, pady=(8, theme.PADDING))

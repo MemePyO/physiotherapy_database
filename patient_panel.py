@@ -152,12 +152,12 @@ class PatientFilePanel(ctk.CTkFrame):
             diag_lbl.grid(row=3, column=1, sticky="w")
             self.diag_header_label = diag_lbl
 
-            self.modified_label = ctk.CTkLabel(frame, text="Not saved yet", font=theme.FONT_SMALL, text_color=theme.MUTED)
+            self.modified_label = ctk.CTkLabel(frame, text=lang.t("ui_not_saved_yet"), font=theme.FONT_SMALL, text_color=theme.MUTED)
             self.modified_label.grid(row=4, column=1, sticky="w", pady=(2, 0))
 
             btns = ctk.CTkFrame(frame, fg_color="transparent")
             btns.grid(row=0, column=2, rowspan=5, sticky="ne")
-            ctk.CTkButton(btns, text="Cancel", width=70, fg_color="#6b7280", hover_color="#4b5563",
+            ctk.CTkButton(btns, text=lang.t("ui_cancel"), width=70, fg_color="#6b7280", hover_color="#4b5563",
                           command=self._cancel_new).pack(side="top", padx=2, pady=2)
             return
 
@@ -183,13 +183,13 @@ class PatientFilePanel(ctk.CTkFrame):
         diag_lbl.grid(row=2, column=1, sticky="w")
         self.diag_header_label = diag_lbl
 
-        self.modified_label = ctk.CTkLabel(frame, text="Last modified: " + (self.patient.get('updated_at') or 'NA'),
+        self.modified_label = ctk.CTkLabel(frame, text=lang.t("ui_last_modified") + " " + (self.patient.get('updated_at') or 'NA'),
                                           font=theme.FONT_SMALL, text_color=theme.MUTED)
         self.modified_label.grid(row=3, column=1, sticky="w", pady=(2, 0))
 
         btns = ctk.CTkFrame(frame, fg_color="transparent")
         btns.grid(row=0, column=2, rowspan=4, sticky="e")
-        ctk.CTkButton(btns, text="Edit", width=70, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+        ctk.CTkButton(btns, text=lang.t("ui_edit"), width=70, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       command=self._edit_patient_info).pack(side="left", padx=2)
 
     def _refresh_header_info(self):
@@ -227,10 +227,10 @@ class PatientFilePanel(ctk.CTkFrame):
         self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, 8))
 
-        sections = [("diagnostic", "Diagnostic", theme.SEC_DIAG),
-                    ("objective", "Obiectiv", theme.SEC_OBJ),
-                    ("evaluation", "Evaluare", theme.SEC_EVAL),
-                    ("observation", "Observa\u021bie", theme.SEC_OBS)]
+        sections = [("diagnostic", lang.t("ui_section_diagnostic"), theme.SEC_DIAG),
+                    ("objective", lang.t("ui_section_objective"), theme.SEC_OBJ),
+                    ("evaluation", lang.t("ui_section_evaluation"), theme.SEC_EVAL),
+                    ("observation", lang.t("ui_section_observation"), theme.SEC_OBS)]
         self.texts = {}
         self.count_labels = {}
         for field, title, color in sections:
@@ -283,12 +283,12 @@ class PatientFilePanel(ctk.CTkFrame):
         self.attach_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
         ab = ctk.CTkFrame(att_tab, fg_color="transparent")
         ab.grid(row=1, column=0, sticky="ew", pady=(4, 4))
-        ctk.CTkButton(ab, text="Attach file", width=100, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
+        ctk.CTkButton(ab, text=lang.t("ui_attach_file"), width=100, fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK,
                       command=self._attach_file).pack(side="left", padx=2)
         ctk.CTkButton(ab, text="Preview", width=80, command=self._preview_attachment).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Open", width=80, command=self._open_attachment).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Delete", width=80, fg_color="#c0392b", command=self._delete_attachment).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Refresh", width=80, command=self._load_attachments).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text=lang.t("ui_open"), width=80, command=self._open_attachment).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text=lang.t("ui_delete"), width=80, fg_color="#c0392b", command=self._delete_attachment).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text=lang.t("ui_refresh"), width=80, command=self._load_attachments).pack(side="left", padx=2)
 
         # History tab
         hist_tab = self.tabview.add("History")
@@ -307,8 +307,8 @@ class PatientFilePanel(ctk.CTkFrame):
         self.hist_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
         hb = ctk.CTkFrame(hist_tab, fg_color="transparent")
         hb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
-        ctk.CTkButton(hb, text="Refresh", width=80, command=self._load_history).pack(side="left", padx=2)
-        ctk.CTkButton(hb, text="Clear history", width=100, fg_color="#c0392b",
+        ctk.CTkButton(hb, text=lang.t("ui_refresh"), width=80, command=self._load_history).pack(side="left", padx=2)
+        ctk.CTkButton(hb, text=lang.t("ui_clear_history"), width=100, fg_color="#c0392b",
                       hover_color="#a93226", command=self._clear_history).pack(side="left", padx=2)
 
     def _build_stacked(self):
@@ -438,8 +438,8 @@ class PatientFilePanel(ctk.CTkFrame):
         frame.grid_columnconfigure(0, weight=1)
         self.dirty_label = ctk.CTkLabel(frame, text="", text_color=theme.DANGER, font=theme.FONT_SMALL)
         self.dirty_label.grid(row=0, column=0, sticky="w")
-        print_txt = "Print / PDF" if theme.layout() == "stacked" else "\U0001F5A8  Print / PDF"
-        save_txt = "Save Patient Record" if theme.layout() == "stacked" else "\U0001F4BE  Save Patient Record"
+        print_txt = lang.t("ui_print_pdf") if theme.layout() == "stacked" else "\U0001F5A8  " + lang.t("ui_print_pdf")
+        save_txt = lang.t("ui_save_record") if theme.layout() == "stacked" else "\U0001F4BE  " + lang.t("ui_save_record")
         ctk.CTkButton(frame, text=print_txt, width=120, height=36,
                       fg_color=theme.ACCENT, hover_color=theme.ACCENT_DARK, font=theme.FONT_BOLD,
                       command=self._print_pdf).grid(row=0, column=1, sticky="e", padx=(0, 6))
@@ -543,7 +543,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
             self._refresh_header_info()
             try:
-                self.modified_label.configure(text="Last modified: " + (self.patient.get('updated_at') or ''))
+                self.modified_label.configure(text=lang.t("ui_last_modified") + " " + (self.patient.get('updated_at') or 'NA'))
             except Exception:
                 pass
             if self.on_close_callback:
@@ -705,21 +705,21 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             db.add_attachment(self.patient_id, path)
             self._load_attachments()
-            messagebox.showinfo(lang.t("app_name"), "File attached.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("ui_file_attached"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _open_attachment(self):
         sel = self.attach_tree.selection()
         if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Select an attachment.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
             return
         att = db.get_attachment(int(sel[0]))
         if not att:
             return
         path = att.get('stored_path', '')
         if not path or not os.path.exists(path):
-            messagebox.showerror(lang.t("app_name"), "File not found.")
+            messagebox.showerror(lang.t("app_name"), lang.t("ui_file_not_found"))
             return
         try:
             if os.name == "nt":
@@ -733,14 +733,14 @@ class PatientFilePanel(ctk.CTkFrame):
     def _preview_attachment(self):
         sel = self.attach_tree.selection()
         if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Select an attachment.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
             return
         att = db.get_attachment(int(sel[0]))
         if not att:
             return
         path = att.get('stored_path', '')
         if not path or not os.path.exists(path):
-            messagebox.showerror(lang.t("app_name"), "File not found.")
+            messagebox.showerror(lang.t("app_name"), lang.t("ui_file_not_found"))
             return
         ext = os.path.splitext(path)[1].lower()
         image_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
@@ -756,7 +756,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 import fitz
                 doc = fitz.open(path)
                 if doc.page_count == 0:
-                    messagebox.showinfo(lang.t("app_name"), "Empty PDF.")
+                    messagebox.showinfo(lang.t("app_name"), lang.t("ui_empty_pdf"))
                     return
                 page = doc[0]
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
@@ -786,7 +786,7 @@ class PatientFilePanel(ctk.CTkFrame):
     def _delete_attachment(self):
         sel = self.attach_tree.selection()
         if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Select an attachment.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
             return
         if not messagebox.askyesno(lang.t("app_name"), "Delete this attachment?"):
             return

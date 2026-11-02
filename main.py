@@ -916,52 +916,198 @@ class App(ctk.CTk):
         title_lbl = ctk.CTkLabel(nav, text="", font=theme.FONT_TITLE, text_color=theme.TEXT)
         title_lbl.pack(side="left", padx=12)
         ctk.CTkButton(nav, text="\u2192", width=36, command=_next).pack(side="left", padx=2)
-        ctk.CTkButton(nav, text="Programare nouă", width=130, fg_color=theme.ACCENT, command=self._add_appointment).pack(side="right", padx=2)
+        ctk.CTkButton(nav, text=lang.t("ui_new_appointment"), width=140, fg_color=theme.ACCENT,
+                      command=self._nav_new_appointment).pack(side="right", padx=2)
 
         grid = ctk.CTkFrame(f, fg_color="transparent")
         grid.grid(row=1, column=0, sticky="nsew", pady=4)
         _render()
 
     def _show_day_appointments(self, day):
-        import datetime as _dt
-        apps = [a for a in db.list_appointments() if a["datetime"].startswith("%02d." % day)] if False else db.list_appointments()
-        # filter by day/month/year of current calendar
-        filtered = []
-        for a in apps:
-            try:
-                dt = _dt.datetime.strptime(a["datetime"].split(" ")[0], "%d.%m.%Y")
-            except Exception:
-                continue
-            if dt.day == day and dt.month == self._cal_month and dt.year == self._cal_year:
-                filtered.append(a)
-        if not filtered:
-            messagebox.showinfo(lang.t("app_name"), "Nicio programare în această zi.")
-            return
-        lines = []
-        for a in filtered:
-            p = db.get_patient(patient_id=a["patient_id"])
-            name = p["name"] if p else "?"
-            lines.append("%s - %s (%s)" % (a["datetime"], name, a.get("status", "")))
-        messagebox.showinfo(lang.t("app_name"), "\n".join(lines))
-
-    def _add_appointment(self):
+        """Open the schedule for a calendar day in the right preview panel (no popups)."""
+        date_str = "%02d.%02d.%d" % (day, self._cal_month, self._cal_year)
+        # leaving any open patient file: save it first, then swap the preview
         try:
-            import tkinter.simpledialog as sd
-            name = sd.askstring("Programare nouă", "Nume pacient:", parent=self)
-            if not name:
-                return
-            p = db.get_patient(name=name)
-            if not p:
-                messagebox.showerror(lang.t("app_name"), "Pacient negăsit.")
-                return
-            dt = sd.askstring("Programare nouă", "Data și ora (DD.MM.YYYY HH:MM):", parent=self)
-            if not dt:
-                return
-            db.add_appointment(p["id"], dt)
-            self._show_view("calendar")
-            messagebox.showinfo(lang.t("app_name"), "Programare adăugată.")
+            self._save_open_files()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            log.debug_exc(logger)
+        self.selected_patient_id = None
+        self.patient_panels = {}
+        self._current_panel = None
+        for w in self.file_host.winfo_children():
+            w.destroy()
+
+        root = ctk.CTkFrame(self.file_host, fg_color="transparent")
+        root.place(relx=0, rely=0, relwidth=1, relheight=1, x=0)
+        root.grid_columnconfigure(0, weight=1)
+        root.grid_rowconfigure(1, weight=1)
+
+        # --- header: date + close
+        head = ctk.CTkFrame(root, fg_color="transparent")
+        head.grid(row=0, column=0, sticky="ew", padx=theme.PADDING, pady=(theme.PADDING, 4))
+        head.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(head, text="%s – %s" % (lang.t("ui_schedule"), date_str),
+                     font=theme.FONT_TITLE, text_color=theme.TEXT, anchor="w").grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(head, text="\u2715", width=30,
+                      command=self._show_placeholder).grid(row=0, column=1, padx=(8, 0))
+
+        # --- scrollable list of appointment cards
+        lst = ctk.CTkScrollableFrame(root, fg_color="transparent")
+        lst.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING)
+        lst.grid_columnconfigure(0, weight=1)
+        try:
+            utils._patch_scrollable(lst)
+        except Exception as e:
+            log.debug_exc(logger)
+
+        # --- inline add form
+        form = ctk.CTkFrame(root, fg_color=theme.PANEL, corner_radius=getattr(theme, "PANEL_RADIUS", 8),
+                            border_width=1, border_color=getattr(theme, "BORDER", theme.MUTED))
+        form.grid(row=2, column=0, sticky="ew", padx=theme.PADDING, pady=(6, theme.PADDING))
+        form.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(form, text=lang.t("ui_new_appointment"), font=theme.FONT_BOLD,
+                     text_color=theme.TEXT).grid(row=0, column=0, columnspan=4, sticky="w", padx=8, pady=(8, 2))
+
+        patients = {}
+        try:
+            for p in db.get_all_patients():
+                patients[p["name"]] = p
+        except Exception as e:
+            log.debug_exc(logger)
+        pat_names = sorted(patients.keys())
+
+        ctk.CTkLabel(form, text=lang.t("ui_patient") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
+            row=1, column=0, sticky="w", padx=8, pady=2)
+        pat_var = ctk.StringVar(value=(pat_names[0] if pat_names else "\u2014"))
+        pat_menu = ctk.CTkOptionMenu(form, values=pat_names if pat_names else ["\u2014"],
+                                     variable=pat_var, width=200)
+        pat_menu.grid(row=1, column=1, columnspan=3, sticky="w", padx=8, pady=2)
+
+        ctk.CTkLabel(form, text=lang.t("ui_time"), font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
+            row=2, column=0, sticky="w", padx=8, pady=2)
+        time_sv = ctk.StringVar(value="09:00")
+        ctk.CTkEntry(form, textvariable=time_sv, width=80, justify="center").grid(
+            row=2, column=1, sticky="w", padx=8, pady=2)
+        ctk.CTkLabel(form, text=lang.t("ui_duration_min"), font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
+            row=2, column=2, sticky="e", padx=(20, 2), pady=2)
+        dur_sv = ctk.StringVar(value="30")
+        ctk.CTkEntry(form, textvariable=dur_sv, width=60, justify="center").grid(
+            row=2, column=3, sticky="w", pady=2)
+
+        ctk.CTkLabel(form, text=lang.t("ui_status") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
+            row=3, column=0, sticky="w", padx=8, pady=2)
+        status_var = ctk.StringVar(value="scheduled")
+        ctk.CTkOptionMenu(form, values=list(db.SESSION_STATUSES), variable=status_var, width=140).grid(
+            row=3, column=1, sticky="w", padx=8, pady=2)
+
+        ctk.CTkLabel(form, text=lang.t("ui_notes") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
+            row=4, column=0, sticky="nw", padx=8, pady=2)
+        notes_e = ctk.CTkEntry(form, placeholder_text=lang.t("ui_notes"))
+        notes_e.grid(row=4, column=1, columnspan=3, sticky="ew", padx=8, pady=2)
+
+        err = ctk.CTkLabel(form, text="", font=theme.FONT_SMALL, text_color="#c0392b", anchor="w")
+        err.grid(row=5, column=1, columnspan=3, sticky="w", padx=8, pady=(0, 2))
+
+        def _render_list():
+            for w in lst.winfo_children():
+                w.destroy()
+            apps = []
+            for a in db.list_appointments():
+                try:
+                    d = datetime.datetime.strptime(a["datetime"].split(" ")[0], "%d.%m.%Y")
+                except Exception:
+                    log.debug_exc(logger)
+                    continue
+                if d.day == day and d.month == self._cal_month and d.year == self._cal_year:
+                    apps.append(a)
+            apps.sort(key=lambda a: (a["datetime"].split(" ")[1] if " " in a["datetime"] else "99:99", a["id"]))
+            if not apps:
+                ctk.CTkLabel(lst, text=lang.t("ui_no_appointments"), font=theme.FONT_SUB,
+                             text_color=theme.MUTED, anchor="w").grid(row=0, column=0, sticky="w", padx=4, pady=10)
+                return
+            pmap = {}
+            try:
+                for p in db.get_all_patients():
+                    pmap[p["id"]] = p["name"]
+            except Exception as e:
+                log.debug_exc(logger)
+            for i, a in enumerate(apps):
+                card = ctk.CTkFrame(lst, fg_color=theme.PANEL, corner_radius=6,
+                                    border_width=1, border_color=getattr(theme, "BORDER", theme.MUTED))
+                card.grid(row=i, column=0, sticky="ew", padx=2, pady=3)
+                card.grid_columnconfigure(1, weight=1)
+                time_str = a["datetime"].split(" ")[1] if " " in a["datetime"] else "--:--"
+                ctk.CTkLabel(card, text=time_str, font=theme.FONT_BOLD, text_color=theme.ACCENT,
+                             width=60, anchor="w").grid(row=0, column=0, padx=(10, 4), pady=6)
+                name = pmap.get(a["patient_id"], "?")
+                ctk.CTkLabel(card, text=name, font=theme.FONT_BODY, text_color=theme.TEXT,
+                             anchor="w").grid(row=0, column=1, sticky="w", padx=2)
+                ctk.CTkLabel(card, text="%d min" % (a.get("duration_min") or 0),
+                             font=theme.FONT_SMALL, text_color=theme.MUTED, width=60).grid(row=0, column=2, padx=2)
+                st_var = ctk.StringVar(value=a.get("status", "scheduled"))
+
+                def _set_status(v, aid=a["id"]):
+                    db.update_appointment(aid, status=v)
+                    _render_list()
+                    self._show_view("calendar")
+
+                ctk.CTkOptionMenu(card, values=list(db.SESSION_STATUSES), variable=st_var,
+                                  width=110, command=lambda v, f=_set_status: f(v)).grid(row=0, column=3, padx=4)
+
+                def _del(btn, aid=a["id"]):
+                    if btn.cget("text") != "\u2713":
+                        btn.configure(text="\u2713", fg_color="#c0392b")
+                        return
+                    db.delete_appointment(aid)
+                    _render_list()
+                    self._show_view("calendar")
+
+                del_btn = ctk.CTkButton(card, text="\u2715", width=30, fg_color="transparent",
+                                        border_width=1, border_color=getattr(theme, "BORDER", theme.MUTED),
+                                        text_color=theme.MUTED, hover_color="#c0392b")
+                # wire two-step confirm without popups: first click arms the button
+                del_btn.configure(command=lambda b=del_btn: _del(b))
+                del_btn.grid(row=0, column=4, padx=(0, 8))
+
+        def _add():
+            err.configure(text="")
+            p = patients.get(pat_var.get())
+            if p is None:
+                err.configure(text=lang.t("ui_pick_patient"))
+                return
+            hh = mm = None
+            try:
+                raw = time_sv.get().strip().replace(".", ":")
+                parts = raw.split(":")
+                if len(parts) == 2:
+                    hh, mm = int(parts[0]), int(parts[1])
+            except ValueError:
+                log.debug_exc(logger)
+                hh = mm = None
+            if hh is None or not (0 <= hh < 24 and 0 <= mm < 60):
+                err.configure(text=lang.t("ui_invalid_time"))
+                return
+            try:
+                dur = max(5, int(dur_sv.get()))
+            except ValueError:
+                log.debug_exc(logger)
+                dur = 30
+            dt = "%s %02d:%02d" % (date_str, hh, mm)
+            db.add_appointment(p["id"], dt, duration_min=dur, status=status_var.get(),
+                               notes=notes_e.get().strip())
+            self._show_view("calendar")
+            self._show_day_appointments(day)
+
+        ctk.CTkButton(form, text=lang.t("ui_add_appointment"), fg_color=theme.ACCENT,
+                      command=_add).grid(row=5, column=0, sticky="w", padx=8, pady=(2, 8))
+        _render_list()
+
+    def _nav_new_appointment(self):
+        t = datetime.date.today()
+        self._cal_year, self._cal_month = t.year, t.month
+        self._show_view("calendar")
+        self._show_day_appointments(t.day)
 
     def _view_new_patient(self):
         self._open_patient_by_id(None)

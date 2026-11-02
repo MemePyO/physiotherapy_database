@@ -31,8 +31,9 @@ def test_live_theme_switch(monkeypatch, tmp_path):
     app._open_patient_by_id(pid)
     app.update()
     panel = app.patient_panels[pid]
-    assert panel.tabview is None
+    assert panel.tabview is not None
     assert hasattr(panel, "sections_frame")
+    assert hasattr(panel, "plan_entries")
     app._apply_ui_theme("classic")
     app.update()
     assert main.theme.active() == "classic"

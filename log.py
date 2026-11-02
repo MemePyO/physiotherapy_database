@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import re
+import traceback
 from logging.handlers import RotatingFileHandler
 
 _CONFIGURED = False
@@ -62,3 +63,8 @@ def setup():
 def get_logger(name):
     setup()
     return logging.getLogger(name)
+
+
+def debug_exc(logger):
+    """Log the exception currently being handled, with traceback, at DEBUG."""
+    logger.debug("suppressed exception:\n%s", traceback.format_exc())

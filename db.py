@@ -12,7 +12,7 @@ logger = log.get_logger(__name__)
 def _base_dir() -> str:
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
-    return _base_dir()
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 def _now():
@@ -141,6 +141,15 @@ def init_db() -> None:
             changed_at TEXT DEFAULT ''
         )
     """)
+
+    for stmt in (
+        "CREATE TABLE IF NOT EXISTS treatment_plans (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, diagnosis_code TEXT DEFAULT '', body_region TEXT DEFAULT '', side TEXT DEFAULT '', prescribed_sessions INTEGER DEFAULT 0, start_date TEXT DEFAULT '', end_date TEXT DEFAULT '', goals TEXT DEFAULT '', contraindications TEXT DEFAULT '', notes TEXT DEFAULT '', created_at TEXT DEFAULT '', updated_at TEXT DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, plan_id INTEGER, session_no INTEGER DEFAULT 1, date TEXT DEFAULT '', duration_min INTEGER DEFAULT 30, modalities TEXT DEFAULT '', exercises TEXT DEFAULT '', pain_before REAL DEFAULT 0, pain_after REAL DEFAULT 0, notes TEXT DEFAULT '', status TEXT DEFAULT 'done', created_at TEXT DEFAULT '', updated_at TEXT DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, datetime TEXT DEFAULT '', duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'scheduled', notes TEXT DEFAULT '', created_at TEXT DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS outcome_measures (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, measure TEXT DEFAULT 'VAS', value REAL DEFAULT 0, date TEXT DEFAULT '', notes TEXT DEFAULT '', created_at TEXT DEFAULT '')",
+        "CREATE TABLE IF NOT EXISTS exercises (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER NOT NULL, name TEXT DEFAULT '', sets INTEGER DEFAULT 3, reps INTEGER DEFAULT 10, hold_sec INTEGER DEFAULT 0, frequency TEXT DEFAULT '', notes TEXT DEFAULT '', assigned_date TEXT DEFAULT '', created_at TEXT DEFAULT '')",
+    ):
+        cur.execute(stmt)
 
     _ensure_column(conn, "patients", "created_at", "TEXT DEFAULT ''")
     _ensure_column(conn, "patients", "updated_at", "TEXT DEFAULT ''")
@@ -620,3 +629,238 @@ def pre_migration_backup() -> str | None:
     except Exception as e:
         logger.warning("pre_migration_backup failed: %s", e)
         return None
+# --- physiotherapy helpers ---
+
+
+BODY_REGIONS = ["Cervical", "Thoracic", "Lumbar", "Shoulder", "Elbow", "Wrist/Hand",
+                "Hip", "Knee", "Ankle/Foot", "Other"]
+SIDES = ["Left", "Right", "Bilateral", "N/A"]
+MODALITIES = ["Ultrasound", "TENS", "Manual therapy", "Exercise", "Heat", "Cold", "Laser", "Traction"]
+SESSION_STATUSES = ["scheduled", "done", "cancelled", "no-show"]
+OUTCOME_MEASURES = ["VAS", "NRS"]
+
+
+def get_plan(patient_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM treatment_plans WHERE patient_id = ? ORDER BY id DESC LIMIT 1", (patient_id,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def upsert_plan(patient_id, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM treatment_plans WHERE patient_id = ?", (patient_id,))
+    row = cur.fetchone()
+    now = _now()
+    cols = ["diagnosis_code", "body_region", "side", "prescribed_sessions", "start_date", "end_date",
+            "goals", "contraindications", "notes"]
+    vals = [fields.get(c) for c in cols]
+    if row:
+        pid = row["id"]
+        updates = ", ".join("%s = ?" % c for c in cols) + ", updated_at = ?"
+        cur.execute("UPDATE treatment_plans SET %s WHERE id = ?" % updates, vals + [now, pid])
+    else:
+        cur.execute(
+            "INSERT INTO treatment_plans (patient_id, diagnosis_code, body_region, side, prescribed_sessions, "
+            "start_date, end_date, goals, contraindications, notes, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [patient_id] + vals + [now, now])
+        pid = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return pid
+
+
+def list_sessions(patient_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM sessions WHERE patient_id = ? ORDER BY date DESC, id DESC", (patient_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_session(patient_id, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    now = _now()
+    cur.execute(
+        "INSERT INTO sessions (patient_id, plan_id, session_no, date, duration_min, modalities, exercises, "
+        "pain_before, pain_after, notes, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (patient_id, fields.get("plan_id"), fields.get("session_no", 1), fields.get("date", ""),
+         fields.get("duration_min", 30), fields.get("modalities", ""), fields.get("exercises", ""),
+         fields.get("pain_before", 0), fields.get("pain_after", 0), fields.get("notes", ""),
+         fields.get("status", "done"), now, now))
+    conn.commit()
+    sid = cur.lastrowid
+    conn.close()
+    return sid
+
+
+def update_session(session_id, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    now = _now()
+    cols = ["plan_id", "session_no", "date", "duration_min", "modalities", "exercises",
+            "pain_before", "pain_after", "notes", "status"]
+    updates = []
+    params = []
+    for c in cols:
+        if c in fields and fields[c] is not None:
+            updates.append("%s = ?" % c)
+            params.append(fields[c])
+    if not updates:
+        conn.close()
+        return
+    updates.append("updated_at = ?")
+    params.append(now)
+    params.append(session_id)
+    cur.execute("UPDATE sessions SET %s WHERE id = ?" % ", ".join(updates), params)
+    conn.commit()
+    conn.close()
+
+
+def delete_session(session_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+
+def list_appointments(start=None, end=None):
+    conn = _get_conn()
+    cur = conn.cursor()
+    if start and end:
+        cur.execute("SELECT * FROM appointments WHERE datetime >= ? AND datetime <= ? ORDER BY datetime", (start, end))
+    else:
+        cur.execute("SELECT * FROM appointments ORDER BY datetime")
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_appointment(patient_id, dt, duration_min=30, status="scheduled", notes=""):
+    conn = _get_conn()
+    cur = conn.cursor()
+    now = _now()
+    cur.execute("INSERT INTO appointments (patient_id, datetime, duration_min, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (patient_id, dt, duration_min, status, notes, now))
+    conn.commit()
+    aid = cur.lastrowid
+    conn.close()
+    return aid
+
+
+def update_appointment(app_id, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cols = ["datetime", "duration_min", "status", "notes"]
+    updates = []
+    params = []
+    for c in cols:
+        if c in fields and fields[c] is not None:
+            updates.append("%s = ?" % c)
+            params.append(fields[c])
+    if not updates:
+        conn.close()
+        return
+    params.append(app_id)
+    cur.execute("UPDATE appointments SET %s WHERE id = ?" % ", ".join(updates), params)
+    conn.commit()
+    conn.close()
+
+
+def delete_appointment(app_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM appointments WHERE id = ?", (app_id,))
+    conn.commit()
+    conn.close()
+
+
+def list_outcomes(patient_id, measure=None):
+    conn = _get_conn()
+    cur = conn.cursor()
+    if measure:
+        cur.execute("SELECT * FROM outcome_measures WHERE patient_id = ? AND measure = ? ORDER BY date", (patient_id, measure))
+    else:
+        cur.execute("SELECT * FROM outcome_measures WHERE patient_id = ? ORDER BY date", (patient_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_outcome(patient_id, measure, value, date, notes=""):
+    conn = _get_conn()
+    cur = conn.cursor()
+    now = _now()
+    cur.execute("INSERT INTO outcome_measures (patient_id, measure, value, date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (patient_id, measure, value, date, notes, now))
+    conn.commit()
+    oid = cur.lastrowid
+    conn.close()
+    return oid
+
+
+def delete_outcome(oid):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM outcome_measures WHERE id = ?", (oid,))
+    conn.commit()
+    conn.close()
+
+
+def list_exercises(patient_id):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM exercises WHERE patient_id = ? ORDER BY id", (patient_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_exercise(patient_id, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    now = _now()
+    cur.execute(
+        "INSERT INTO exercises (patient_id, name, sets, reps, hold_sec, frequency, notes, assigned_date, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (patient_id, fields.get("name", ""), fields.get("sets", 3), fields.get("reps", 10),
+         fields.get("hold_sec", 0), fields.get("frequency", ""), fields.get("notes", ""),
+         fields.get("assigned_date", ""), now))
+    conn.commit()
+    eid = cur.lastrowid
+    conn.close()
+    return eid
+
+
+def update_exercise(eid, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cols = ["name", "sets", "reps", "hold_sec", "frequency", "notes", "assigned_date"]
+    updates = []
+    params = []
+    for c in cols:
+        if c in fields and fields[c] is not None:
+            updates.append("%s = ?" % c)
+            params.append(fields[c])
+    if not updates:
+        conn.close()
+        return
+    params.append(eid)
+    cur.execute("UPDATE exercises SET %s WHERE id = ?" % ", ".join(updates), params)
+    conn.commit()
+    conn.close()
+
+
+def delete_exercise(eid):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM exercises WHERE id = ?", (eid,))
+    conn.commit()
+    conn.close()

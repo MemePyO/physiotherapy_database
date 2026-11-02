@@ -19,7 +19,7 @@ logger = log.get_logger(__name__)
 def _base_dir() -> str:
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
-    return _base_dir()
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 def _asset_dir() -> str:
@@ -164,7 +164,7 @@ class App(ctk.CTk):
                 ctk.set_widget_scaling(scale)
                 ctk.set_window_scaling(scale)
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             theme._appearance = mode
             ctk.set_appearance_mode(mode)
             theme.set_theme(settings.get("ui_theme", "classic"))
@@ -177,20 +177,23 @@ class App(ctk.CTk):
         try:
             if not db.check_integrity():
                 if messagebox.askyesno(lang.t("app_name"), "Database integrity check failed. Restore from latest backup?"):
-                    # find latest backup
+                    # find latest backup by modification time (not name)
                     import glob as _g
                     folder = os.path.join(_base_dir(), "backup")
-                    files = sorted(_g.glob(os.path.join(folder, "*.db")))
+                    files = _g.glob(os.path.join(folder, "*.db"))
+                    files = [f for f in files if os.path.basename(f).startswith(("auto_", "pre_migration_", "pre_purge_"))]
                     if files:
-                        latest = files[-1]
+                        latest = max(files, key=os.path.getmtime)
                         try:
                             import shutil
                             shutil.copy2(latest, db.db_path())
+                            # ensure schema tables exist even if the backup predates a migration
+                            db.init_db()
                             messagebox.showinfo(lang.t("app_name"), "Restored from " + os.path.basename(latest))
                         except Exception as e:
                             messagebox.showerror(lang.t("app_name"), str(e))
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self.patients_file = patients_file
         self.list_error = None
         try:
@@ -247,13 +250,13 @@ class App(ctk.CTk):
         try:
             self._save_open_files()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             data = load_settings()
             data["geometry"] = self.geometry()
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self.destroy()
 
     def _save_current_panel(self):
@@ -277,12 +280,12 @@ class App(ctk.CTk):
                     entry.focus_set()
                     return
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
         # medidash theme has no inline search box
         try:
             self._search_patients_dialog()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _handle_escape(self, event=None):
         try:
             entry = getattr(self, "search_entry", None)
@@ -292,7 +295,7 @@ class App(ctk.CTk):
                     return "break"
             self._focus_search()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         return "break"
 
     def _build_menubar(self):
@@ -431,6 +434,7 @@ class App(ctk.CTk):
                  ("saveas", "\U0001F4BE", "Save as", lambda: self._show_view("saveas"), theme.ICON_FONT),
                  ("backup", "\U0001F5C4", "Backup", lambda: self._show_view("backup"), theme.ICON_FONT),
                  ("trash", "\U0001F5D1", "Trash", lambda: self._show_view("trash"), theme.ICON_FONT),
+                 ("calendar", "\U0001F4C5", "Calendar", lambda: self._show_view("calendar"), theme.ICON_FONT),
                  ("settings", "\u2699", "Settings", lambda: self._show_view("settings"), theme.ICON_FONT)]
         for key, glyph, tip, cmd, font in items:
             btn = ctk.CTkButton(side, text=glyph, width=44, height=44, corner_radius=12,
@@ -454,7 +458,8 @@ class App(ctk.CTk):
                  ("new", "\uE710", "New patient", lambda: self._open_patient_by_id(None)),
                  ("saveas", "\uE8A5", "Save as", lambda: self._show_view("saveas")),
                  ("backup", "\uE753", "Backup", lambda: self._show_view("backup")),
-                 ("trash", "\uE74D", "Trash", lambda: self._show_view("trash"))]
+                 ("trash", "\uE74D", "Trash", lambda: self._show_view("trash")),
+                 ("calendar", "\uE787", "Calendar", lambda: self._show_view("calendar"))]
         for key, glyph, tip, cmd in items:
             btn = ctk.CTkButton(side, text=glyph, width=40, height=40, corner_radius=theme.BTN_RADIUS,
                                 fg_color="transparent", text_color=theme.MUTED, hover_color=theme.ACCENT_LIGHT,
@@ -487,13 +492,13 @@ class App(ctk.CTk):
             try:
                 self._sidebar.grid_remove()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             self._sidebar_visible = False
         else:
             try:
                 self._sidebar.grid()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             self._sidebar_visible = True
 
     def _on_configure_responsive(self, event=None):
@@ -505,7 +510,7 @@ class App(ctk.CTk):
                 self._sidebar.grid()
                 self._sidebar_visible = True
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _nav_patients(self):
         self._set_nav_active("patients")
 
@@ -604,7 +609,7 @@ class App(ctk.CTk):
             try:
                 self.after_cancel(job)
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             self._search_job = None
         try:
             if hasattr(self, "search_entry") and self.search_entry.winfo_exists():
@@ -612,7 +617,7 @@ class App(ctk.CTk):
             if isinstance(getattr(self, "search_scope", None), str):
                 self._search_scope_text = self.search_scope
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         for w in self.overview_content.winfo_children():
             w.destroy()
         # reset any row/column weights left over from the previous view
@@ -621,7 +626,7 @@ class App(ctk.CTk):
                 self.overview_content.grid_rowconfigure(i, weight=0)
                 self.overview_content.grid_columnconfigure(i, weight=0 if i else 1)
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
         self._current_view = view
         titles = {"patients": "Patient Overview", "trash": "Trash (deleted)", "settings": "Settings",
                   "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient"}
@@ -638,6 +643,8 @@ class App(ctk.CTk):
             self._view_backup()
         elif view == "new":
             self._view_new_patient()
+        elif view == "calendar":
+            self._view_calendar()
 
     def _view_patients(self):
         f = self.overview_content
@@ -713,7 +720,7 @@ class App(ctk.CTk):
             if getattr(self, "_search_job", None):
                 self.after_cancel(self._search_job)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             self._search_job = self.after(150, self.refresh_patients_db)
         except Exception:
@@ -847,8 +854,117 @@ class App(ctk.CTk):
         ctk.CTkButton(inner, text="Backup now", width=140, command=self._backup_now).pack(anchor="w", pady=4)
         ctk.CTkButton(inner, text="Restore backup...", width=140, command=self._restore_backup).pack(anchor="w", pady=4)
 
+    def _view_calendar(self):
+        import datetime as _dt
+        f = self.overview_content
+        f.grid_rowconfigure(1, weight=1)
+        # month navigation
+        nav = ctk.CTkFrame(f, fg_color="transparent")
+        nav.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        self._cal_year = getattr(self, "_cal_year", _dt.date.today().year)
+        self._cal_month = getattr(self, "_cal_month", _dt.date.today().month)
+
+        def _render():
+            for w in grid.winfo_children():
+                w.destroy()
+            import calendar as _cal
+            title_lbl.configure(text="%s %d" % (_cal.month_name[self._cal_month], self._cal_year))
+            # weekday headers
+            for i, wd in enumerate(["L", "Ma", "Mi", "J", "V", "S", "D"]):
+                ctk.CTkLabel(grid, text=wd, font=theme.FONT_BOLD, text_color=theme.MUTED).grid(row=0, column=i, padx=2, pady=2)
+            cal = _cal.Calendar(firstweekday=0)
+            weeks = cal.monthdayscalendar(self._cal_year, self._cal_month)
+            apps = db.list_appointments()
+            by_day = {}
+            for a in apps:
+                try:
+                    d = _dt.datetime.strptime(a["datetime"], "%d.%m.%Y %H:%M") if " " in a["datetime"] else _dt.datetime.strptime(a["datetime"], "%d.%m.%Y")
+                except Exception:
+                    continue
+                if d.year == self._cal_year and d.month == self._cal_month:
+                    by_day.setdefault(d.day, []).append(a)
+            for wi, week in enumerate(weeks, start=1):
+                for di, day in enumerate(week):
+                    if day == 0:
+                        continue
+                    txt = str(day)
+                    if day in by_day:
+                        txt += " \u2022%d" % len(by_day[day])
+                    btn = ctk.CTkButton(grid, text=txt, width=44, height=32,
+                                        fg_color=theme.SELECTED if day in by_day else "transparent",
+                                        text_color=theme.TEXT, hover_color=theme.ACCENT_LIGHT,
+                                        command=lambda d=day: self._show_day_appointments(d))
+                    btn.grid(row=wi, column=di, padx=2, pady=2)
+
+        def _prev():
+            if self._cal_month == 1:
+                self._cal_month = 12
+                self._cal_year -= 1
+            else:
+                self._cal_month -= 1
+            _render()
+
+        def _next():
+            if self._cal_month == 12:
+                self._cal_month = 1
+                self._cal_year += 1
+            else:
+                self._cal_month += 1
+            _render()
+
+        ctk.CTkButton(nav, text="\u2190", width=36, command=_prev).pack(side="left", padx=2)
+        title_lbl = ctk.CTkLabel(nav, text="", font=theme.FONT_TITLE, text_color=theme.TEXT)
+        title_lbl.pack(side="left", padx=12)
+        ctk.CTkButton(nav, text="\u2192", width=36, command=_next).pack(side="left", padx=2)
+        ctk.CTkButton(nav, text="Programare nouă", width=130, fg_color=theme.ACCENT, command=self._add_appointment).pack(side="right", padx=2)
+
+        grid = ctk.CTkFrame(f, fg_color="transparent")
+        grid.grid(row=1, column=0, sticky="nsew", pady=4)
+        _render()
+
+    def _show_day_appointments(self, day):
+        import datetime as _dt
+        apps = [a for a in db.list_appointments() if a["datetime"].startswith("%02d." % day)] if False else db.list_appointments()
+        # filter by day/month/year of current calendar
+        filtered = []
+        for a in apps:
+            try:
+                dt = _dt.datetime.strptime(a["datetime"].split(" ")[0], "%d.%m.%Y")
+            except Exception:
+                continue
+            if dt.day == day and dt.month == self._cal_month and dt.year == self._cal_year:
+                filtered.append(a)
+        if not filtered:
+            messagebox.showinfo(lang.t("app_name"), "Nicio programare în această zi.")
+            return
+        lines = []
+        for a in filtered:
+            p = db.get_patient(patient_id=a["patient_id"])
+            name = p["name"] if p else "?"
+            lines.append("%s - %s (%s)" % (a["datetime"], name, a.get("status", "")))
+        messagebox.showinfo(lang.t("app_name"), "\n".join(lines))
+
+    def _add_appointment(self):
+        try:
+            import tkinter.simpledialog as sd
+            name = sd.askstring("Programare nouă", "Nume pacient:", parent=self)
+            if not name:
+                return
+            p = db.get_patient(name=name)
+            if not p:
+                messagebox.showerror(lang.t("app_name"), "Pacient negăsit.")
+                return
+            dt = sd.askstring("Programare nouă", "Data și ora (DD.MM.YYYY HH:MM):", parent=self)
+            if not dt:
+                return
+            db.add_appointment(p["id"], dt)
+            self._show_view("calendar")
+            messagebox.showinfo(lang.t("app_name"), "Programare adăugată.")
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
     def _view_new_patient(self):
-        self._add_patient_db()
+        self._open_patient_by_id(None)
         self._show_view("patients")
 
 
@@ -915,7 +1031,7 @@ class App(ctk.CTk):
                 try:
                     count_text += "  \u00b7  " + self._sort_label()
                 except Exception as e:
-                    logger.debug("suppressed exception")
+                    log.debug_exc(logger)
                 self.count_label.configure(text=count_text)
             if not patients:
                 self._show_list_empty(lang.t("empty_no_patients"))
@@ -927,13 +1043,13 @@ class App(ctk.CTk):
             if "_canvas" in locals() and _canvas is not None and "_yview" in locals() and _yview is not None:
                 _canvas.yview_moveto(_yview[0])
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _show_list_empty(self, text):
         try:
             ctk.CTkLabel(self.card_list, text=text, font=theme.FONT_SMALL, text_color=theme.MUTED,
                          wraplength=280, justify="left").pack(anchor="w", padx=10, pady=12)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _build_patient_card(self, p, first_line, selected):
         card = ctk.CTkFrame(self.card_list, fg_color=theme.SELECTED if selected else theme.PANEL,
                             corner_radius=theme.CARD_RADIUS, border_width=1, border_color=theme.BORDER)
@@ -970,7 +1086,7 @@ class App(ctk.CTk):
         try:
             card.configure(takefocus=True)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         card.bind("<Return>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
         card.bind("<space>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))
         card.bind("<Down>", lambda e=None: (self._navigate_patient(1), "break")[1])
@@ -1007,7 +1123,7 @@ class App(ctk.CTk):
                         if page.winfo_exists():
                             page.destroy()
                     except Exception as e:
-                        logger.debug("suppressed exception")
+                        log.debug_exc(logger)
                 deleted_row_id = db.delete_patient(pid)
                 if deleted_row_id is not None:
                     self._last_deleted_row_id = deleted_row_id
@@ -1019,7 +1135,7 @@ class App(ctk.CTk):
                                 self._last_deleted_name = d.get('name')
                                 break
                     except Exception as e:
-                        logger.debug("suppressed exception")
+                        log.debug_exc(logger)
                 if self.selected_patient_id == pid:
                     self.selected_patient_id = None
                     self._show_placeholder()
@@ -1038,7 +1154,7 @@ class App(ctk.CTk):
             banner.lift()
             self.after(4000, lambda b=banner: (b.destroy() if utils._exists(b) else None))
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _show_undo_hint(self):
         """Show a short, non-blocking 'Ctrl+Z to undo' banner after a delete."""
         name = getattr(self, "_last_deleted_name", None) or "patient"
@@ -1052,14 +1168,14 @@ class App(ctk.CTk):
             self._undo_hint = hint
             self.after(6000, lambda: hint.destroy() if utils._exists(hint) else None)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _handle_ctrl_z(self, event=None):
         w = self.focus_get()
         if isinstance(w, tk.Text):
             try:
                 w.event_generate("<<Undo>>")
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             return "break"
         self._undo_last_delete(event)
         return "break"
@@ -1070,7 +1186,7 @@ class App(ctk.CTk):
             try:
                 w.event_generate("<<Redo>>")
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             return "break"
         return "break"
 
@@ -1085,7 +1201,7 @@ class App(ctk.CTk):
                     if hint.winfo_exists():
                         hint.destroy()
                 except Exception as e:
-                    logger.debug("suppressed exception")
+                    log.debug_exc(logger)
                 self._undo_hint = None
             new_pid = db.restore_deleted(row_id)
             self._last_deleted_row_id = None
@@ -1111,7 +1227,7 @@ class App(ctk.CTk):
                 if panel.winfo_exists():
                     panel.save_if_dirty()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
     def _set_selected_card(self, pid):
         """Toggle the selected highlight without rebuilding the card list."""
         card_list = getattr(self, "card_list", None)
@@ -1122,7 +1238,7 @@ class App(ctk.CTk):
                 _canvas = card_list._parent_canvas
                 _yview = _canvas.yview()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         for cid, (card, btn) in list(getattr(self, "_card_widgets", {}).items()):
             try:
                 if cid == pid:
@@ -1132,7 +1248,7 @@ class App(ctk.CTk):
                     card.configure(fg_color=theme.PANEL)
                     btn.grid_remove()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
         try:
             if _canvas is not None and _yview is not None:
                 def _restore_scroll():
@@ -1140,10 +1256,10 @@ class App(ctk.CTk):
                         if _canvas.winfo_exists():
                             _canvas.yview_moveto(_yview[0])
                     except Exception as e:
-                        logger.debug("suppressed exception")
+                        log.debug_exc(logger)
                 self.after_idle(_restore_scroll)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _open_patient_by_id(self, patient_id):
         # warn before discarding an unsaved new patient
         for pid, panel in list(getattr(self, "patient_panels", {}).items()):
@@ -1202,7 +1318,7 @@ class App(ctk.CTk):
             if getattr(self, "search_entry", None) is not None and self.search_entry.winfo_exists():
                 self.search_entry.delete(0, "end")
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self._search_text = ""
         self.refresh_patients_db()
 
@@ -1211,13 +1327,13 @@ class App(ctk.CTk):
             ctk.set_widget_scaling(scale)
             ctk.set_window_scaling(scale)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             data = load_settings()
             data["ui_scale"] = scale
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _toggle_theme(self):
         cur = ctk.get_appearance_mode()
         new_mode = "Dark" if cur == "Light" else "Light"
@@ -1225,7 +1341,7 @@ class App(ctk.CTk):
         try:
             theme.set_appearance(new_mode)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         if theme.base() == "medidash":
             self._rebuild_ui()
         try:
@@ -1233,7 +1349,7 @@ class App(ctk.CTk):
             data["appearance"] = new_mode
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _rebuild_ui(self):
         self._save_open_files()
         view = getattr(self, "_current_view", "patients")
@@ -1245,7 +1361,7 @@ class App(ctk.CTk):
                 if w is not None and w.winfo_exists():
                     w.destroy()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
         self._header = None
         self._sidebar = None
         self._content = None
@@ -1266,12 +1382,12 @@ class App(ctk.CTk):
             try:
                 self._open_patient_by_id(pid)
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
         self._sidebar_visible = True
         try:
             self._on_configure_responsive()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _show_account_menu(self):
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label="Language: " + lang.get_language().upper())
@@ -1292,14 +1408,14 @@ class App(ctk.CTk):
             try:
                 menu.grab_release()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
     def _apply_appearance(self, mode):
         mode = "Dark" if str(mode).lower().startswith("d") else "Light"
         ctk.set_appearance_mode(mode)
         try:
             theme.set_appearance(mode)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         if theme.base() == "medidash":
             self._rebuild_ui()
         try:
@@ -1307,7 +1423,7 @@ class App(ctk.CTk):
             data["appearance"] = mode
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _apply_ui_theme(self, name):
         if name not in ("classic", "medidash"):
             name = "classic"
@@ -1317,7 +1433,7 @@ class App(ctk.CTk):
             data["ui_theme"] = name
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         theme.set_theme(name)
         self._rebuild_ui()
 
@@ -1341,7 +1457,7 @@ class App(ctk.CTk):
             try:
                 menu.grab_release()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
     def _export_csv(self):
         try:
             import csv
@@ -1372,7 +1488,7 @@ class App(ctk.CTk):
             data["sort_dir"] = self.sort_dir
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self.refresh_patients_db()
 
     SORT_LABELS = [("name", "Name"), ("updated", "Last modified"),
@@ -1397,12 +1513,12 @@ class App(ctk.CTk):
             y = self.sort_btn.winfo_rooty() + self.sort_btn.winfo_height()
             menu.tk_popup(x, y)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         finally:
             try:
                 menu.grab_release()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
     def _set_sort_dir(self, direction):
         if direction == self.sort_dir:
             return
@@ -1413,7 +1529,7 @@ class App(ctk.CTk):
             data["sort_dir"] = self.sort_dir
             save_settings(data)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self.refresh_patients_db()
 
     def _show_context_menu(self, event):
@@ -1432,7 +1548,7 @@ class App(ctk.CTk):
             try:
                 menu.grab_release()
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
     def _edit_current_patient(self):
         panel = getattr(self, "patient_panels", {}).get(self.selected_patient_id)
         if panel is not None and panel.winfo_exists():
@@ -1562,7 +1678,7 @@ class App(ctk.CTk):
             parts.append("}")
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("".join(parts))
-            messagebox.showinfo(lang.t("app_name"), lang.t("status_exported_word"))
+            self._show_status_banner(lang.t("status_exported_word"))
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
@@ -1575,7 +1691,8 @@ class App(ctk.CTk):
             dest = os.path.join(folder, "patients_" + stamp + ".db")
             shutil.copy2(db.db_path(), dest)
             ok, info = db.verify_backup(dest)
-            files = sorted([os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")])
+            files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")]
+            files.sort(key=os.path.getmtime)
             while len(files) > 7:
                 try:
                     os.remove(files.pop(0))
@@ -1603,6 +1720,11 @@ class App(ctk.CTk):
             if dlg.result:
                 import shutil
                 shutil.copy2(os.path.join(folder, dlg.result), db.db_path())
+                # ensure schema tables exist even if the backup predates a migration
+                try:
+                    db.init_db()
+                except Exception:
+                    pass
                 self.refresh_patients_db()
                 messagebox.showinfo(lang.t("app_name"), "Restore complete.")
         except Exception as e:
@@ -1647,7 +1769,7 @@ class App(ctk.CTk):
                         db.update_patient(pid, localitate=loc, diagnostic=diag, objective=obj, evaluation=eva, observation=obs)
                         count += 1
                 except Exception as e:
-                    logger.debug("suppressed exception")
+                    log.debug_exc(logger)
             self.refresh_patients_db()
             messagebox.showinfo(lang.t("app_name"), "Imported " + str(count) + " patients.")
         except Exception as e:
@@ -1667,14 +1789,15 @@ class App(ctk.CTk):
             dest = os.path.join(folder, "patients_auto_" + stamp + ".db")
             if not os.path.exists(dest):
                 shutil.copy2(db.db_path(), dest)
-            files = sorted([os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")])
+            files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")]
+            files.sort(key=os.path.getmtime)
             while len(files) > 7:
                 try:
                     os.remove(files.pop(0))
                 except OSError:
                     break
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _add_patient_db(self):
         dlg = AddPatientDialog(self)
         self.wait_window(dlg)
@@ -1707,7 +1830,7 @@ def main():
     try:
         ctk.deactivate_automatic_dpi_awareness()
     except Exception as e:
-        logger.debug("suppressed exception")
+        log.debug_exc(logger)
     app = App()
     app.mainloop()
 

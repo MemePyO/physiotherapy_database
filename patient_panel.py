@@ -201,7 +201,7 @@ class PatientFilePanel(ctk.CTkFrame):
                     val = txt.get("1.0", "end-1c").split(chr(10))[0].strip()
                     self.diag_header_label.configure(text="Diagnostic: " + (utils._strip_inline_formatting(val) if val else "NA"))
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             return
         code = self.patient.get('patient_code', '') or 'NA'
         dob = self.patient.get('dob', '') or 'NA'
@@ -210,14 +210,14 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             self.info_label.configure(text=f"Code: {code}   |   DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}")
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         diag = self.patient.get('diagnostic', '') or ''
         first_line = diag.split(chr(10))[0].strip() if diag else ''
         main_diag = utils._strip_inline_formatting(first_line) if first_line else 'NA'
         try:
             self.diag_header_label.configure(text="Diagnostic: " + main_diag)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     # ---- tabs ----
     def _build_tabs(self):
         if theme.layout() == "stacked":
@@ -268,6 +268,8 @@ class PatientFilePanel(ctk.CTkFrame):
             self.texts[field] = txt
 
         # Attachments tab
+        self._build_physio_tabs_classic()
+
         att_tab = self.tabview.add("Attachments")
         att_tab.grid_columnconfigure(0, weight=1)
         att_tab.grid_rowconfigure(0, weight=1)
@@ -318,7 +320,7 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             utils._patch_scrollable(self.sections_frame)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         sections = [("diagnostic", "Diagnostic", theme.HEAD_DIAG, "#ffffff"),
                     ("objective", "Obiectiv", theme.HEAD_OBJ, theme.TEXT),
                     ("evaluation", "Evaluare", theme.HEAD_EVAL, "#ffffff"),
@@ -369,6 +371,262 @@ class PatientFilePanel(ctk.CTkFrame):
             self._update_count(field, txt)
             self.texts[field] = txt
 
+        self._build_physio_tabs_classic()
+
+    def _build_physio_tabs_classic(self):
+        if not getattr(self, "tabview", None):
+            self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
+            self.tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
+            self.tabview.grid_columnconfigure(0, weight=1)
+        # Treatment plan tab
+        plan_tab = self.tabview.add("Plan tratament")
+        plan_tab.grid_columnconfigure(1, weight=1)
+        fields = [("diagnosis_code", "Cod diagnostic (ICD)"), ("body_region", "Regiune corporală"),
+                  ("side", "Laterality"), ("prescribed_sessions", "Ședințe prescrise"),
+                  ("start_date", "Data început"), ("end_date", "Data sfârșit")]
+        self.plan_entries = {}
+        r = 0
+        for key, label in fields:
+            ctk.CTkLabel(plan_tab, text=label + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(row=r, column=0, sticky="w", padx=6, pady=2)
+            if key == "body_region":
+                w = ctk.CTkOptionMenu(plan_tab, values=BODY_REGIONS if "BODY_REGIONS" in globals() else ["Cervical","Lumbar","Shoulder","Knee","Other"], width=180)
+            elif key == "side":
+                w = ctk.CTkOptionMenu(plan_tab, values=["Left", "Right", "Bilateral", "N/A"], width=120)
+            else:
+                w = ctk.CTkEntry(plan_tab, width=180)
+            w.grid(row=r, column=1, sticky="w", padx=6, pady=2)
+            self.plan_entries[key] = w
+            r += 1
+        ctk.CTkLabel(plan_tab, text="Obiective:", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
+        self.plan_goals = ctk.CTkTextbox(plan_tab, height=60, font=theme.FONT_BODY)
+        self.plan_goals.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
+        r += 1
+        ctk.CTkLabel(plan_tab, text="Contraindicații:", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
+        self.plan_contra = ctk.CTkTextbox(plan_tab, height=40, font=theme.FONT_BODY)
+        self.plan_contra.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
+        r += 1
+        ctk.CTkLabel(plan_tab, text="Note:", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
+        self.plan_notes = ctk.CTkTextbox(plan_tab, height=40, font=theme.FONT_BODY)
+        self.plan_notes.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
+        r += 1
+        ctk.CTkButton(plan_tab, text="Salvează planul", fg_color=theme.ACCENT, command=self._save_plan).grid(row=r, column=1, sticky="w", padx=6, pady=6)
+
+        # load existing
+        self._load_plan()
+
+        # Sessions tab
+        ses_tab = self.tabview.add("Sesiuni")
+        ses_tab.grid_columnconfigure(0, weight=1)
+        ses_tab.grid_rowconfigure(0, weight=1)
+        cols = ("no", "date", "dur", "vas", "status")
+        self.ses_tree = ttk.Treeview(ses_tab, columns=cols, show="headings", selectmode="browse")
+        for c, t, w in (("no", "Nr.", 40), ("date", "Data", 90), ("dur", "Min", 50), ("vas", "VAS înainte→după", 110), ("status", "Status", 90)):
+            self.ses_tree.heading(c, text=t)
+            self.ses_tree.column(c, width=w)
+        self.ses_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        sb = ctk.CTkFrame(ses_tab, fg_color="transparent")
+        sb.grid(row=1, column=0, sticky="ew", pady=4)
+        ctk.CTkButton(sb, text="Adaugă sesiune", width=120, fg_color=theme.ACCENT, command=self._add_session).pack(side="left", padx=2)
+        ctk.CTkButton(sb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_session).pack(side="left", padx=2)
+        self._load_sessions()
+
+        # HEP tab
+        hep_tab = self.tabview.add("Exerciții (HEP)")
+        hep_tab.grid_columnconfigure(0, weight=1)
+        hep_tab.grid_rowconfigure(0, weight=1)
+        hcols = ("name", "sets", "reps", "hold", "freq")
+        self.hep_tree = ttk.Treeview(hep_tab, columns=hcols, show="headings", selectmode="browse")
+        for c, t, w in (("name", "Exercițiu", 160), ("sets", "Serii", 50), ("reps", "Repetări", 70), ("hold", "Menținere(s)", 90), ("freq", "Frecvență", 100)):
+            self.hep_tree.heading(c, text=t)
+            self.hep_tree.column(c, width=w)
+        self.hep_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        hb = ctk.CTkFrame(hep_tab, fg_color="transparent")
+        hb.grid(row=1, column=0, sticky="ew", pady=4)
+        ctk.CTkButton(hb, text="Adaugă exercițiu", width=130, fg_color=theme.ACCENT, command=self._add_exercise).pack(side="left", padx=2)
+        ctk.CTkButton(hb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_exercise).pack(side="left", padx=2)
+        self._load_exercises()
+
+        # Outcomes tab
+        out_tab = self.tabview.add("Rezultate (VAS)")
+        out_tab.grid_columnconfigure(0, weight=1)
+        out_tab.grid_rowconfigure(0, weight=1)
+        ocols = ("date", "measure", "value", "notes")
+        self.out_tree = ttk.Treeview(out_tab, columns=ocols, show="headings", selectmode="browse")
+        for c, t, w in (("date", "Data", 90), ("measure", "Măsură", 80), ("value", "Valoare", 70), ("notes", "Note", 160)):
+            self.out_tree.heading(c, text=t)
+            self.out_tree.column(c, width=w)
+        self.out_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        ob = ctk.CTkFrame(out_tab, fg_color="transparent")
+        ob.grid(row=1, column=0, sticky="ew", pady=4)
+        ctk.CTkButton(ob, text="Adaugă măsurătoare", width=150, fg_color=theme.ACCENT, command=self._add_outcome).pack(side="left", padx=2)
+        ctk.CTkButton(ob, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_outcome).pack(side="left", padx=2)
+        self._load_outcomes()
+
+    def _load_plan(self):
+        try:
+            import db as _db
+            plan = _db.get_plan(self.patient_id)
+            if not plan:
+                return
+            for key, w in getattr(self, "plan_entries", {}).items():
+                val = plan.get(key)
+                if val is None:
+                    val = ""
+                if isinstance(w, ctk.CTkOptionMenu):
+                    w.set(str(val))
+                else:
+                    w.delete(0, "end")
+                    w.insert(0, str(val))
+            self.plan_goals.delete("1.0", "end")
+            self.plan_goals.insert("1.0", plan.get("goals", "") or "")
+            self.plan_contra.delete("1.0", "end")
+            self.plan_contra.insert("1.0", plan.get("contraindications", "") or "")
+            self.plan_notes.delete("1.0", "end")
+            self.plan_notes.insert("1.0", plan.get("notes", "") or "")
+        except Exception:
+            pass
+
+    def _save_plan(self):
+        try:
+            import db as _db
+            fields = {}
+            for key, w in getattr(self, "plan_entries", {}).items():
+                if isinstance(w, ctk.CTkOptionMenu):
+                    fields[key] = w.get()
+                else:
+                    fields[key] = w.get().strip()
+            fields["goals"] = self.plan_goals.get("1.0", "end-1c")
+            fields["contraindications"] = self.plan_contra.get("1.0", "end-1c")
+            fields["notes"] = self.plan_notes.get("1.0", "end-1c")
+            # prescribed_sessions int
+            try:
+                fields["prescribed_sessions"] = int(fields.get("prescribed_sessions") or 0)
+            except ValueError:
+                fields["prescribed_sessions"] = 0
+            _db.upsert_plan(self.patient_id, **fields)
+            messagebox.showinfo(lang.t("app_name"), "Plan salvat.")
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _load_sessions(self):
+        try:
+            import db as _db
+            for row in self.ses_tree.get_children():
+                self.ses_tree.delete(row)
+            for s in _db.list_sessions(self.patient_id):
+                vas = "%s→%s" % (s.get("pain_before", 0), s.get("pain_after", 0))
+                self.ses_tree.insert("", "end", iid=str(s["id"]), values=(s.get("session_no", ""), s.get("date", ""), s.get("duration_min", ""), vas, s.get("status", "")))
+        except Exception:
+            pass
+
+    def _add_session(self):
+        try:
+            import db as _db
+            # simple dialog via tkinter
+            import tkinter.simpledialog as sd
+            date = sd.askstring("Sesiune nouă", "Data (DD.MM.YYYY):", parent=self)
+            if not date:
+                return
+            sid = _db.add_session(self.patient_id, date=date, status="done")
+            self._load_sessions()
+            messagebox.showinfo(lang.t("app_name"), "Sesiune adăugată.")
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _delete_session(self):
+        sel = self.ses_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Selectați o sesiune.")
+            return
+        if not messagebox.askyesno(lang.t("app_name"), "Ștergeți sesiunea?"):
+            return
+        try:
+            import db as _db
+            _db.delete_session(int(sel[0]))
+            self._load_sessions()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _load_exercises(self):
+        try:
+            import db as _db
+            for row in self.hep_tree.get_children():
+                self.hep_tree.delete(row)
+            for e in _db.list_exercises(self.patient_id):
+                self.hep_tree.insert("", "end", iid=str(e["id"]), values=(e.get("name", ""), e.get("sets", ""), e.get("reps", ""), e.get("hold_sec", ""), e.get("frequency", "")))
+        except Exception:
+            pass
+
+    def _add_exercise(self):
+        try:
+            import tkinter.simpledialog as sd
+            import db as _db
+            name = sd.askstring("Exercițiu nou", "Nume exercițiu:", parent=self)
+            if not name:
+                return
+            _db.add_exercise(self.patient_id, name=name)
+            self._load_exercises()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _delete_exercise(self):
+        sel = self.hep_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Selectați un exercițiu.")
+            return
+        if not messagebox.askyesno(lang.t("app_name"), "Ștergeți exercițiul?"):
+            return
+        try:
+            import db as _db
+            _db.delete_exercise(int(sel[0]))
+            self._load_exercises()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _load_outcomes(self):
+        try:
+            import db as _db
+            for row in self.out_tree.get_children():
+                self.out_tree.delete(row)
+            for o in _db.list_outcomes(self.patient_id):
+                self.out_tree.insert("", "end", iid=str(o["id"]), values=(o.get("date", ""), o.get("measure", ""), o.get("value", ""), o.get("notes", "")))
+        except Exception:
+            pass
+
+    def _add_outcome(self):
+        try:
+            import tkinter.simpledialog as sd
+            import db as _db
+            val = sd.askstring("Măsurătoare nouă", "Valoare VAS (0-10):", parent=self)
+            if val is None:
+                return
+            try:
+                v = float(val)
+            except ValueError:
+                messagebox.showerror(lang.t("app_name"), "Valoare invalidă.")
+                return
+            if v < 0 or v > 10:
+                messagebox.showerror(lang.t("app_name"), "VAS trebuie 0-10.")
+                return
+            _db.add_outcome(self.patient_id, "VAS", v, _now().split(" ")[0])
+            self._load_outcomes()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _delete_outcome(self):
+        sel = self.out_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Selectați o măsurătoare.")
+            return
+        if not messagebox.askyesno(lang.t("app_name"), "Ștergeți măsurătoarea?"):
+            return
+        try:
+            import db as _db
+            _db.delete_outcome(int(sel[0]))
+            self._load_outcomes()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
     def _toolbar_action(self, field, action):
         txt = getattr(self, field + "_text")
         try:
@@ -393,11 +651,11 @@ class PatientFilePanel(ctk.CTkFrame):
             elif action == "number":
                 self._insert_line_prefix(txt, "1. ")
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             utils._apply_inline_formatting(txt)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self.mark_dirty()
 
     def _insert_line_prefix(self, txt, prefix):
@@ -422,7 +680,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 lines = 0
             self.count_labels[field].configure(text=f"{chars} ch \u00b7 {lines} ln")
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _update_title_star(self):
         pass
 
@@ -517,7 +775,7 @@ class PatientFilePanel(ctk.CTkFrame):
                     if hasattr(app, "_set_selected_card"):
                         app._set_selected_card(pid)
                 except Exception as e:
-                    logger.debug("suppressed exception")
+                    log.debug_exc(logger)
             except Exception as e:
                 messagebox.showerror(lang.t("app_name"), str(e))
             return
@@ -542,7 +800,7 @@ class PatientFilePanel(ctk.CTkFrame):
             try:
                 self.modified_label.configure(text=lang.t("ui_last_modified") + " " + (self.patient.get('updated_at') or 'NA'))
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             if self.on_close_callback:
                 self.on_close_callback()
             if not silent:
@@ -590,7 +848,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 if os.name == "nt":
                     os.startfile(path, "print")
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
             messagebox.showinfo(lang.t("app_name"), "PDF saved:\n" + path)
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -609,7 +867,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 try:
                     self.modified_label.configure(text="Last modified: " + (self.patient.get('updated_at') or 'NA'))
                 except Exception as e:
-                    logger.debug("suppressed exception")
+                    log.debug_exc(logger)
                 if self.on_close_callback:
                     self.on_close_callback()
             except Exception as e:
@@ -629,7 +887,7 @@ class PatientFilePanel(ctk.CTkFrame):
             try:
                 self.after_cancel(job)
             except Exception as e:
-                logger.debug("suppressed exception")
+                log.debug_exc(logger)
         try:
             self._fmt_job = self.after(250, lambda t=txt: (utils._apply_inline_formatting(t), setattr(self, "_fmt_job", None)))
         except Exception:
@@ -656,16 +914,16 @@ class PatientFilePanel(ctk.CTkFrame):
             if hasattr(app, "_show_placeholder"):
                 app._show_placeholder()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             self.destroy()
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _schedule_autosave(self):
         try:
             self.after(30000, self._auto_save)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _auto_save(self):
         try:
             if getattr(self, "_is_new", False):
@@ -674,7 +932,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 self.dirty_label.configure(text="Saving...")
                 self._save_all(silent=True)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         self._schedule_autosave()
 
     # ---- attachments ----
@@ -683,7 +941,7 @@ class PatientFilePanel(ctk.CTkFrame):
             for r in self.attach_tree.get_children():
                 self.attach_tree.delete(r)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             for a in db.list_attachments(self.patient_id):
                 size = a.get('size', 0)
@@ -691,7 +949,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 self.attach_tree.insert("", "end", iid=str(a['id']),
                                         values=(a.get('filename', ''), size_str, a.get('added_at', '')))
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _attach_file(self):
         path = filedialog.askopenfilename(title="Attach file", filetypes=[("All files", "*.*")])
         if not path:
@@ -796,7 +1054,7 @@ class PatientFilePanel(ctk.CTkFrame):
             for r in self.hist_tree.get_children():
                 self.hist_tree.delete(r)
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
         try:
             for h in db.list_history(self.patient_id):
                 oldv = h.get('old_value', '') or ''
@@ -807,7 +1065,7 @@ class PatientFilePanel(ctk.CTkFrame):
                     newv = newv[:37] + "..."
                 self.hist_tree.insert("", "end", values=(h.get('changed_at', ''), h.get('field', ''), oldv, newv))
         except Exception as e:
-            logger.debug("suppressed exception")
+            log.debug_exc(logger)
     def _clear_history(self):
         if not messagebox.askyesno(lang.t("app_name"), "Delete all history for this patient?"):
             return

@@ -1238,7 +1238,14 @@ class App(ctk.CTk):
             open_btn.grid_remove()
 
         try:
-            card.configure(takefocus=True)
+            try:
+                card.configure(takefocus=True)
+            except Exception:
+                # CTkFrame doesn't accept takefocus; route to the inner tk frame
+                try:
+                    card._canvas.configure(takefocus=True)
+                except Exception:
+                    log.debug_exc(logger)
         except Exception as e:
             log.debug_exc(logger)
         card.bind("<Return>", lambda e=None, pid=p['id']: self._open_patient_by_id(pid))

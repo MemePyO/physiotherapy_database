@@ -923,7 +923,7 @@ class App(ctk.CTk):
         grid.grid(row=1, column=0, sticky="nsew", pady=4)
         _render()
 
-    def _show_day_appointments(self, day):
+    def _show_day_appointments(self, day, open_form=False):
         """Open the schedule for a calendar day in the right preview panel (no popups)."""
         date_str = "%02d.%02d.%d" % (day, self._cal_month, self._cal_year)
         # leaving any open patient file: save it first, then swap the preview
@@ -946,28 +946,36 @@ class App(ctk.CTk):
         head = ctk.CTkFrame(root, fg_color="transparent")
         head.grid(row=0, column=0, sticky="ew", padx=theme.PADDING, pady=(theme.PADDING, 4))
         head.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(head, text="%s – %s" % (lang.t("ui_schedule"), date_str),
-                     font=theme.FONT_TITLE, text_color=theme.TEXT, anchor="w").grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(head, text=date_str, font=theme.FONT_TITLE, text_color=theme.TEXT,
+                     anchor="w").grid(row=0, column=0, sticky="w")
         ctk.CTkButton(head, text="\u2715", width=30,
                       command=self._show_placeholder).grid(row=0, column=1, padx=(8, 0))
 
-        # --- scrollable list of appointment cards
-        lst = ctk.CTkScrollableFrame(root, fg_color="transparent")
-        lst.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING)
+        # --- tabs under the header: schedule list | new appointment form
+        tabs = ctk.CTkTabview(root, fg_color=getattr(theme, "PANEL", "transparent"),
+                              corner_radius=0, border_width=1,
+                              border_color=getattr(theme, "BORDER", theme.MUTED))
+        tabs.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(2, theme.PADDING))
+        tabs.grid_columnconfigure(0, weight=1)
+        tab_lst = tabs.add(lang.t("ui_schedule"))
+        tab_add = tabs.add(lang.t("ui_new_appointment"))
+        tabs.set(lang.t("ui_new_appointment") if open_form else lang.t("ui_schedule"))
+        tab_lst.grid_columnconfigure(0, weight=1)
+        tab_lst.grid_rowconfigure(0, weight=1)
+
+        # --- scrollable list of appointment cards (first tab)
+        lst = ctk.CTkScrollableFrame(tab_lst, fg_color="transparent")
+        lst.grid(row=0, column=0, sticky="nsew")
         lst.grid_columnconfigure(0, weight=1)
         try:
             utils._patch_scrollable(lst)
         except Exception as e:
             log.debug_exc(logger)
 
-        # --- inline add form
-        form = ctk.CTkFrame(root, fg_color=theme.PANEL, corner_radius=getattr(theme, "PANEL_RADIUS", 8),
-                            border_width=1, border_color=getattr(theme, "BORDER", theme.MUTED))
-        form.grid(row=2, column=0, sticky="ew", padx=theme.PADDING, pady=(6, theme.PADDING))
+        # --- inline add form (second tab)
+        form = ctk.CTkFrame(tab_add, fg_color="transparent")
+        form.grid(row=0, column=0, sticky="nsew", padx=8)
         form.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(form, text=lang.t("ui_new_appointment"), font=theme.FONT_BOLD,
-                     text_color=theme.TEXT).grid(row=0, column=0, columnspan=4, sticky="w", padx=8, pady=(8, 2))
 
         patients = {}
         try:
@@ -1107,7 +1115,7 @@ class App(ctk.CTk):
         t = datetime.date.today()
         self._cal_year, self._cal_month = t.year, t.month
         self._show_view("calendar")
-        self._show_day_appointments(t.day)
+        self._show_day_appointments(t.day, open_form=True)
 
     def _view_new_patient(self):
         self._open_patient_by_id(None)

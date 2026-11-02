@@ -1,7 +1,11 @@
 """Frontend: customtkinter GUI with Patient Database."""
+import glob
 import json
 import os
+import shutil
 import sys
+import threading
+import time
 import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -14,6 +18,50 @@ import theme
 import log
 from version import __version__
 logger = log.get_logger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Unhandled-exception reporting
+# ---------------------------------------------------------------------------
+# In a windowed exe there is no console, so Tkinter's default error output is
+# lost.  These hooks write the traceback to app.log and to the Diagnostics
+# list, and show the user one short dialog (at most once per minute).
+_ERROR_DIALOG_INTERVAL = 60.0
+_last_error_dialog = 0.0
+
+
+def _log_uncaught(exc_type, exc_value, exc_tb):
+    logger.error("Unhandled exception: %s", exc_value,
+                 exc_info=(exc_type, exc_value, exc_tb))
+
+
+def _show_crash_dialog(exc_value, owner=None):
+    """Show an error dialog, throttled so a repeating failure cannot spam."""
+    global _last_error_dialog
+    now = time.monotonic()
+    if now - _last_error_dialog < _ERROR_DIALOG_INTERVAL:
+        return
+    _last_error_dialog = now
+    text = "%s\n\n%s\n\n%s" % (lang.t("ui_unexpected_error"), exc_value,
+                               lang.t("ui_error_details_hint"))
+    try:
+        if owner is not None:
+            messagebox.showerror(lang.t("app_name"), text, parent=owner)
+        else:
+            messagebox.showerror(lang.t("app_name"), text)
+    except Exception:
+        log.debug_exc(logger)
+
+
+def _excepthook(exc_type, exc_value, exc_tb):
+    """Catch exceptions that escape the main thread."""
+    _log_uncaught(exc_type, exc_value, exc_tb)
+    _show_crash_dialog(exc_value)
+
+
+def _thread_excepthook(args):
+    """Catch exceptions that escape background threads."""
+    _log_uncaught(args.exc_type, args.exc_value, args.exc_traceback)
 
 
 def _base_dir() -> str:
@@ -145,6 +193,7 @@ class App(ctk.CTk):
 
     def __init__(self, patients_file=None):
         super().__init__()
+        self._closing = False
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         lang.set_language(load_language())
@@ -247,6 +296,7 @@ class App(ctk.CTk):
         self.bind("<Escape>", self._handle_escape)
 
     def _on_app_close(self):
+        self._closing = True
         try:
             self._save_open_files()
         except Exception as e:
@@ -258,6 +308,22 @@ class App(ctk.CTk):
         except Exception as e:
             log.debug_exc(logger)
         self.destroy()
+
+    def report_callback_exception(self, exc_type, exc_value, exc_tb):
+        """Tkinter sends errors from widget callbacks here.
+
+        Without this override the traceback would only go to stderr, which a
+        windowed exe does not have — the user would just see nothing happen.
+        """
+        _log_uncaught(exc_type, exc_value, exc_tb)
+        if getattr(self, "_closing", False):
+            return
+        try:
+            if self.winfo_exists():
+                self._show_status_banner(lang.t("ui_error_banner"))
+        except Exception:
+            log.debug_exc(logger)
+        _show_crash_dialog(exc_value, self)
 
     def _save_current_panel(self):
         panel = getattr(self, "patient_panels", {}).get(self.selected_patient_id)
@@ -323,6 +389,8 @@ class App(ctk.CTk):
         for code, label in LANG_LABELS.items():
             lang_submenu.add_command(label=label, command=lambda c=code: self._on_language_change(c == "ro" and "Română" or "English"))
         view_menu.add_cascade(label="Language", menu=lang_submenu)
+        view_menu.add_separator()
+        view_menu.add_command(label="Diagnostics", command=lambda: self._show_view("diagnostics"))
         menubar.add_cascade(label="View", menu=view_menu)
         help_menu = tk.Menu(menubar, tearoff=0)
         help_menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
@@ -631,7 +699,7 @@ class App(ctk.CTk):
         self._current_view = view
         titles = {"patients": "Patient Overview", "trash": "Trash (deleted)", "settings": "Settings",
                   "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient",
-                  "calendar": "Calendar"}
+                  "calendar": "Calendar", "diagnostics": "Diagnostics"}
         self.overview_title.configure(text=titles.get(view, view))
         if view == "patients":
             self._view_patients()
@@ -647,6 +715,8 @@ class App(ctk.CTk):
             self._view_new_patient()
         elif view == "calendar":
             self._view_calendar()
+        elif view == "diagnostics":
+            self._view_diagnostics()
 
     def _view_patients(self):
         f = self.overview_content
@@ -830,6 +900,158 @@ class App(ctk.CTk):
         ctk.CTkButton(df, text="Restore...", width=110, command=self._restore_backup).pack(side="left", padx=2)
         ctk.CTkButton(df, text="Import...", width=110, command=self._import_data).pack(side="left", padx=2)
         ctk.CTkButton(scroll, text=lang.t("ui_open_trash"), width=200, command=lambda: self._show_view("trash")).pack(anchor="w", pady=(8, 0))
+
+    # ------------------------------------------------------------------
+    # Diagnostics: recent errors + health checks (read-only)
+    # ------------------------------------------------------------------
+    def _view_diagnostics(self):
+        f = self.overview_content
+        f.grid_rowconfigure(0, weight=1)
+        scroll = ctk.CTkScrollableFrame(f, fg_color="transparent")
+        scroll.grid(row=0, column=0, sticky="nsew")
+        scroll.grid_columnconfigure(0, weight=1)
+        utils._patch_scrollable(scroll)
+
+        head = ctk.CTkFrame(scroll, fg_color="transparent")
+        head.pack(fill="x", pady=(0, 6))
+        ctk.CTkLabel(head, text=lang.t("ui_recent_errors"), font=theme.FONT_BOLD,
+                     text_color=theme.TEXT).pack(side="left")
+        ctk.CTkButton(head, text=lang.t("ui_refresh"), width=70,
+                      command=lambda: self._show_view("diagnostics")).pack(side="right", padx=2)
+        ctk.CTkButton(head, text=lang.t("ui_clear_errors"), width=70,
+                      command=self._clear_recent_errors).pack(side="right", padx=2)
+
+        errors = log.recent_errors()
+        if not errors:
+            ctk.CTkLabel(scroll, text=lang.t("ui_no_errors"), font=theme.FONT_SMALL,
+                         text_color=theme.MUTED, anchor="w").pack(fill="x", pady=4)
+        else:
+            for entry in reversed(errors):
+                self._build_error_card(scroll, entry)
+
+        actions = ctk.CTkFrame(scroll, fg_color="transparent")
+        actions.pack(fill="x", pady=(8, 4))
+        ctk.CTkButton(actions, text=lang.t("ui_copy_errors"), width=130,
+                      command=self._copy_recent_errors).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(actions, text=lang.t("ui_open_log"), width=130,
+                      command=self._open_log_file).pack(side="left")
+
+        self._build_health_card(scroll)
+
+    def _build_error_card(self, parent, entry):
+        """One captured error: time, level, message and its traceback."""
+        card = ctk.CTkFrame(parent, fg_color=theme.PANEL, corner_radius=6, border_width=1,
+                            border_color=getattr(theme, "BORDER", theme.MUTED))
+        card.pack(fill="x", pady=3)
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.pack(fill="x", padx=8, pady=(6, 0))
+        ctk.CTkLabel(top, text=entry["time"], font=theme.FONT_SMALL,
+                     text_color=theme.MUTED).pack(side="left")
+        colour = theme.DANGER if entry["level"] in ("ERROR", "CRITICAL") else theme.ACCENT
+        ctk.CTkLabel(top, text=entry["level"], font=theme.FONT_SMALL,
+                     text_color=colour).pack(side="left", padx=6)
+
+        message = entry["message"].strip() or "(no message)"
+        if len(message) > 160:
+            message = message[:157] + "..."
+        ctk.CTkLabel(card, text=message, font=theme.FONT_SMALL, text_color=theme.TEXT,
+                     anchor="w", justify="left", wraplength=265).pack(fill="x", padx=8, pady=(2, 4))
+
+        trace_text = entry.get("traceback", "").strip()
+        if not trace_text:
+            return
+        box = ctk.CTkTextbox(card, height=120, font=("Consolas", 9), fg_color="transparent",
+                             border_width=0, wrap="word")
+        box.pack(fill="x", padx=8, pady=(0, 6))
+        box.insert("1.0", trace_text)
+        box.configure(state="disabled")
+
+    def _build_health_card(self, parent):
+        card = ctk.CTkFrame(parent, fg_color=theme.PANEL, corner_radius=6, border_width=1,
+                            border_color=getattr(theme, "BORDER", theme.MUTED))
+        card.pack(fill="x", pady=(10, 4))
+        ctk.CTkLabel(card, text=lang.t("ui_health_check"), font=theme.FONT_BOLD,
+                     text_color=theme.TEXT).pack(anchor="w", padx=8, pady=(8, 4))
+        for label, value in self._health_rows():
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=8, pady=1)
+            ctk.CTkLabel(row, text=label, font=theme.FONT_SMALL, text_color=theme.MUTED,
+                         anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=value, font=theme.FONT_SMALL, text_color=theme.TEXT,
+                         anchor="e").pack(side="right")
+        ctk.CTkLabel(card, text=lang.t("ui_log_file") + ": " + self._log_path(),
+                     font=theme.FONT_SMALL, text_color=theme.MUTED,
+                     anchor="w", wraplength=265).pack(fill="x", padx=8, pady=(6, 8))
+
+    def _health_rows(self):
+        """Read-only checks; each one is guarded so the view never crashes."""
+        rows = []
+        try:
+            ok = db.check_integrity()
+            rows.append((lang.t("ui_db_integrity"), lang.t("ui_ok") if ok else lang.t("ui_failed")))
+        except Exception as e:
+            log.debug_exc(logger)
+            rows.append((lang.t("ui_db_integrity"), lang.t("ui_failed")))
+        try:
+            rows.append((lang.t("ui_patients"), str(len(db.get_all_patients()))))
+        except Exception as e:
+            log.debug_exc(logger)
+        try:
+            rows.append((lang.t("ui_appointments"), str(len(db.list_appointments()))))
+        except Exception as e:
+            log.debug_exc(logger)
+        try:
+            folder = os.path.join(_base_dir(), "backup")
+            backups = glob.glob(os.path.join(folder, "*.db"))
+            if backups:
+                latest = max(backups, key=os.path.getmtime)
+                stamp = datetime.datetime.fromtimestamp(os.path.getmtime(latest)).strftime("%d.%m.%Y %H:%M")
+                rows.append((lang.t("ui_last_backup"), stamp))
+            else:
+                rows.append((lang.t("ui_last_backup"), lang.t("ui_none")))
+        except Exception as e:
+            log.debug_exc(logger)
+        try:
+            free_gb = shutil.disk_usage(_base_dir()).free / (1024.0 ** 3)
+            rows.append((lang.t("ui_disk_free"), "%.1f GB" % free_gb))
+        except Exception as e:
+            log.debug_exc(logger)
+        return rows
+
+    def _log_path(self):
+        return os.path.join(_base_dir(), "app.log")
+
+    def _clear_recent_errors(self):
+        log.clear_errors()
+        self._show_view("diagnostics")
+
+    def _copy_recent_errors(self):
+        errors = log.recent_errors()
+        if not errors:
+            return
+        lines = []
+        for entry in reversed(errors):
+            lines.append("%s %s %s: %s" % (entry["time"], entry["level"],
+                                           entry["logger"], entry["message"]))
+            if entry.get("traceback"):
+                lines.append(entry["traceback"])
+        try:
+            self.clipboard_clear()
+            self.clipboard_append("\n".join(lines))
+            self._show_status_banner(lang.t("ui_copied"))
+        except Exception as e:
+            log.debug_exc(logger)
+
+    def _open_log_file(self):
+        path = self._log_path()
+        if not os.path.exists(path):
+            messagebox.showinfo(lang.t("app_name"), lang.t("ui_no_log_file"))
+            return
+        try:
+            os.startfile(path)
+        except Exception as e:
+            log.debug_exc(logger)
+            messagebox.showerror(lang.t("app_name"), str(e))
 
     def _view_saveas(self):
         f = self.overview_content
@@ -1998,11 +2220,19 @@ class App(ctk.CTk):
 
 
 def main():
+    # Without a console, uncaught errors would vanish in the windowed exe.
+    sys.excepthook = _excepthook
+    threading.excepthook = _thread_excepthook
     try:
         ctk.deactivate_automatic_dpi_awareness()
     except Exception as e:
         log.debug_exc(logger)
-    app = App()
+    try:
+        app = App()
+    except Exception as exc:
+        _log_uncaught(*sys.exc_info())
+        _show_crash_dialog(exc)
+        return
     app.mainloop()
 
 

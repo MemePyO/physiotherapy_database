@@ -607,6 +607,31 @@ STRINGS = {
     "ui_empty_pdf": {"en": "Empty PDF.", "ro": "PDF gol."},
     "ui_no_preview": {"en": "No preview available.", "ro": "Previzualizare indisponibilă."},
     "ui_all_files": {"en": "All files", "ro": "Toate fișierele"},
+
+    # ---- diagnostics / error reporting ----
+    "ui_diagnostics": {"en": "Diagnostics", "ro": "Diagnosticare"},
+    "ui_recent_errors": {"en": "Recent errors", "ro": "Erori recente"},
+    "ui_no_errors": {"en": "No errors recorded.", "ro": "Nicio eroare înregistrată."},
+    "ui_clear_errors": {"en": "Clear", "ro": "Golește"},
+    "ui_copy_errors": {"en": "Copy all", "ro": "Copiază tot"},
+    "ui_copied": {"en": "Copied to clipboard", "ro": "Copiat în clipboard"},
+    "ui_open_log": {"en": "Open log file", "ro": "Deschide fișierul log"},
+    "ui_no_log_file": {"en": "The log file does not exist yet.", "ro": "Fișierul log nu există încă."},
+    "ui_health_check": {"en": "Health check", "ro": "Verificare stare"},
+    "ui_db_integrity": {"en": "Database integrity", "ro": "Integritatea bazei de date"},
+    "ui_appointments": {"en": "Appointments", "ro": "Programări"},
+    "ui_last_backup": {"en": "Last backup", "ro": "Ultimul backup"},
+    "ui_disk_free": {"en": "Free disk", "ro": "Spațiu liber"},
+    "ui_ok": {"en": "OK", "ro": "OK"},
+    "ui_failed": {"en": "FAILED", "ro": "EȘUAT"},
+    "ui_none": {"en": "none", "ro": "niciunul"},
+    "ui_log_file": {"en": "Log file", "ro": "Fișier log"},
+    "ui_unexpected_error": {"en": "An unexpected error occurred. The details were saved to app.log.",
+                            "ro": "A apărut o eroare neașteptată. Detaliile au fost salvate în app.log."},
+    "ui_error_details_hint": {"en": "Open View > Diagnostics to review recent errors.",
+                              "ro": "Deschideți Vizualizare > Diagnosticare pentru a vedea erorile recente."},
+    "ui_error_banner": {"en": "An error occurred — see View > Diagnostics",
+                        "ro": "A apărut o eroare — vezi Vizualizare > Diagnosticare"},
 }
 
 

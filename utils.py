@@ -103,6 +103,14 @@ def _patch_scrollable(sf):
         pass
 
 
+def _exists(widget):
+    """Safe winfo_exists that never raises on destroyed widgets."""
+    try:
+        return bool(widget is not None and widget.winfo_exists())
+    except Exception:
+        return False
+
+
 def _safe_after(widget, ms, callback):
     """Schedule a callback without crashing if the widget is destroyed meanwhile."""
     def _wrapped():
@@ -115,11 +123,6 @@ def _safe_after(widget, ms, callback):
         return widget.after(ms, _wrapped)
     except Exception:
         return None
-    """Safe winfo_exists that never raises on destroyed widgets."""
-    try:
-        return bool(w is not None and w.winfo_exists())
-    except Exception:
-        return False
 
 
 def _norm(s):

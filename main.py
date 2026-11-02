@@ -918,8 +918,6 @@ class App(ctk.CTk):
         title_lbl = ctk.CTkLabel(nav, text="", font=theme.FONT_TITLE, text_color=theme.TEXT)
         title_lbl.pack(side="left", padx=12)
         ctk.CTkButton(nav, text="\u2192", width=36, command=_next).pack(side="left", padx=2)
-        ctk.CTkButton(nav, text=lang.t("ui_new_appointment"), width=140, fg_color=theme.ACCENT,
-                      command=self._nav_new_appointment).pack(side="right", padx=2)
 
         grid = ctk.CTkFrame(f, fg_color="transparent")
         grid.grid(row=1, column=0, sticky="nsew", pady=4)
@@ -1128,13 +1126,6 @@ class App(ctk.CTk):
                 del_btn.grid(row=0, column=4, padx=(0, 8))
 
         _render_list()
-
-    def _nav_new_appointment(self):
-        t = datetime.date.today()
-        self._cal_year, self._cal_month = t.year, t.month
-        self._cal_selected_day = t.day
-        self._show_view("calendar")
-        self._show_day_appointments(t.day)
 
     def _view_new_patient(self):
         self._open_patient_by_id(None)

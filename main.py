@@ -612,8 +612,9 @@ class App(ctk.CTk):
                 log.debug_exc(logger)
             self._search_job = None
         try:
-            if hasattr(self, "search_entry") and self.search_entry.winfo_exists():
-                self._search_text = self.search_entry.get()
+            se = getattr(self, "search_entry", None)
+            if se is not None and se.winfo_exists():
+                self._search_text = se.get()
             if isinstance(getattr(self, "search_scope", None), str):
                 self._search_scope_text = self.search_scope
         except Exception as e:

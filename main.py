@@ -1,6 +1,7 @@
 """Frontend: customtkinter GUI with Patient Database."""
 import json
 import os
+import sys
 import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -13,6 +14,18 @@ import theme
 import log
 from version import __version__
 logger = log.get_logger(__name__)
+
+
+def _base_dir() -> str:
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return _base_dir()
+
+
+def _asset_dir() -> str:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return sys._MEIPASS
+    return _base_dir()
 from patient_panel import PatientFilePanel
 from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf, _strip_inline_formatting
 import utils
@@ -69,7 +82,7 @@ LANG_LABELS = {"en": "English", "ro": "Română"}
 
 
 def settings_file():
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
+    return os.path.join(_base_dir(), "settings.json")
 
 
 def load_settings():
@@ -166,7 +179,7 @@ class App(ctk.CTk):
                 if messagebox.askyesno(lang.t("app_name"), "Database integrity check failed. Restore from latest backup?"):
                     # find latest backup
                     import glob as _g
-                    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backup")
+                    folder = os.path.join(_base_dir(), "backup")
                     files = sorted(_g.glob(os.path.join(folder, "*.db")))
                     if files:
                         latest = files[-1]
@@ -371,7 +384,7 @@ class App(ctk.CTk):
         brand.grid(row=0, column=0, sticky="w", padx=20)
         try:
             img = ctk.CTkImage(light_image=__import__("PIL.Image", fromlist=["Image"]).open(
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "logo.png")), size=(40, 40))
+                os.path.join(_asset_dir(), "assets", "logo.png")), size=(40, 40))
             ctk.CTkLabel(brand, image=img, text="").pack(side="left", padx=(0, 10))
         except Exception:
             ctk.CTkLabel(brand, text="\u2695", font=("Segoe UI", 26), text_color=theme.ACCENT).pack(side="left", padx=(0, 10))
@@ -1556,7 +1569,7 @@ class App(ctk.CTk):
     def _backup_now(self):
         try:
             import shutil, datetime
-            folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backup")
+            folder = os.path.join(_base_dir(), "backup")
             os.makedirs(folder, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             dest = os.path.join(folder, "patients_" + stamp + ".db")
@@ -1577,7 +1590,7 @@ class App(ctk.CTk):
 
     def _restore_backup(self):
         try:
-            folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backup")
+            folder = os.path.join(_base_dir(), "backup")
             if not os.path.isdir(folder):
                 messagebox.showinfo(lang.t("app_name"), "No backups found.")
                 return
@@ -1648,7 +1661,7 @@ class App(ctk.CTk):
     def _auto_backup(self):
         try:
             import shutil, datetime
-            folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backup")
+            folder = os.path.join(_base_dir(), "backup")
             os.makedirs(folder, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d")
             dest = os.path.join(folder, "patients_auto_" + stamp + ".db")

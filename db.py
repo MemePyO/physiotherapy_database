@@ -1,11 +1,18 @@
 """Patient database module using SQLite."""
 import json
 import os
+import sys
 import sqlite3
 from datetime import datetime
 
 import log
 logger = log.get_logger(__name__)
+
+
+def _base_dir() -> str:
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return _base_dir()
 
 
 def _now():
@@ -18,14 +25,14 @@ MAX_LOCALITY_LEN = 100
 
 
 def db_path() -> str:
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "patients.db")
+    return os.path.join(_base_dir(), "patients.db")
 
 
 def pre_operation_backup(label: str = "op") -> None:
     """Copy the current DB to backup/ before a destructive operation."""
     try:
         import shutil, datetime
-        folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backup")
+        folder = os.path.join(_base_dir(), "backup")
         os.makedirs(folder, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         dest = os.path.join(folder, "pre_%s_%s.db" % (label, stamp))
@@ -181,7 +188,7 @@ def check_integrity() -> bool:
 
 def migrate_from_json(conn) -> None:
     """Migrate patient names from patients.json to database."""
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "patients.json")
+    json_path = os.path.join(_base_dir(), "patients.json")
     if not os.path.exists(json_path):
         return
 
@@ -479,7 +486,7 @@ def get_observation(patient_id: int) -> str:
 
 
 def attachments_dir() -> str:
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "attachments")
+    return os.path.join(_base_dir(), "attachments")
 
 
 def _patient_attach_folder(patient_id: int) -> str:

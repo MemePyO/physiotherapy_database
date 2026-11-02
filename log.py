@@ -1,10 +1,17 @@
 """Centralized logging configuration (rotating file + console)."""
 import logging
 import os
+import sys
 import re
 from logging.handlers import RotatingFileHandler
 
 _CONFIGURED = False
+
+
+def _base_dir() -> str:
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
 
 # Patterns that may contain PII or secrets; redacted in all log output.
 _REDACT_PATTERNS = [
@@ -31,7 +38,7 @@ def setup():
     if _CONFIGURED:
         return
     _CONFIGURED = True
-    base = os.path.dirname(os.path.abspath(__file__))
+    base = _base_dir()
     log_path = os.path.join(base, "app.log")
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
     redactor = _RedactFilter()

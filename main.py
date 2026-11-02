@@ -74,6 +74,26 @@ def _asset_dir() -> str:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return sys._MEIPASS
     return _base_dir()
+
+
+def _prune_auto_backups(folder, keep=7):
+    """Remove old automatic backups, but never touch safety copies.
+
+    Only files created by the app (``patients_*.db``) are pruned.  Snapshots
+    such as ``pre_migration_*.db`` / ``pre_purge_*.db`` are kept forever —
+    deleting them used to destroy the only copy of real data.
+    """
+    try:
+        files = [os.path.join(folder, name) for name in os.listdir(folder)
+                 if name.startswith("patients_") and name.endswith(".db")]
+        files.sort(key=os.path.getmtime)
+        while len(files) > keep:
+            try:
+                os.remove(files.pop(0))
+            except OSError:
+                break
+    except Exception as e:
+        log.debug_exc(logger)
 from patient_panel import PatientFilePanel
 from utils import _norm, _initials, _validate_dob, _rtf_escape, _make_simple_pdf, _strip_inline_formatting
 import utils
@@ -2084,13 +2104,7 @@ class App(ctk.CTk):
             dest = os.path.join(folder, "patients_" + stamp + ".db")
             shutil.copy2(db.db_path(), dest)
             ok, info = db.verify_backup(dest)
-            files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")]
-            files.sort(key=os.path.getmtime)
-            while len(files) > 7:
-                try:
-                    os.remove(files.pop(0))
-                except OSError:
-                    break
+            _prune_auto_backups(folder)
             if ok:
                 messagebox.showinfo(lang.t("app_name"), "Backup created and verified (" + str(info) + " patients):\n" + dest)
             else:
@@ -2182,13 +2196,7 @@ class App(ctk.CTk):
             dest = os.path.join(folder, "patients_auto_" + stamp + ".db")
             if not os.path.exists(dest):
                 shutil.copy2(db.db_path(), dest)
-            files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".db")]
-            files.sort(key=os.path.getmtime)
-            while len(files) > 7:
-                try:
-                    os.remove(files.pop(0))
-                except OSError:
-                    break
+            _prune_auto_backups(folder)
         except Exception as e:
             log.debug_exc(logger)
     def _add_patient_db(self):

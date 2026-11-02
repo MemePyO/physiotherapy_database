@@ -567,6 +567,7 @@ STRINGS = {
     "ui_time": {"en": "Time (HH:MM)", "ro": "Ora (HH:MM)"},
     "ui_duration_min": {"en": "Duration (min)", "ro": "Durată (min)"},
     "ui_status": {"en": "Status", "ro": "Stare"},
+    "ui_notes": {"en": "Notes", "ro": "Note"},
     "ui_add_appointment": {"en": "Add appointment", "ro": "Adaugă programare"},
     "ui_clear_history": {"en": "Clear history", "ro": "Șterge istoricul"},
     "ui_last_modified": {"en": "Last modified:", "ro": "Ultima modificare:"},

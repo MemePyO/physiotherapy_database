@@ -371,13 +371,22 @@ class PatientFilePanel(ctk.CTkFrame):
             self._update_count(field, txt)
             self.texts[field] = txt
 
-        self._build_physio_tabs_classic()
+        self._build_physio_tabs_classic(parent=self.sections_frame)
 
-    def _build_physio_tabs_classic(self):
+    def _build_physio_tabs_classic(self, parent=None):
         if not getattr(self, "tabview", None):
-            self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
-            self.tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
-            self.tabview.grid_columnconfigure(0, weight=1)
+            if parent is not None:
+                # stacked layout: the tabview is one more card in the scroll column,
+                # styled like the section cards so it blends (no white band)
+                self.tabview = ctk.CTkTabview(parent, fg_color=theme.PANEL,
+                                              corner_radius=getattr(theme, "CARD_RADIUS", 8),
+                                              border_width=1, border_color=theme.BORDER,
+                                              height=400)
+                self.tabview.pack(fill="x", pady=(0, 12))
+            else:
+                self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
+                self.tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
+                self.tabview.grid_columnconfigure(0, weight=1)
         # Treatment plan tab
         plan_tab = self.tabview.add("Plan tratament")
         plan_tab.grid_columnconfigure(1, weight=1)

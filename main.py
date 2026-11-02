@@ -629,7 +629,8 @@ class App(ctk.CTk):
                 log.debug_exc(logger)
         self._current_view = view
         titles = {"patients": "Patient Overview", "trash": "Trash (deleted)", "settings": "Settings",
-                  "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient"}
+                  "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient",
+                  "calendar": "Calendar"}
         self.overview_title.configure(text=titles.get(view, view))
         if view == "patients":
             self._view_patients()
@@ -857,7 +858,7 @@ class App(ctk.CTk):
     def _view_calendar(self):
         import datetime as _dt
         f = self.overview_content
-        f.grid_rowconfigure(1, weight=1)
+        f.grid_rowconfigure(1, weight=0)
         # month navigation
         nav = ctk.CTkFrame(f, fg_color="transparent")
         nav.grid(row=0, column=0, sticky="ew", pady=(0, 6))
@@ -923,9 +924,113 @@ class App(ctk.CTk):
         grid.grid(row=1, column=0, sticky="nsew", pady=4)
         _render()
 
-    def _show_day_appointments(self, day, open_form=False):
+        # --- new-appointment form directly under the calendar
+        self._cal_selected_day = getattr(self, "_cal_selected_day", None) or datetime.date.today().day
+        try:
+            import calendar as _cal3
+            max_day = _cal3.monthrange(self._cal_year, self._cal_month)[1]
+            self._cal_selected_day = min(int(self._cal_selected_day), max_day)
+        except Exception as e:
+            log.debug_exc(logger)
+        form = ctk.CTkFrame(f, fg_color=theme.PANEL, corner_radius=getattr(theme, "CARD_RADIUS", 8),
+                            border_width=1, border_color=getattr(theme, "BORDER", theme.MUTED))
+        form.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        form.grid_columnconfigure(1, weight=1)
+        self._cal_form_date = ctk.CTkLabel(form, text="", font=theme.FONT_BOLD, text_color=theme.TEXT, anchor="w")
+        self._cal_form_date.grid(row=0, column=0, columnspan=4, sticky="w", padx=8, pady=(8, 2))
+        self._cal_form_date.configure(text="%s \u2013 %02d.%02d.%d" % (
+            lang.t("ui_new_appointment"), self._cal_selected_day, self._cal_month, self._cal_year))
+
+        ctk.CTkLabel(form, text=lang.t("ui_patient") + ":", font=theme.FONT_SMALL,
+                     text_color=theme.MUTED).grid(row=1, column=0, sticky="w", padx=8)
+        patients = {}
+        try:
+            for p in db.get_all_patients():
+                patients[p["name"]] = p
+        except Exception as e:
+            log.debug_exc(logger)
+        self._cal_patients = patients
+        names = sorted(patients.keys())
+        self._cal_pat_var = ctk.StringVar(value=(names[0] if names else "\u2014"))
+        ctk.CTkOptionMenu(form, values=names if names else ["\u2014"], variable=self._cal_pat_var,
+                          width=170).grid(row=1, column=1, columnspan=3, sticky="w", padx=8, pady=2)
+
+        ctk.CTkLabel(form, text=lang.t("ui_time"), font=theme.FONT_SMALL,
+                     text_color=theme.MUTED).grid(row=2, column=0, sticky="w", padx=8)
+        self._cal_time_var = ctk.StringVar(value="09:00")
+        ctk.CTkEntry(form, textvariable=self._cal_time_var, width=80,
+                     justify="center").grid(row=2, column=1, sticky="w", padx=8, pady=2)
+        ctk.CTkLabel(form, text=lang.t("ui_duration_min"), font=theme.FONT_SMALL,
+                     text_color=theme.MUTED).grid(row=2, column=2, sticky="e")
+        self._cal_dur_var = ctk.StringVar(value="30")
+        ctk.CTkEntry(form, textvariable=self._cal_dur_var, width=60,
+                     justify="center").grid(row=2, column=3, sticky="w", padx=(2, 8), pady=2)
+
+        ctk.CTkLabel(form, text=lang.t("ui_status") + ":", font=theme.FONT_SMALL,
+                     text_color=theme.MUTED).grid(row=3, column=0, sticky="w", padx=8)
+        self._cal_status_var = ctk.StringVar(value="scheduled")
+        ctk.CTkOptionMenu(form, values=list(db.SESSION_STATUSES), variable=self._cal_status_var,
+                          width=140).grid(row=3, column=1, columnspan=3, sticky="w", padx=8, pady=2)
+
+        ctk.CTkLabel(form, text=lang.t("ui_notes") + ":", font=theme.FONT_SMALL,
+                     text_color=theme.MUTED).grid(row=4, column=0, sticky="nw", padx=8)
+        self._cal_notes_entry = ctk.CTkEntry(form, placeholder_text=lang.t("ui_notes"))
+        self._cal_notes_entry.grid(row=4, column=1, columnspan=3, sticky="ew", padx=8, pady=2)
+
+        ctk.CTkButton(form, text=lang.t("ui_add_appointment"), fg_color=theme.ACCENT,
+                      command=self._cal_add_appointment).grid(row=5, column=0, columnspan=4,
+                                                              sticky="ew", padx=8, pady=(6, 2))
+        self._cal_err = ctk.CTkLabel(form, text="", font=theme.FONT_SMALL, text_color="#c0392b", anchor="w")
+        self._cal_err.grid(row=6, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 8))
+
+    def _cal_add_appointment(self):
+        try:
+            self._cal_err.configure(text="")
+        except Exception as e:
+            log.debug_exc(logger)
+        try:
+            p = getattr(self, "_cal_patients", {}).get(self._cal_pat_var.get())
+            if p is None:
+                self._cal_err.configure(text=lang.t("ui_pick_patient"))
+                return
+            hh = mm = None
+            try:
+                parts = self._cal_time_var.get().strip().replace(".", ":").split(":")
+                if len(parts) == 2:
+                    hh, mm = int(parts[0]), int(parts[1])
+            except ValueError:
+                log.debug_exc(logger)
+            if hh is None or not (0 <= hh < 24 and 0 <= mm < 60):
+                self._cal_err.configure(text=lang.t("ui_invalid_time"))
+                return
+            try:
+                dur = max(5, int(self._cal_dur_var.get()))
+            except ValueError:
+                log.debug_exc(logger)
+                dur = 30
+            day = getattr(self, "_cal_selected_day", datetime.date.today().day)
+            dt = "%02d.%02d.%d %02d:%02d" % (day, self._cal_month, self._cal_year, hh, mm)
+            db.add_appointment(p["id"], dt, duration_min=dur, status=self._cal_status_var.get(),
+                               notes=self._cal_notes_entry.get().strip())
+            self._show_view("calendar")
+            self._show_day_appointments(day)
+        except Exception as e:
+            log.debug_exc(logger)
+            try:
+                self._cal_err.configure(text=str(e))
+            except Exception:
+                pass
+
+    def _show_day_appointments(self, day):
         """Open the schedule for a calendar day in the right preview panel (no popups)."""
         date_str = "%02d.%02d.%d" % (day, self._cal_month, self._cal_year)
+        self._cal_selected_day = day
+        if getattr(self, "_cal_form_date", None) is not None:
+            try:
+                if self._cal_form_date.winfo_exists():
+                    self._cal_form_date.configure(text="%s \u2013 %s" % (lang.t("ui_new_appointment"), date_str))
+            except Exception as e:
+                log.debug_exc(logger)
         # leaving any open patient file: save it first, then swap the preview
         try:
             self._save_open_files()
@@ -951,71 +1056,14 @@ class App(ctk.CTk):
         ctk.CTkButton(head, text="\u2715", width=30,
                       command=self._show_placeholder).grid(row=0, column=1, padx=(8, 0))
 
-        # --- tabs under the header: schedule list | new appointment form
-        tabs = ctk.CTkTabview(root, fg_color=getattr(theme, "PANEL", "transparent"),
-                              corner_radius=0, border_width=1,
-                              border_color=getattr(theme, "BORDER", theme.MUTED))
-        tabs.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(2, theme.PADDING))
-        tabs.grid_columnconfigure(0, weight=1)
-        tab_lst = tabs.add(lang.t("ui_schedule"))
-        tab_add = tabs.add(lang.t("ui_new_appointment"))
-        tabs.set(lang.t("ui_new_appointment") if open_form else lang.t("ui_schedule"))
-        tab_lst.grid_columnconfigure(0, weight=1)
-        tab_lst.grid_rowconfigure(0, weight=1)
-
-        # --- scrollable list of appointment cards (first tab)
-        lst = ctk.CTkScrollableFrame(tab_lst, fg_color="transparent")
-        lst.grid(row=0, column=0, sticky="nsew")
+        # --- scrollable list of appointment cards
+        lst = ctk.CTkScrollableFrame(root, fg_color="transparent")
+        lst.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING)
         lst.grid_columnconfigure(0, weight=1)
         try:
             utils._patch_scrollable(lst)
         except Exception as e:
             log.debug_exc(logger)
-
-        # --- inline add form (second tab)
-        form = ctk.CTkFrame(tab_add, fg_color="transparent")
-        form.grid(row=0, column=0, sticky="nsew", padx=8)
-        form.grid_columnconfigure(1, weight=1)
-
-        patients = {}
-        try:
-            for p in db.get_all_patients():
-                patients[p["name"]] = p
-        except Exception as e:
-            log.debug_exc(logger)
-        pat_names = sorted(patients.keys())
-
-        ctk.CTkLabel(form, text=lang.t("ui_patient") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=1, column=0, sticky="w", padx=8, pady=2)
-        pat_var = ctk.StringVar(value=(pat_names[0] if pat_names else "\u2014"))
-        pat_menu = ctk.CTkOptionMenu(form, values=pat_names if pat_names else ["\u2014"],
-                                     variable=pat_var, width=200)
-        pat_menu.grid(row=1, column=1, columnspan=3, sticky="w", padx=8, pady=2)
-
-        ctk.CTkLabel(form, text=lang.t("ui_time"), font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=2, column=0, sticky="w", padx=8, pady=2)
-        time_sv = ctk.StringVar(value="09:00")
-        ctk.CTkEntry(form, textvariable=time_sv, width=80, justify="center").grid(
-            row=2, column=1, sticky="w", padx=8, pady=2)
-        ctk.CTkLabel(form, text=lang.t("ui_duration_min"), font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=2, column=2, sticky="e", padx=(20, 2), pady=2)
-        dur_sv = ctk.StringVar(value="30")
-        ctk.CTkEntry(form, textvariable=dur_sv, width=60, justify="center").grid(
-            row=2, column=3, sticky="w", pady=2)
-
-        ctk.CTkLabel(form, text=lang.t("ui_status") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=3, column=0, sticky="w", padx=8, pady=2)
-        status_var = ctk.StringVar(value="scheduled")
-        ctk.CTkOptionMenu(form, values=list(db.SESSION_STATUSES), variable=status_var, width=140).grid(
-            row=3, column=1, sticky="w", padx=8, pady=2)
-
-        ctk.CTkLabel(form, text=lang.t("ui_notes") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=4, column=0, sticky="nw", padx=8, pady=2)
-        notes_e = ctk.CTkEntry(form, placeholder_text=lang.t("ui_notes"))
-        notes_e.grid(row=4, column=1, columnspan=3, sticky="ew", padx=8, pady=2)
-
-        err = ctk.CTkLabel(form, text="", font=theme.FONT_SMALL, text_color="#c0392b", anchor="w")
-        err.grid(row=5, column=1, columnspan=3, sticky="w", padx=8, pady=(0, 2))
 
         def _render_list():
             for w in lst.winfo_children():
@@ -1078,44 +1126,14 @@ class App(ctk.CTk):
                 del_btn.configure(command=lambda b=del_btn: _del(b))
                 del_btn.grid(row=0, column=4, padx=(0, 8))
 
-        def _add():
-            err.configure(text="")
-            p = patients.get(pat_var.get())
-            if p is None:
-                err.configure(text=lang.t("ui_pick_patient"))
-                return
-            hh = mm = None
-            try:
-                raw = time_sv.get().strip().replace(".", ":")
-                parts = raw.split(":")
-                if len(parts) == 2:
-                    hh, mm = int(parts[0]), int(parts[1])
-            except ValueError:
-                log.debug_exc(logger)
-                hh = mm = None
-            if hh is None or not (0 <= hh < 24 and 0 <= mm < 60):
-                err.configure(text=lang.t("ui_invalid_time"))
-                return
-            try:
-                dur = max(5, int(dur_sv.get()))
-            except ValueError:
-                log.debug_exc(logger)
-                dur = 30
-            dt = "%s %02d:%02d" % (date_str, hh, mm)
-            db.add_appointment(p["id"], dt, duration_min=dur, status=status_var.get(),
-                               notes=notes_e.get().strip())
-            self._show_view("calendar")
-            self._show_day_appointments(day)
-
-        ctk.CTkButton(form, text=lang.t("ui_add_appointment"), fg_color=theme.ACCENT,
-                      command=_add).grid(row=5, column=0, sticky="w", padx=8, pady=(2, 8))
         _render_list()
 
     def _nav_new_appointment(self):
         t = datetime.date.today()
         self._cal_year, self._cal_month = t.year, t.month
+        self._cal_selected_day = t.day
         self._show_view("calendar")
-        self._show_day_appointments(t.day, open_form=True)
+        self._show_day_appointments(t.day)
 
     def _view_new_patient(self):
         self._open_patient_by_id(None)

@@ -817,6 +817,25 @@ def delete_outcome(oid):
     conn.close()
 
 
+def update_outcome(oid, **fields):
+    conn = _get_conn()
+    cur = conn.cursor()
+    cols = ["measure", "value", "date", "notes"]
+    updates = []
+    params = []
+    for c in cols:
+        if c in fields and fields[c] is not None:
+            updates.append("%s = ?" % c)
+            params.append(fields[c])
+    if not updates:
+        conn.close()
+        return
+    params.append(oid)
+    cur.execute("UPDATE outcome_measures SET %s WHERE id = ?" % ", ".join(updates), params)
+    conn.commit()
+    conn.close()
+
+
 def list_exercises(patient_id):
     conn = _get_conn()
     cur = conn.cursor()

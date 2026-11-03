@@ -436,6 +436,7 @@ class PatientFilePanel(ctk.CTkFrame):
         sb = ctk.CTkFrame(ses_tab, fg_color="transparent")
         sb.grid(row=1, column=0, sticky="ew", pady=4)
         ctk.CTkButton(sb, text="Adaugă sesiune", width=120, fg_color=theme.ACCENT, command=self._add_session).pack(side="left", padx=2)
+        ctk.CTkButton(sb, text="Editează", width=90, command=self._edit_session).pack(side="left", padx=2)
         ctk.CTkButton(sb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_session).pack(side="left", padx=2)
         self._load_sessions()
 
@@ -452,6 +453,7 @@ class PatientFilePanel(ctk.CTkFrame):
         hb = ctk.CTkFrame(hep_tab, fg_color="transparent")
         hb.grid(row=1, column=0, sticky="ew", pady=4)
         ctk.CTkButton(hb, text="Adaugă exercițiu", width=130, fg_color=theme.ACCENT, command=self._add_exercise).pack(side="left", padx=2)
+        ctk.CTkButton(hb, text="Editează", width=90, command=self._edit_exercise).pack(side="left", padx=2)
         ctk.CTkButton(hb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_exercise).pack(side="left", padx=2)
         self._load_exercises()
 
@@ -468,8 +470,34 @@ class PatientFilePanel(ctk.CTkFrame):
         ob = ctk.CTkFrame(out_tab, fg_color="transparent")
         ob.grid(row=1, column=0, sticky="ew", pady=4)
         ctk.CTkButton(ob, text="Adaugă măsurătoare", width=150, fg_color=theme.ACCENT, command=self._add_outcome).pack(side="left", padx=2)
+        ctk.CTkButton(ob, text="Editează", width=90, command=self._edit_outcome).pack(side="left", padx=2)
         ctk.CTkButton(ob, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_outcome).pack(side="left", padx=2)
         self._load_outcomes()
+
+    def _edit_outcome(self):
+        sel = self.out_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Selectați o măsurătoare.")
+            return
+        oid = int(sel[0])
+        rows = [o for o in db.list_outcomes(self.patient_id) if o["id"] == oid]
+        if not rows:
+            return
+        o = rows[0]
+        fields = [("measure", "Măsură", "choice", ["VAS", "NRS"]),
+                  ("value", "Valoare", "text", None),
+                  ("date", "Data (DD.MM.YYYY)", "text", None),
+                  ("notes", "Note", "text", None)]
+        values = {k: o.get(k, "") for k, *_ in fields}
+        data = self._show_editor("Editează măsurătoare", fields, values)
+        if not data:
+            return
+        try:
+            data["value"] = float(data["value"]) if str(data["value"]).strip() else 0
+            db.update_outcome(oid, **data)
+            self._load_outcomes()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
 
     def _load_plan(self):
         try:
@@ -517,6 +545,45 @@ class PatientFilePanel(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
+    def _show_editor(self, title, fields, values):
+        """Small modal form. Returns a dict of the entered values, or None."""
+        result = {"data": None}
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.transient(self)
+        dlg.grab_set()
+        entries = {}
+        row = 0
+        for key, label, kind, options in fields:
+            ctk.CTkLabel(dlg, text=label + ":", font=theme.FONT_SMALL, text_color=theme.MUTED,
+                         anchor="w").grid(row=row, column=0, sticky="w", padx=8, pady=2)
+            if kind == "choice":
+                var = ctk.StringVar(value=str(values.get(key, "") or ""))
+                w = ctk.CTkOptionMenu(dlg, values=options, variable=var, width=180)
+                w.grid(row=row, column=1, sticky="w", padx=8, pady=2)
+                entries[key] = ("choice", var)
+            else:
+                w = ctk.CTkEntry(dlg, width=220)
+                raw = values.get(key, "")
+                if raw is None:
+                    raw = ""
+                w.insert(0, str(raw))
+                w.grid(row=row, column=1, sticky="w", padx=8, pady=2)
+                entries[key] = ("text", w)
+            row += 1
+
+        def _save():
+            data = {}
+            for key, (kind, w) in entries.items():
+                data[key] = w.get() if kind == "text" else w.get()
+            result["data"] = data
+            dlg.destroy()
+
+        ctk.CTkButton(dlg, text="Salvează", fg_color=theme.ACCENT, command=_save).grid(row=row, column=0, padx=8, pady=8)
+        ctk.CTkButton(dlg, text="Anulează", command=dlg.destroy).grid(row=row, column=1, padx=8, pady=8)
+        self.wait_window(dlg)
+        return result["data"]
+
     def _load_sessions(self):
         try:
             import db as _db
@@ -559,6 +626,39 @@ class PatientFilePanel(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
+    def _edit_session(self):
+        sel = self.ses_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Selectați o sesiune.")
+            return
+        sid = int(sel[0])
+        rows = [s for s in db.list_sessions(self.patient_id) if s["id"] == sid]
+        if not rows:
+            return
+        s = rows[0]
+        fields = [("session_no", "Nr. sesiune", "text", None),
+                  ("date", "Data (DD.MM.YYYY)", "text", None),
+                  ("duration_min", "Durată (min)", "text", None),
+                  ("pain_before", "VAS înainte", "text", None),
+                  ("pain_after", "VAS după", "text", None),
+                  ("status", "Status", "choice", list(db.SESSION_STATUSES)),
+                  ("modalities", "Modalități", "text", None),
+                  ("exercises", "Exerciții", "text", None),
+                  ("notes", "Note", "text", None)]
+        values = {k: s.get(k, "") for k, *_ in fields}
+        data = self._show_editor("Editează sesiune", fields, values)
+        if not data:
+            return
+        try:
+            data["session_no"] = int(data["session_no"]) if str(data["session_no"]).strip() else 1
+            data["duration_min"] = int(data["duration_min"]) if str(data["duration_min"]).strip() else 30
+            data["pain_before"] = float(data["pain_before"]) if str(data["pain_before"]).strip() else 0
+            data["pain_after"] = float(data["pain_after"]) if str(data["pain_after"]).strip() else 0
+            db.update_session(sid, **data)
+            self._load_sessions()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
     def _load_exercises(self):
         try:
             import db as _db
@@ -594,6 +694,36 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             import db as _db
             _db.delete_exercise(int(sel[0]))
+            self._load_exercises()
+        except Exception as e:
+            messagebox.showerror(lang.t("app_name"), str(e))
+
+    def _edit_exercise(self):
+        sel = self.hep_tree.selection()
+        if not sel:
+            messagebox.showinfo(lang.t("app_name"), "Selectați un exercițiu.")
+            return
+        eid = int(sel[0])
+        rows = [e for e in db.list_exercises(self.patient_id) if e["id"] == eid]
+        if not rows:
+            return
+        e = rows[0]
+        fields = [("name", "Nume exercițiu", "text", None),
+                  ("sets", "Serii", "text", None),
+                  ("reps", "Repetări", "text", None),
+                  ("hold_sec", "Menținere (s)", "text", None),
+                  ("frequency", "Frecvență", "text", None),
+                  ("assigned_date", "Data atribuire", "text", None),
+                  ("notes", "Note", "text", None)]
+        values = {k: e.get(k, "") for k, *_ in fields}
+        data = self._show_editor("Editează exercițiu", fields, values)
+        if not data:
+            return
+        try:
+            data["sets"] = int(data["sets"]) if str(data["sets"]).strip() else 3
+            data["reps"] = int(data["reps"]) if str(data["reps"]).strip() else 10
+            data["hold_sec"] = int(data["hold_sec"]) if str(data["hold_sec"]).strip() else 0
+            db.update_exercise(eid, **data)
             self._load_exercises()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))

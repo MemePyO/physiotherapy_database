@@ -111,6 +111,24 @@ def _exists(widget):
         return False
 
 
+def _safe_destroy(widget):
+    """Destroy a widget without raising if it (or a child) is already gone."""
+    try:
+        if _exists(widget):
+            widget.destroy()
+    except Exception:
+        pass
+
+
+def _safe_configure(widget, **kwargs):
+    """Configure a widget without raising if it is already destroyed."""
+    try:
+        if _exists(widget):
+            widget.configure(**kwargs)
+    except Exception:
+        pass
+
+
 def _safe_after(widget, ms, callback):
     """Schedule a callback without crashing if the widget is destroyed meanwhile."""
     def _wrapped():
@@ -123,6 +141,15 @@ def _safe_after(widget, ms, callback):
         return widget.after(ms, _wrapped)
     except Exception:
         return None
+
+
+def _safe_format(textbox):
+    """Apply inline formatting without raising if the widget is gone."""
+    try:
+        if _exists(textbox):
+            _apply_inline_formatting(textbox)
+    except Exception:
+        pass
 
 
 def _norm(s):

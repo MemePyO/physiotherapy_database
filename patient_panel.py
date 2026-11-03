@@ -908,11 +908,11 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._dirty = False
                 if not silent:
                     self.dirty_label.configure(text="Saved")
-                    self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
+                    self.after(2000, lambda: utils._safe_configure(self.dirty_label, text=""))
                     messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
                 else:
                     self.dirty_label.configure(text="Saved")
-                    self.after(2000, lambda: self.dirty_label.configure(text="") if utils._exists(self) else None)
+                    self.after(2000, lambda: utils._safe_configure(self.dirty_label, text=""))
                 self._refresh_header_info()
                 if theme.layout() != "stacked":
                     self._load_attachments()
@@ -1044,7 +1044,7 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception as e:
                 log.debug_exc(logger)
         try:
-            self._fmt_job = self.after(250, lambda t=txt: (utils._apply_inline_formatting(t), setattr(self, "_fmt_job", None)))
+            self._fmt_job = self.after(250, lambda t=txt: (utils._safe_format(t), setattr(self, "_fmt_job", None)))
         except Exception:
             utils._apply_inline_formatting(txt)
 

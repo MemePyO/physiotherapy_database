@@ -1565,7 +1565,7 @@ class App(ctk.CTk):
                                   padx=10, pady=4)
             banner.place(relx=0.5, rely=1.0, anchor="s", y=-8)
             banner.lift()
-            self.after(4000, lambda b=banner: (b.destroy() if utils._exists(b) else None))
+            self.after(4000, lambda b=banner: utils._safe_destroy(b))
         except Exception as e:
             log.debug_exc(logger)
     def _show_undo_hint(self):
@@ -1579,7 +1579,7 @@ class App(ctk.CTk):
             hint.place(relx=0.5, rely=1.0, anchor="s", y=-46)
             hint.lift()
             self._undo_hint = hint
-            self.after(6000, lambda: hint.destroy() if utils._exists(hint) else None)
+            self.after(6000, lambda: utils._safe_destroy(hint))
         except Exception as e:
             log.debug_exc(logger)
     def _handle_ctrl_z(self, event=None):

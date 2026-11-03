@@ -615,6 +615,9 @@ class PatientFilePanel(ctk.CTkFrame):
             val = sd.askstring("Măsurătoare nouă", "Valoare VAS (0-10):", parent=self)
             if val is None:
                 return
+            if getattr(self, "patient_id", None) is None:
+                messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
+                return
             try:
                 v = float(val)
             except ValueError:
@@ -623,7 +626,7 @@ class PatientFilePanel(ctk.CTkFrame):
             if v < 0 or v > 10:
                 messagebox.showerror(lang.t("app_name"), "VAS trebuie 0-10.")
                 return
-            _db.add_outcome(self.patient_id, "VAS", v, _now().split(" ")[0])
+            _db.add_outcome(self.patient_id, "VAS", v, _db._now().split(" ")[0])
             self._load_outcomes()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))

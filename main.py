@@ -269,6 +269,10 @@ class App(ctk.CTk):
                             messagebox.showerror(lang.t("app_name"), str(e))
         except Exception as e:
             log.debug_exc(logger)
+        self._startup_checks = self._run_startup_checks()
+        for _name, _ok, _detail in self._startup_checks:
+            if not _ok:
+                logger.warning("startup check failed: %s - %s", _name, _detail)
         self.patients_file = patients_file
         self.list_error = None
         try:
@@ -717,7 +721,10 @@ class App(ctk.CTk):
         except Exception as e:
             log.debug_exc(logger)
         for w in self.overview_content.winfo_children():
-            w.destroy()
+            try:
+                w.destroy()
+            except Exception:
+                pass
         # reset any row/column weights left over from the previous view
         for i in range(6):
             try:
@@ -966,6 +973,7 @@ class App(ctk.CTk):
                       command=self._open_log_file).pack(side="left")
 
         self._build_health_card(scroll)
+        self._build_startup_card(scroll)
 
     def _build_error_card(self, parent, entry):
         """One captured error: time, level, message and its traceback."""
@@ -1011,6 +1019,78 @@ class App(ctk.CTk):
         ctk.CTkLabel(card, text=lang.t("ui_log_file") + ": " + self._log_path(),
                      font=theme.FONT_SMALL, text_color=theme.MUTED,
                      anchor="w", wraplength=265).pack(fill="x", padx=8, pady=(6, 8))
+
+    def _run_startup_checks(self):
+        """Run once at launch; results are shown in the Diagnostics view."""
+        results = []
+        # database integrity
+        try:
+            ok = db.check_integrity()
+            results.append(("Database integrity", ok, "OK" if ok else "FAILED"))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("Database integrity", False, str(e)))
+        # schema / counts
+        try:
+            n = len(db.get_all_patients())
+            results.append(("Patients loaded", True, str(n)))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("Patients loaded", False, str(e)))
+        # settings parse
+        try:
+            s = load_settings()
+            results.append(("Settings", isinstance(s, dict), "OK" if isinstance(s, dict) else "invalid"))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("Settings", False, str(e)))
+        # assets
+        try:
+            logo = os.path.join(_asset_dir(), "assets", "logo.png")
+            ok = os.path.exists(logo)
+            results.append(("App assets", ok, "OK" if ok else "missing logo.png"))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("App assets", False, str(e)))
+        # backup folder writable
+        try:
+            folder = os.path.join(_base_dir(), "backup")
+            os.makedirs(folder, exist_ok=True)
+            test_path = os.path.join(folder, ".write_test")
+            with open(test_path, "w") as fh:
+                fh.write("ok")
+            os.remove(test_path)
+            results.append(("Backup folder", True, "writable"))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("Backup folder", False, str(e)))
+        # free disk
+        try:
+            free_gb = shutil.disk_usage(_base_dir()).free / (1024.0 ** 3)
+            ok = free_gb >= 0.1
+            results.append(("Free disk", ok, "%.1f GB" % free_gb))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("Free disk", False, str(e)))
+        return results
+
+    def _build_startup_card(self, parent):
+        card = ctk.CTkFrame(parent, fg_color=theme.PANEL, corner_radius=6, border_width=1,
+                            border_color=getattr(theme, "BORDER", theme.MUTED))
+        card.pack(fill="x", pady=(10, 4))
+        ctk.CTkLabel(card, text="Startup checks", font=theme.FONT_BOLD,
+                     text_color=theme.TEXT).pack(anchor="w", padx=8, pady=(8, 4))
+        for name, ok, detail in getattr(self, "_startup_checks", []):
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=8, pady=1)
+            ctk.CTkLabel(row, text=name, font=theme.FONT_SMALL, text_color=theme.MUTED,
+                         anchor="w").pack(side="left")
+            colour = theme.ACCENT if ok else theme.DANGER
+            ctk.CTkLabel(row, text=detail, font=theme.FONT_SMALL, text_color=colour,
+                         anchor="e").pack(side="right")
+        if not getattr(self, "_startup_checks", None):
+            ctk.CTkLabel(card, text="not run", font=theme.FONT_SMALL, text_color=theme.MUTED,
+                         anchor="w").pack(fill="x", padx=8, pady=(0, 8))
 
     def _health_rows(self):
         """Read-only checks; each one is guarded so the view never crashes."""
@@ -2117,9 +2197,18 @@ class App(ctk.CTk):
             os.makedirs(folder, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             dest = os.path.join(folder, "patients_" + stamp + ".db")
-            shutil.copy2(db.db_path(), dest)
-            ok, info = db.verify_backup(dest)
+            ok = db.backup_to(dest)
+            try:
+                att_src = os.path.join(_base_dir(), "attachments")
+                if os.path.isdir(att_src):
+                    att_dest = os.path.join(folder, "attachments_" + stamp)
+                    if os.path.exists(att_dest):
+                        shutil.rmtree(att_dest, ignore_errors=True)
+                    shutil.copytree(att_src, att_dest)
+            except Exception as e:
+                log.debug_exc(logger)
             _prune_auto_backups(folder)
+            info = db.verify_backup(dest)[1]
             if ok:
                 messagebox.showinfo(lang.t("app_name"), "Backup created and verified (" + str(info) + " patients):\n" + dest)
             else:
@@ -2140,9 +2229,15 @@ class App(ctk.CTk):
             dlg = RestoreBackupDialog(self, folder, files)
             self.wait_window(dlg)
             if dlg.result:
+                src = os.path.join(folder, dlg.result)
+                ok, info = db.verify_backup(src)
+                if not ok:
+                    messagebox.showerror(lang.t("app_name"), "Backup verification failed: " + str(info))
+                    return
+                db.pre_operation_backup("restore")
+                db.checkpoint()
                 import shutil
-                shutil.copy2(os.path.join(folder, dlg.result), db.db_path())
-                # ensure schema tables exist even if the backup predates a migration
+                shutil.copy2(src, db.db_path())
                 try:
                     db.init_db()
                 except Exception:
@@ -2204,13 +2299,13 @@ class App(ctk.CTk):
 
     def _auto_backup(self):
         try:
-            import shutil, datetime
+            import datetime
             folder = os.path.join(_base_dir(), "backup")
             os.makedirs(folder, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d")
             dest = os.path.join(folder, "patients_auto_" + stamp + ".db")
             if not os.path.exists(dest):
-                shutil.copy2(db.db_path(), dest)
+                db.backup_to(dest)
             _prune_auto_backups(folder)
         except Exception as e:
             log.debug_exc(logger)

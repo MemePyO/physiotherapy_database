@@ -42,13 +42,12 @@ def pre_operation_backup(label: str = "op") -> None:
 
 
 def _get_conn() -> 'sqlite3.Connection':
-    conn = sqlite3.connect(db_path())
+    # A generous timeout lets a transient lock resolve instead of raising
+    # "database is locked"; the journal mode is set once in init_db().
+    conn = sqlite3.connect(db_path(), timeout=15)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    try:
-        conn.execute("PRAGMA journal_mode = WAL")
-    except Exception as e:
-        logger.debug("WAL mode unavailable: %s", e)
+    conn.execute("PRAGMA busy_timeout = 15000")
     return conn
 
 
@@ -81,6 +80,10 @@ def init_db() -> None:
     # Pre-migration backup for safety
     pre_migration_backup()
     conn = _get_conn()
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except Exception as e:
+        logger.debug("WAL mode unavailable: %s", e)
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS patients (

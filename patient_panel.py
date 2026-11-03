@@ -531,6 +531,9 @@ class PatientFilePanel(ctk.CTkFrame):
     def _add_session(self):
         try:
             import db as _db
+            if getattr(self, "patient_id", None) is None:
+                messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
+                return
             # simple dialog via tkinter
             import tkinter.simpledialog as sd
             date = sd.askstring("Sesiune nouă", "Data (DD.MM.YYYY):", parent=self)
@@ -570,6 +573,9 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             import tkinter.simpledialog as sd
             import db as _db
+            if getattr(self, "patient_id", None) is None:
+                messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
+                return
             name = sd.askstring("Exercițiu nou", "Nume exercițiu:", parent=self)
             if not name:
                 return

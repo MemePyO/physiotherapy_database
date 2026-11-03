@@ -223,7 +223,8 @@ class PatientFilePanel(ctk.CTkFrame):
         if theme.layout() == "stacked":
             self._build_stacked()
             return
-        self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
+        self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL, corner_radius=14, border_width=1,
+                                      border_color=getattr(theme, "BORDER", theme.MUTED))
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=theme.PADDING, pady=(0, 8))
 
         sections = [("diagnostic", lang.t("ui_section_diagnostic"), theme.SEC_DIAG),
@@ -321,10 +322,11 @@ class PatientFilePanel(ctk.CTkFrame):
             utils._patch_scrollable(self.sections_frame)
         except Exception as e:
             log.debug_exc(logger)
-        sections = [("diagnostic", "Diagnostic", theme.HEAD_DIAG, "#ffffff"),
-                    ("objective", "Obiectiv", theme.HEAD_OBJ, theme.TEXT),
-                    ("evaluation", "Evaluare", theme.HEAD_EVAL, "#ffffff"),
-                    ("observation", "Observa\u021bie", theme.HEAD_OBS, "#ffffff")]
+        # Group the four text sections into a single browser-like tab view.
+        sections = [("diagnostic", lang.t("ui_section_diagnostic")),
+                    ("objective", lang.t("ui_section_objective")),
+                    ("evaluation", lang.t("ui_section_evaluation")),
+                    ("observation", lang.t("ui_section_observation"))]
         self.texts = {}
         self.count_labels = {}
         tooltips = {
@@ -333,35 +335,32 @@ class PatientFilePanel(ctk.CTkFrame):
             "bullet": "Insert a bullet (\u2022) at the start of the current line",
             "number": "Insert a numbered item (1.) at the start of the current line",
         }
-        for field, title, head_color, text_color in sections:
-            card = ctk.CTkFrame(self.sections_frame, fg_color=theme.PANEL, corner_radius=theme.CARD_RADIUS,
-                                border_width=1, border_color=theme.BORDER)
-            card.pack(fill="x", pady=(0, 12))
-            card.grid_columnconfigure(0, weight=1)
-            card.grid_rowconfigure(1, weight=1)
+        self._sections_tabview = ctk.CTkTabview(self.sections_frame, fg_color=theme.PANEL,
+                                                corner_radius=14, border_width=1,
+                                                border_color=getattr(theme, "BORDER", theme.MUTED))
+        self._sections_tabview.pack(fill="x", pady=(0, 12))
+        for field, title in sections:
+            tab = self._sections_tabview.add(title)
+            tab.grid_columnconfigure(0, weight=1)
+            tab.grid_rowconfigure(1, weight=1)
 
-            head = ctk.CTkFrame(card, fg_color=head_color, corner_radius=0, height=30)
-            head.grid(row=0, column=0, sticky="ew")
-            head.grid_propagate(False)
-            head.grid_columnconfigure(0, weight=1)
-            ctk.CTkLabel(head, text=title, font=theme.FONT_BOLD, text_color=text_color).grid(
-                row=0, column=0, sticky="w", padx=12)
-            tb = ctk.CTkFrame(head, fg_color="transparent")
-            tb.grid(row=0, column=1, sticky="e", padx=8)
+            tb = ctk.CTkFrame(tab, fg_color="transparent")
+            tb.grid(row=0, column=0, sticky="ew", pady=(4, 4))
             for label, cmd_prefix in [("B", "bold"), ("I", "italic"), ("\u2022", "bullet"), ("1.", "number")]:
-                b = ctk.CTkButton(tb, text=label, width=26, height=22, fg_color="transparent",
-                                  text_color=text_color, hover_color=theme.ACCENT_LIGHT, font=theme.FONT_BOLD,
+                b = ctk.CTkButton(tb, text=label, width=34, height=26, fg_color=theme.ACCENT,
+                                  hover_color=theme.ACCENT_DARK, font=theme.FONT_BOLD,
                                   command=lambda p=cmd_prefix, f=field: self._toolbar_action(f, p))
-                b.pack(side="left", padx=1)
+                b.pack(side="left", padx=2)
                 _attach_tooltip(b, tooltips[cmd_prefix])
-            cnt = ctk.CTkLabel(tb, text="", text_color=text_color, font=theme.FONT_SMALL)
-            cnt.pack(side="left", padx=6)
+            cnt = ctk.CTkLabel(tb, text="", text_color=theme.MUTED, font=theme.FONT_SMALL,
+                               fg_color="transparent")
+            cnt.pack(side="right", padx=6)
             self.count_labels[field] = cnt
 
-            txt = ctk.CTkTextbox(card, corner_radius=0, border_width=0, fg_color=theme.PANEL,
-                                 text_color=theme.TEXT, font=theme.FONT_BODY, height=110,
-                                 undo=True, autoseparators=True, maxundo=200)
-            txt.grid(row=1, column=0, sticky="nsew", padx=12, pady=8)
+            txt = ctk.CTkTextbox(tab, corner_radius=8, border_width=1, border_color=theme.BORDER,
+                                 fg_color=theme.PANEL, text_color=theme.TEXT, font=theme.FONT_BODY,
+                                 height=110, undo=True, autoseparators=True, maxundo=200)
+            txt.grid(row=1, column=0, sticky="nsew", padx=8, pady=(2, 8))
             val = self.patient.get(field, '') or ''
             txt.insert("1.0", val)
             utils._apply_inline_formatting(txt)
@@ -379,12 +378,13 @@ class PatientFilePanel(ctk.CTkFrame):
                 # stacked layout: the tabview is one more card in the scroll column,
                 # styled like the section cards so it blends (no white band)
                 self.tabview = ctk.CTkTabview(parent, fg_color=theme.PANEL,
-                                              corner_radius=getattr(theme, "CARD_RADIUS", 8),
-                                              border_width=1, border_color=theme.BORDER,
+                                              corner_radius=14, border_width=1,
+                                              border_color=getattr(theme, "BORDER", theme.MUTED),
                                               height=400)
                 self.tabview.pack(fill="x", pady=(0, 12))
             else:
-                self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL)
+                self.tabview = ctk.CTkTabview(self, fg_color=theme.PANEL, corner_radius=14, border_width=1,
+                                              border_color=getattr(theme, "BORDER", theme.MUTED))
                 self.tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
                 self.tabview.grid_columnconfigure(0, weight=1)
         # Treatment plan tab

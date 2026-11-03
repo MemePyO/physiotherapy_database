@@ -57,7 +57,6 @@ def _excepthook(exc_type, exc_value, exc_tb):
     """Catch exceptions that escape the main thread."""
     if ("TclError" in getattr(exc_type, "__name__", str(exc_type))
             and "bad window path name" in str(exc_value)):
-        log.debug_exc(logger)
         return
     _log_uncaught(exc_type, exc_value, exc_tb)
     _show_crash_dialog(exc_value)
@@ -67,7 +66,6 @@ def _thread_excepthook(args):
     """Catch exceptions that escape background threads."""
     if ("TclError" in getattr(args.exc_type, "__name__", str(args.exc_type))
             and "bad window path name" in str(args.exc_value)):
-        log.debug_exc(logger)
         return
     _log_uncaught(args.exc_type, args.exc_value, args.exc_traceback)
 
@@ -345,7 +343,6 @@ class App(ctk.CTk):
         """
         if ("TclError" in getattr(exc_type, "__name__", str(exc_type))
                 and "bad window path name" in str(exc_value)):
-            log.debug_exc(logger)
             return
         _log_uncaught(exc_type, exc_value, exc_tb)
         if getattr(self, "_closing", False):

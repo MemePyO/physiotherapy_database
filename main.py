@@ -55,12 +55,22 @@ def _show_crash_dialog(exc_value, owner=None):
 
 def _excepthook(exc_type, exc_value, exc_tb):
     """Catch exceptions that escape the main thread."""
+    if ("TclError" in getattr(exc_type, "__name__", str(exc_type))
+            and "bad window path name" in str(exc_value)
+            and "focus_set" in str(exc_value)):
+        log.debug_exc(logger)
+        return
     _log_uncaught(exc_type, exc_value, exc_tb)
     _show_crash_dialog(exc_value)
 
 
 def _thread_excepthook(args):
     """Catch exceptions that escape background threads."""
+    if ("TclError" in getattr(args.exc_type, "__name__", str(args.exc_type))
+            and "bad window path name" in str(args.exc_value)
+            and "focus_set" in str(args.exc_value)):
+        log.debug_exc(logger)
+        return
     _log_uncaught(args.exc_type, args.exc_value, args.exc_traceback)
 
 
@@ -335,7 +345,8 @@ class App(ctk.CTk):
         Without this override the traceback would only go to stderr, which a
         windowed exe does not have — the user would just see nothing happen.
         """
-        if (exc_type is tk.TclError and "bad window path name" in str(exc_value)
+        if ("TclError" in getattr(exc_type, "__name__", str(exc_type))
+                and "bad window path name" in str(exc_value)
                 and "focus_set" in str(exc_value)):
             log.debug_exc(logger)
             return

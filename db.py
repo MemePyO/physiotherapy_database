@@ -28,15 +28,49 @@ def db_path() -> str:
     return os.path.join(_base_dir(), "patients.db")
 
 
+def checkpoint() -> None:
+    """Flush WAL contents into the main database file so file copies are complete."""
+    try:
+        conn = _get_conn()
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.close()
+    except Exception as e:
+        logger.warning("checkpoint failed: %s", e)
+
+
+def backup_to(dest: str) -> bool:
+    """Create a consistent copy of the DB at *dest* using SQLite's backup API.
+
+    Unlike ``shutil.copy2``, this works correctly even while the DB is in WAL
+    mode, because it checkpoints and copies through SQLite itself.
+    """
+    try:
+        os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+        checkpoint()
+        src = _get_conn()
+        dst = sqlite3.connect(dest)
+        src.backup(dst)
+        dst.commit()
+        dst.close()
+        src.close()
+        ok, _ = verify_backup(dest)
+        return ok
+    except Exception as e:
+        logger.warning("backup_to failed: %s", e)
+        return False
+
+
 def pre_operation_backup(label: str = "op") -> None:
     """Copy the current DB to backup/ before a destructive operation."""
     try:
-        import shutil, datetime
         folder = os.path.join(_base_dir(), "backup")
         os.makedirs(folder, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         dest = os.path.join(folder, "pre_%s_%s.db" % (label, stamp))
-        shutil.copy2(db_path(), dest)
+        if not backup_to(dest):
+            # Last-resort fallback (may be incomplete in WAL mode).
+            import shutil
+            shutil.copy2(db_path(), dest)
     except Exception as e:
         logger.warning("pre_operation_backup failed: %s", e)
 
@@ -167,6 +201,12 @@ def init_db() -> None:
 
     migrate_from_json(conn)
     conn.commit()
+    # record schema version for future migrations
+    try:
+        conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
+        conn.commit()
+    except Exception as e:
+        logger.warning("set user_version failed: %s", e)
     conn.close()
 
     # Integrity check (non-fatal: log result)
@@ -604,11 +644,15 @@ def list_history(patient_id: int, limit: int = 200) -> list[dict]:
 
 
 def verify_backup(path: str) -> tuple[bool, object]:
-    """Verify a backup db file is readable and has patients table."""
+    """Verify a backup db file is readable, intact and has patients table."""
     try:
         conn = sqlite3.connect(path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+        cur.execute("PRAGMA integrity_check")
+        if str(cur.fetchone()[0]).lower() != "ok":
+            conn.close()
+            return False, "integrity check failed"
         cur.execute("SELECT COUNT(*) FROM patients")
         n = cur.fetchone()[0]
         conn.close()
@@ -621,14 +665,15 @@ def pre_migration_backup() -> str | None:
     dbp = db_path()
     if not os.path.exists(dbp):
         return None
-    import shutil, datetime
+    import datetime
     folder = os.path.join(os.path.dirname(dbp), "backup")
-    os.makedirs(folder, exist_ok=True)
-    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    dest = os.path.join(folder, "pre_migration_" + stamp + ".db")
     try:
-        shutil.copy2(dbp, dest)
-        return dest
+        os.makedirs(folder, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest = os.path.join(folder, "pre_migration_" + stamp + ".db")
+        if backup_to(dest):
+            return dest
+        return None
     except Exception as e:
         logger.warning("pre_migration_backup failed: %s", e)
         return None
@@ -639,7 +684,20 @@ BODY_REGIONS = ["Cervical", "Thoracic", "Lumbar", "Shoulder", "Elbow", "Wrist/Ha
                 "Hip", "Knee", "Ankle/Foot", "Other"]
 SIDES = ["Left", "Right", "Bilateral", "N/A"]
 MODALITIES = ["Ultrasound", "TENS", "Manual therapy", "Exercise", "Heat", "Cold", "Laser", "Traction"]
+# Bump when the schema changes; migrations are keyed off PRAGMA user_version.
+SCHEMA_VERSION = 1
+
 SESSION_STATUSES = ["scheduled", "done", "cancelled", "no-show"]
+
+
+def get_schema_version() -> int:
+    try:
+        conn = _get_conn()
+        v = conn.execute("PRAGMA user_version").fetchone()[0]
+        conn.close()
+        return int(v or 0)
+    except Exception:
+        return 0
 OUTCOME_MEASURES = ["VAS", "NRS"]
 
 

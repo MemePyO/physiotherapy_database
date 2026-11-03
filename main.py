@@ -33,6 +33,48 @@ _last_error_dialog = 0.0
 def _log_uncaught(exc_type, exc_value, exc_tb):
     logger.error("Unhandled exception: %s", exc_value,
                  exc_info=(exc_type, exc_value, exc_tb))
+    _write_crash_dump(exc_type, exc_value, exc_tb)
+
+
+def _write_crash_dump(exc_type, exc_value, exc_tb):
+    """Write a small crash_*.log (traceback + version + theme) for post-mortem."""
+    try:
+        import datetime, traceback as _tb
+        folder = _base_dir()
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(folder, "crash_%s.log" % stamp)
+        lines = ["Crash report",
+                 "Time: " + datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                 "Version: " + __version__]
+        try:
+            lines.append("Theme: " + str(theme.active()))
+        except Exception:
+            pass
+        try:
+            lines.append("Appearance: " + str(getattr(theme, "_appearance", "")))
+        except Exception:
+            pass
+        try:
+            lines.append("Language: " + lang.get_language())
+        except Exception:
+            pass
+        lines.append("")
+        lines.append("".join(_tb.format_exception(exc_type, exc_value, exc_tb)))
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
+        # keep only the newest few crash dumps
+        try:
+            dumps = sorted(f for f in os.listdir(folder)
+                           if f.startswith("crash_") and f.endswith(".log"))
+            while len(dumps) > 5:
+                try:
+                    os.remove(os.path.join(folder, dumps.pop(0)))
+                except OSError:
+                    break
+        except Exception:
+            pass
+    except Exception:
+        log.debug_exc(logger)
 
 
 def _show_crash_dialog(exc_value, owner=None):
@@ -733,6 +775,7 @@ class App(ctk.CTk):
             except Exception as e:
                 log.debug_exc(logger)
         self._current_view = view
+        self._maybe_check_integrity()
         titles = {"patients": "Patient Overview", "trash": "Trash (deleted)", "settings": "Settings",
                   "saveas": "Save as", "backup": "Backup / Restore", "new": "New patient",
                   "calendar": "Calendar", "diagnostics": "Diagnostics"}
@@ -1020,6 +1063,28 @@ class App(ctk.CTk):
                      font=theme.FONT_SMALL, text_color=theme.MUTED,
                      anchor="w", wraplength=265).pack(fill="x", padx=8, pady=(6, 8))
 
+    def _maybe_check_integrity(self):
+        """Periodically verify DB integrity (throttled) and warn on failure."""
+        import time
+        now = time.monotonic()
+        last = getattr(self, "_integrity_check_at", 0.0)
+        if now - last < 60.0:
+            return
+        self._integrity_check_at = now
+        try:
+            ok = db.check_integrity()
+            self._integrity_ok = ok
+            if not ok and not getattr(self, "_closing", False):
+                logger.warning("periodic integrity check failed")
+                try:
+                    if self.winfo_exists():
+                        self._show_status_banner("Database integrity check failed")
+                except Exception:
+                    log.debug_exc(logger)
+        except Exception as e:
+            log.debug_exc(logger)
+            self._integrity_ok = False
+
     def _run_startup_checks(self):
         """Run once at launch; results are shown in the Diagnostics view."""
         results = []
@@ -1030,6 +1095,14 @@ class App(ctk.CTk):
         except Exception as e:
             log.debug_exc(logger)
             results.append(("Database integrity", False, str(e)))
+        # schema version
+        try:
+            v = db.get_schema_version()
+            ok = (v >= db.SCHEMA_VERSION)
+            results.append(("Schema version", ok, "v%d" % v if ok else "v%d (expected %d)" % (v, db.SCHEMA_VERSION)))
+        except Exception as e:
+            log.debug_exc(logger)
+            results.append(("Schema version", False, str(e)))
         # schema / counts
         try:
             n = len(db.get_all_patients())

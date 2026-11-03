@@ -427,14 +427,17 @@ class PatientFilePanel(ctk.CTkFrame):
         ses_tab = self.tabview.add("Sesiuni")
         ses_tab.grid_columnconfigure(0, weight=1)
         ses_tab.grid_rowconfigure(0, weight=1)
-        cols = ("no", "date", "dur", "vas", "status")
+        cols = ("no", "date", "dur", "vas", "status", "modalities", "notes")
         self.ses_tree = ttk.Treeview(ses_tab, columns=cols, show="headings", selectmode="browse")
-        for c, t, w in (("no", "Nr.", 40), ("date", "Data", 90), ("dur", "Min", 50), ("vas", "VAS înainte→după", 110), ("status", "Status", 90)):
+        for c, t, w in (("no", "Nr.", 40), ("date", "Data", 90), ("dur", "Min", 50), ("vas", "VAS înainte→după", 110), ("status", "Status", 90), ("modalities", "Modalități", 120), ("notes", "Note", 140)):
             self.ses_tree.heading(c, text=t)
             self.ses_tree.column(c, width=w)
         self.ses_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        sx = ttk.Scrollbar(ses_tab, orient="horizontal", command=self.ses_tree.xview)
+        self.ses_tree.configure(xscrollcommand=sx.set)
+        sx.grid(row=1, column=0, sticky="ew")
         sb = ctk.CTkFrame(ses_tab, fg_color="transparent")
-        sb.grid(row=1, column=0, sticky="ew", pady=4)
+        sb.grid(row=2, column=0, sticky="ew", pady=4)
         ctk.CTkButton(sb, text="Adaugă sesiune", width=120, fg_color=theme.ACCENT, command=self._add_session).pack(side="left", padx=2)
         ctk.CTkButton(sb, text="Editează", width=90, command=self._edit_session).pack(side="left", padx=2)
         ctk.CTkButton(sb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_session).pack(side="left", padx=2)
@@ -444,31 +447,35 @@ class PatientFilePanel(ctk.CTkFrame):
         hep_tab = self.tabview.add("Exerciții (HEP)")
         hep_tab.grid_columnconfigure(0, weight=1)
         hep_tab.grid_rowconfigure(0, weight=1)
-        hcols = ("name", "sets", "reps", "hold", "freq")
+        hcols = ("name", "sets", "reps", "hold", "freq", "assigned", "notes")
         self.hep_tree = ttk.Treeview(hep_tab, columns=hcols, show="headings", selectmode="browse")
-        for c, t, w in (("name", "Exercițiu", 160), ("sets", "Serii", 50), ("reps", "Repetări", 70), ("hold", "Menținere(s)", 90), ("freq", "Frecvență", 100)):
+        for c, t, w in (("name", "Exercițiu", 160), ("sets", "Serii", 50), ("reps", "Repetări", 70), ("hold", "Menținere(s)", 90), ("freq", "Frecvență", 100), ("assigned", "Data", 90), ("notes", "Note", 140)):
             self.hep_tree.heading(c, text=t)
             self.hep_tree.column(c, width=w)
         self.hep_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        hx = ttk.Scrollbar(hep_tab, orient="horizontal", command=self.hep_tree.xview)
+        self.hep_tree.configure(xscrollcommand=hx.set)
+        hx.grid(row=1, column=0, sticky="ew")
         hb = ctk.CTkFrame(hep_tab, fg_color="transparent")
-        hb.grid(row=1, column=0, sticky="ew", pady=4)
+        hb.grid(row=2, column=0, sticky="ew", pady=4)
         ctk.CTkButton(hb, text="Adaugă exercițiu", width=130, fg_color=theme.ACCENT, command=self._add_exercise).pack(side="left", padx=2)
         ctk.CTkButton(hb, text="Editează", width=90, command=self._edit_exercise).pack(side="left", padx=2)
         ctk.CTkButton(hb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_exercise).pack(side="left", padx=2)
         self._load_exercises()
 
-        # Outcomes tab
-        out_tab = self.tabview.add("Rezultate (VAS)")
+        # Outcomes tab (Caled Testari -> VAS)
+        out_tab = self.tabview.add("Caled Testari")
         out_tab.grid_columnconfigure(0, weight=1)
-        out_tab.grid_rowconfigure(0, weight=1)
+        out_tab.grid_rowconfigure(1, weight=1)
+        ctk.CTkLabel(out_tab, text="VAS", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(row=0, column=0, sticky="w", padx=6, pady=(4, 2))
         ocols = ("date", "measure", "value", "notes")
         self.out_tree = ttk.Treeview(out_tab, columns=ocols, show="headings", selectmode="browse")
         for c, t, w in (("date", "Data", 90), ("measure", "Măsură", 80), ("value", "Valoare", 70), ("notes", "Note", 160)):
             self.out_tree.heading(c, text=t)
             self.out_tree.column(c, width=w)
-        self.out_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
+        self.out_tree.grid(row=1, column=0, sticky="nsew", pady=(2, 4))
         ob = ctk.CTkFrame(out_tab, fg_color="transparent")
-        ob.grid(row=1, column=0, sticky="ew", pady=4)
+        ob.grid(row=2, column=0, sticky="ew", pady=4)
         ctk.CTkButton(ob, text="Adaugă măsurătoare", width=150, fg_color=theme.ACCENT, command=self._add_outcome).pack(side="left", padx=2)
         ctk.CTkButton(ob, text="Editează", width=90, command=self._edit_outcome).pack(side="left", padx=2)
         ctk.CTkButton(ob, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_outcome).pack(side="left", padx=2)
@@ -591,7 +598,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 self.ses_tree.delete(row)
             for s in _db.list_sessions(self.patient_id):
                 vas = "%s→%s" % (s.get("pain_before", 0), s.get("pain_after", 0))
-                self.ses_tree.insert("", "end", iid=str(s["id"]), values=(s.get("session_no", ""), s.get("date", ""), s.get("duration_min", ""), vas, s.get("status", "")))
+                self.ses_tree.insert("", "end", iid=str(s["id"]), values=(s.get("session_no", ""), s.get("date", ""), s.get("duration_min", ""), vas, s.get("status", ""), s.get("modalities", ""), s.get("notes", "")))
         except Exception:
             pass
 
@@ -665,7 +672,7 @@ class PatientFilePanel(ctk.CTkFrame):
             for row in self.hep_tree.get_children():
                 self.hep_tree.delete(row)
             for e in _db.list_exercises(self.patient_id):
-                self.hep_tree.insert("", "end", iid=str(e["id"]), values=(e.get("name", ""), e.get("sets", ""), e.get("reps", ""), e.get("hold_sec", ""), e.get("frequency", "")))
+                self.hep_tree.insert("", "end", iid=str(e["id"]), values=(e.get("name", ""), e.get("sets", ""), e.get("reps", ""), e.get("hold_sec", ""), e.get("frequency", ""), e.get("assigned_date", ""), e.get("notes", "")))
         except Exception:
             pass
 

@@ -335,6 +335,10 @@ class App(ctk.CTk):
         Without this override the traceback would only go to stderr, which a
         windowed exe does not have — the user would just see nothing happen.
         """
+        if (exc_type is tk.TclError and "bad window path name" in str(exc_value)
+                and "focus_set" in str(exc_value)):
+            log.debug_exc(logger)
+            return
         _log_uncaught(exc_type, exc_value, exc_tb)
         if getattr(self, "_closing", False):
             return
@@ -1769,6 +1773,12 @@ class App(ctk.CTk):
         pid = self.selected_patient_id
         search_text = getattr(self, "_search_text", "")
         search_scope = getattr(self, "_search_scope_text", "everything")
+        # Move focus away before destroying widgets to avoid "bad window path"
+        # TclErrors from Tk trying to refocus a destroyed child.
+        try:
+            self.focus_set()
+        except Exception:
+            pass
         for w in (getattr(self, "_header", None), getattr(self, "_sidebar", None), getattr(self, "_content", None)):
             try:
                 if w is not None and w.winfo_exists():

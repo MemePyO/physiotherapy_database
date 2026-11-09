@@ -608,9 +608,8 @@ class PatientFilePanel(ctk.CTkFrame):
             if getattr(self, "patient_id", None) is None:
                 messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
                 return
-            # simple dialog via tkinter
-            import tkinter.simpledialog as sd
-            date = sd.askstring("Sesiune nouă", "Data (DD.MM.YYYY):", parent=self)
+            from dialogs.input_dialog import ask_string
+            date = ask_string(self, "Sesiune nouă", "Data (DD.MM.YYYY):")
             if not date:
                 return
             sid = _db.add_session(self.patient_id, date=date, status="done")
@@ -678,12 +677,12 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _add_exercise(self):
         try:
-            import tkinter.simpledialog as sd
             import db as _db
             if getattr(self, "patient_id", None) is None:
                 messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
                 return
-            name = sd.askstring("Exercițiu nou", "Nume exercițiu:", parent=self)
+            from dialogs.input_dialog import ask_string
+            name = ask_string(self, "Exercițiu nou", "Nume exercițiu:")
             if not name:
                 return
             _db.add_exercise(self.patient_id, name=name)
@@ -747,13 +746,13 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _add_outcome(self):
         try:
-            import tkinter.simpledialog as sd
             import db as _db
-            val = sd.askstring("Măsurătoare nouă", "Valoare VAS (0-10):", parent=self)
-            if val is None:
-                return
             if getattr(self, "patient_id", None) is None:
                 messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
+                return
+            from dialogs.input_dialog import ask_string
+            val = ask_string(self, "Măsurătoare nouă", "Valoare VAS (0-10):")
+            if val is None:
                 return
             try:
                 v = float(val)

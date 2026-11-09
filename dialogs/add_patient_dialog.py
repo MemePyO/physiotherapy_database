@@ -1,4 +1,5 @@
-from .common import *
+from .common import _validate_dob, ctk, db, lang, messagebox
+
 
 class AddPatientDialog(ctk.CTkToplevel):
     def __init__(self, master):

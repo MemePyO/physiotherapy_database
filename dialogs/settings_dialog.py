@@ -1,4 +1,5 @@
-from .common import *
+from .common import LANG_LABELS, ctk, lang, theme
+
 
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, master):

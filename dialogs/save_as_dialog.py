@@ -1,4 +1,5 @@
-from .common import *
+from .common import ctk, tk
+
 
 class SaveAsDialog(ctk.CTkToplevel):
     def __init__(self, master):

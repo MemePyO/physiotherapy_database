@@ -1,4 +1,5 @@
-from .common import *
+from .common import ctk, lang, theme, tk
+
 
 class ExportFieldsDialog(ctk.CTkToplevel):
     """Let the user choose which fields to export and their column order."""
@@ -101,6 +102,3 @@ class ExportFieldsDialog(ctk.CTkToplevel):
         keys = [self._key_of(self.sel.get(i)) for i in range(self.sel.size())]
         self.result = keys
         self.destroy()
-
-
-from utils import _validate_dob

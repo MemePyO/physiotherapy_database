@@ -1,4 +1,5 @@
-from .common import *
+from .common import ctk, db, lang, messagebox, ttk
+
 
 class TrashDialog(ctk.CTkToplevel):
     def __init__(self, master):

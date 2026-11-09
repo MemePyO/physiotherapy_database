@@ -3081,17 +3081,44 @@ class App(ctk.CTk):
                         lang.t("app_name"), "Backup verification failed: " + str(info)
                     )
                     return
-                db.pre_operation_backup("restore")
-                db.checkpoint()
-                import shutil
+                pdlg = ctk.CTkToplevel(self)
+                pdlg.title("Restore")
+                pdlg.transient(self)
+                pdlg.grab_set()
+                plbl = ctk.CTkLabel(
+                    pdlg, text="Restoring...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                )
+                plbl.pack(padx=24, pady=(20, 8))
+                pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
+                pbar.pack(padx=24, pady=(0, 20))
+                pbar.start()
 
-                shutil.copy2(src, db.db_path())
-                try:
-                    db.init_db()
-                except Exception:
-                    pass
-                self.refresh_patients_db()
-                messagebox.showinfo(lang.t("app_name"), "Restore complete.")
+                def work(progress):
+                    db.pre_operation_backup("restore")
+                    db.checkpoint()
+                    import shutil
+
+                    shutil.copy2(src, db.db_path())
+                    try:
+                        db.init_db()
+                    except Exception:
+                        pass
+                    return True
+
+                def on_done(_):
+                    pbar.stop()
+                    pdlg.destroy()
+                    self.refresh_patients_db()
+                    messagebox.showinfo(lang.t("app_name"), "Restore complete.")
+
+                def on_error(e):
+                    pbar.stop()
+                    pdlg.destroy()
+                    messagebox.showerror(lang.t("app_name"), str(e))
+
+                from workers import BackgroundTask
+
+                BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
@@ -3106,50 +3133,76 @@ class App(ctk.CTk):
             )
             if not path:
                 return
-            import csv
 
-            rows = []
-            if path.lower().endswith(".csv"):
-                with open(path, newline="", encoding="utf-8-sig") as fh:
-                    reader = csv.reader(fh, delimiter=";")
-                    next(reader, None)
-                    for r in reader:
-                        rows.append(r)
-            else:
-                from openpyxl import load_workbook
+            pdlg = ctk.CTkToplevel(self)
+            pdlg.title("Import")
+            pdlg.transient(self)
+            pdlg.grab_set()
+            plbl = ctk.CTkLabel(pdlg, text="Importing...", font=theme.FONT_SMALL, text_color=theme.TEXT)
+            plbl.pack(padx=24, pady=(20, 8))
+            pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
+            pbar.pack(padx=24, pady=(0, 20))
+            pbar.start()
 
-                wb = load_workbook(path)
-                ws = wb.active
-                for r in ws.iter_rows(min_row=2, values_only=True):
-                    rows.append(list(r))
-            count = 0
-            for r in rows:
-                if not r or not r[0]:
-                    continue
-                name = str(r[0]).strip()
-                if not name:
-                    continue
-                loc = str(r[1]).strip() if len(r) > 1 and r[1] is not None else ""
-                diag = str(r[2]).strip() if len(r) > 2 and r[2] is not None else ""
-                obj = str(r[3]).strip() if len(r) > 3 and r[3] is not None else ""
-                eva = str(r[4]).strip() if len(r) > 4 and r[4] is not None else ""
-                obs = str(r[5]).strip() if len(r) > 5 and r[5] is not None else ""
-                try:
-                    pid = db.ensure_patient_exists(name)
-                    if pid is not None:
-                        db.update_patient(
-                            pid,
-                            localitate=loc,
-                            diagnostic=diag,
-                            objective=obj,
-                            evaluation=eva,
-                            observation=obs,
-                        )
-                        count += 1
-                except Exception:
-                    log.debug_exc(logger)
-            self.refresh_patients_db()
-            messagebox.showinfo(lang.t("app_name"), "Imported " + str(count) + " patients.")
+            def work(progress):
+                import csv
+
+                rows = []
+                if path.lower().endswith(".csv"):
+                    with open(path, newline="", encoding="utf-8-sig") as fh:
+                        reader = csv.reader(fh, delimiter=";")
+                        next(reader, None)
+                        for r in reader:
+                            rows.append(r)
+                else:
+                    from openpyxl import load_workbook
+
+                    wb = load_workbook(path)
+                    ws = wb.active
+                    for r in ws.iter_rows(min_row=2, values_only=True):
+                        rows.append(list(r))
+                count = 0
+                for r in rows:
+                    if not r or not r[0]:
+                        continue
+                    name = str(r[0]).strip()
+                    if not name:
+                        continue
+                    loc = str(r[1]).strip() if len(r) > 1 and r[1] is not None else ""
+                    diag = str(r[2]).strip() if len(r) > 2 and r[2] is not None else ""
+                    obj = str(r[3]).strip() if len(r) > 3 and r[3] is not None else ""
+                    eva = str(r[4]).strip() if len(r) > 4 and r[4] is not None else ""
+                    obs = str(r[5]).strip() if len(r) > 5 and r[5] is not None else ""
+                    try:
+                        pid = db.ensure_patient_exists(name)
+                        if pid is not None:
+                            db.update_patient(
+                                pid,
+                                localitate=loc,
+                                diagnostic=diag,
+                                objective=obj,
+                                evaluation=eva,
+                                observation=obs,
+                            )
+                            count += 1
+                    except Exception:
+                        log.debug_exc(logger)
+                return count
+
+            def on_done(count):
+                pbar.stop()
+                pdlg.destroy()
+                self.refresh_patients_db()
+                messagebox.showinfo(lang.t("app_name"), "Imported " + str(count) + " patients.")
+
+            def on_error(e):
+                pbar.stop()
+                pdlg.destroy()
+                messagebox.showerror(lang.t("app_name"), str(e))
+
+            from workers import BackgroundTask
+
+            BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 

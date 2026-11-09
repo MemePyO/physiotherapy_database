@@ -209,9 +209,9 @@ PALETTES = {
     },
 }
 
-_base = "classic"
+_base = "medidash"
 _appearance = "Light"
-_active = "classic"
+_active = "medidash"
 
 
 def _resolve_name():
@@ -223,7 +223,7 @@ def _resolve_name():
 def set_theme(name):
     global _base, _active
     if name not in ("classic", "medidash"):
-        name = "classic"
+        name = "medidash"
     _base = name
     _active = _resolve_name()
     _apply(PALETTES[_active])
@@ -256,8 +256,8 @@ def _apply(palette):
     globals().update(palette)
 
 
-# initialise with the classic palette (light)
-_apply(PALETTES["classic"])
-_active = "classic"
-_base = "classic"
+# initialise with the medidash palette (light)
+_apply(PALETTES["medidash"])
+_active = "medidash"
+_base = "medidash"
 _appearance = "Light"

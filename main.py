@@ -259,7 +259,7 @@ def load_settings():
             except (TypeError, ValueError):
                 data["ui_scale"] = 1.0
         if data.get("ui_theme") not in ("classic", "medidash"):
-            data["ui_theme"] = "classic"
+            data["ui_theme"] = "medidash"
         if data.get("appearance") not in ("Light", "Dark"):
             data["appearance"] = "Light"
         if data.get("sort_by") not in (
@@ -334,7 +334,7 @@ class App(ctk.CTk):
                 log.debug_exc(logger)
             theme._appearance = mode
             ctk.set_appearance_mode(mode)
-            theme.set_theme(settings.get("ui_theme", "classic"))
+            theme.set_theme(settings.get("ui_theme", "medidash"))
         except Exception:
             self.geometry("1200x800")
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
@@ -2627,7 +2627,7 @@ class App(ctk.CTk):
 
     def _apply_ui_theme(self, name):
         if name not in ("classic", "medidash"):
-            name = "classic"
+            name = "medidash"
         self._save_open_files()
         try:
             data = load_settings()

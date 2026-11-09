@@ -24,7 +24,7 @@ def test_set_theme_switches():
 
 def test_unknown_theme_falls_back():
     theme.set_theme("nope")
-    assert theme.active() == "classic"
+    assert theme.active() == "medidash"
 
 
 def test_required_keys_present():

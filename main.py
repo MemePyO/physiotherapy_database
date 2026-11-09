@@ -311,6 +311,7 @@ class App(ctk.CTk):
     def __init__(self, patients_file=None):
         super().__init__()
         self._closing = False
+        self._rebuilding = False
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         lang.set_language(load_language())
@@ -1114,7 +1115,10 @@ class App(ctk.CTk):
         except Exception:
             log.debug_exc(logger)
         try:
-            self._search_job = self.after(150, self.refresh_patients_db)
+            self._search_job = self.after(
+                150,
+                lambda: None if getattr(self, "_rebuilding", False) else self.refresh_patients_db(),
+            )
         except Exception:
             self.refresh_patients_db()
 
@@ -2290,7 +2294,12 @@ class App(ctk.CTk):
             )
             banner.place(relx=0.5, rely=1.0, anchor="s", y=-8)
             banner.lift()
-            self.after(4000, lambda b=banner: utils._safe_destroy(b))
+            self.after(
+                4000,
+                lambda b=banner: (
+                    None if getattr(self, "_rebuilding", False) else utils._safe_destroy(b)
+                ),
+            )
         except Exception:
             log.debug_exc(logger)
 
@@ -2313,7 +2322,10 @@ class App(ctk.CTk):
             hint.place(relx=0.5, rely=1.0, anchor="s", y=-46)
             hint.lift()
             self._undo_hint = hint
-            self.after(6000, lambda: utils._safe_destroy(hint))
+            self.after(
+                6000,
+                lambda: None if getattr(self, "_rebuilding", False) else utils._safe_destroy(hint),
+            )
         except Exception:
             log.debug_exc(logger)
 
@@ -2511,6 +2523,7 @@ class App(ctk.CTk):
             log.debug_exc(logger)
 
     def _rebuild_ui(self):
+        self._rebuilding = True
         self._save_open_files()
         view = getattr(self, "_current_view", "patients")
         pid = self.selected_patient_id

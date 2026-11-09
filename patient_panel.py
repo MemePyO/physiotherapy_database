@@ -96,6 +96,7 @@ class PatientFilePanel(ctk.CTkFrame):
         self.on_close_callback = on_close
         self._dirty = False
         self._is_new = bool(new) or (patient_id is None)
+        self._rebuilding = False
         self.header_frame = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -1280,11 +1281,25 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._dirty = False
                 if not silent:
                     self.dirty_label.configure(text="Saved")
-                    self.after(2000, lambda: utils._safe_configure(self.dirty_label, text=""))
+                    self.after(
+                        2000,
+                        lambda: (
+                            None
+                            if getattr(self, "_rebuilding", False)
+                            else utils._safe_configure(self.dirty_label, text="")
+                        ),
+                    )
                     messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
                 else:
                     self.dirty_label.configure(text="Saved")
-                    self.after(2000, lambda: utils._safe_configure(self.dirty_label, text=""))
+                    self.after(
+                        2000,
+                        lambda: (
+                            None
+                            if getattr(self, "_rebuilding", False)
+                            else utils._safe_configure(self.dirty_label, text="")
+                        ),
+                    )
                 self._refresh_header_info()
                 if theme.layout() != "stacked":
                     self._load_attachments()
@@ -1477,7 +1492,9 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _schedule_autosave(self):
         try:
-            self.after(30000, self._auto_save)
+            self.after(
+                30000, lambda: None if getattr(self, "_rebuilding", False) else self._auto_save()
+            )
         except Exception:
             log.debug_exc(logger)
 

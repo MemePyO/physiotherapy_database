@@ -2253,13 +2253,14 @@ class App(ctk.CTk):
                             page.destroy()
                     except Exception:
                         log.debug_exc(logger)
-                deleted_row_id = db.delete_patient(pid)
+                from services.patient_service import get_patient_service
+                svc = get_patient_service()
+                deleted_row_id = svc.delete_patient(pid)
                 if deleted_row_id is not None:
                     self._last_deleted_row_id = deleted_row_id
                     self._last_deleted_name = None
                     try:
-                        # fetch name from deleted row
-                        for d in db.list_deleted():
+                        for d in svc.list_deleted():
                             if d.get("id") == deleted_row_id:
                                 self._last_deleted_name = d.get("name")
                                 break

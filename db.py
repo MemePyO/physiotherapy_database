@@ -24,8 +24,16 @@ MAX_TEXT_LEN = 50000
 MAX_LOCALITY_LEN = 100
 
 
+def _data_dir() -> str:
+    try:
+        import paths
+        return paths.app_data_dir()
+    except Exception:
+        return _base_dir()
+
+
 def db_path() -> str:
-    return os.path.join(_base_dir(), "patients.db")
+    return os.path.join(_data_dir(), "patients.db")
 
 
 def checkpoint() -> None:
@@ -63,7 +71,7 @@ def backup_to(dest: str) -> bool:
 def pre_operation_backup(label: str = "op") -> None:
     """Copy the current DB to backup/ before a destructive operation."""
     try:
-        folder = os.path.join(_base_dir(), "backup")
+        folder = os.path.join(_data_dir(), "backup")
         os.makedirs(folder, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         dest = os.path.join(folder, "pre_%s_%s.db" % (label, stamp))
@@ -111,6 +119,11 @@ def _ensure_column(conn, table: str, column: str, decl: str) -> None:
 
 def init_db() -> None:
     """Initialize database schema and migrate from patients.json if exists."""
+    try:
+        import paths
+        paths.migrate_legacy_data(_base_dir())
+    except Exception:
+        pass
     # Pre-migration backup for safety
     pre_migration_backup()
     conn = _get_conn()
@@ -538,7 +551,7 @@ def get_observation(patient_id: int) -> str:
 
 
 def attachments_dir() -> str:
-    return os.path.join(_base_dir(), "attachments")
+    return os.path.join(_data_dir(), "attachments")
 
 
 def _patient_attach_folder(patient_id: int) -> str:

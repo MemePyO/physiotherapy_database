@@ -25,9 +25,13 @@ _recent_lock = threading.Lock()
 
 
 def _base_dir() -> str:
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+    try:
+        import paths
+        return paths.app_data_dir()
+    except Exception:
+        if getattr(sys, "frozen", False):
+            return os.path.dirname(sys.executable)
+        return os.path.dirname(os.path.abspath(__file__))
 
 
 # Patterns that may contain PII or secrets; redacted in all log output.

@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import shutil
+import socket
 import sys
 import threading
 import time
@@ -129,6 +130,14 @@ def _base_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def _data_dir() -> str:
+    try:
+        import paths
+        return paths.app_data_dir()
+    except Exception:
+        return _base_dir()
+
+
 def _asset_dir() -> str:
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return sys._MEIPASS
@@ -209,7 +218,7 @@ LANG_LABELS = {"en": "English", "ro": "Română"}
 
 
 def settings_file():
-    return os.path.join(_base_dir(), "settings.json")
+    return os.path.join(_data_dir(), "settings.json")
 
 
 def load_settings():
@@ -307,7 +316,7 @@ class App(ctk.CTk):
                 if messagebox.askyesno(lang.t("app_name"), "Database integrity check failed. Restore from latest backup?"):
                     # find latest backup by modification time (not name)
                     import glob as _g
-                    folder = os.path.join(_base_dir(), "backup")
+                    folder = os.path.join(_data_dir(), "backup")
                     files = _g.glob(os.path.join(folder, "*.db"))
                     files = [f for f in files if os.path.basename(f).startswith(("auto_", "pre_migration_", "pre_purge_"))]
                     if files:
@@ -1137,7 +1146,7 @@ class App(ctk.CTk):
             results.append(("App assets", False, str(e)))
         # backup folder writable
         try:
-            folder = os.path.join(_base_dir(), "backup")
+            folder = os.path.join(_data_dir(), "backup")
             os.makedirs(folder, exist_ok=True)
             test_path = os.path.join(folder, ".write_test")
             with open(test_path, "w") as fh:
@@ -1149,7 +1158,7 @@ class App(ctk.CTk):
             results.append(("Backup folder", False, str(e)))
         # free disk
         try:
-            free_gb = shutil.disk_usage(_base_dir()).free / (1024.0 ** 3)
+            free_gb = shutil.disk_usage(_data_dir()).free / (1024.0 ** 3)
             ok = free_gb >= 0.1
             results.append(("Free disk", ok, "%.1f GB" % free_gb))
         except Exception as e:
@@ -1193,7 +1202,7 @@ class App(ctk.CTk):
         except Exception as e:
             log.debug_exc(logger)
         try:
-            folder = os.path.join(_base_dir(), "backup")
+            folder = os.path.join(_data_dir(), "backup")
             backups = glob.glob(os.path.join(folder, "*.db"))
             if backups:
                 latest = max(backups, key=os.path.getmtime)
@@ -1204,14 +1213,14 @@ class App(ctk.CTk):
         except Exception as e:
             log.debug_exc(logger)
         try:
-            free_gb = shutil.disk_usage(_base_dir()).free / (1024.0 ** 3)
+            free_gb = shutil.disk_usage(_data_dir()).free / (1024.0 ** 3)
             rows.append((lang.t("ui_disk_free"), "%.1f GB" % free_gb))
         except Exception as e:
             log.debug_exc(logger)
         return rows
 
     def _log_path(self):
-        return os.path.join(_base_dir(), "app.log")
+        return os.path.join(_data_dir(), "app.log")
 
     def _clear_recent_errors(self):
         log.clear_errors()
@@ -2274,15 +2283,28 @@ class App(ctk.CTk):
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _backup_now(self):
-        try:
-            import shutil, datetime
-            folder = os.path.join(_base_dir(), "backup")
-            os.makedirs(folder, exist_ok=True)
-            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            dest = os.path.join(folder, "patients_" + stamp + ".db")
+        import datetime, shutil
+        folder = os.path.join(_data_dir(), "backup")
+        os.makedirs(folder, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest = os.path.join(folder, "patients_" + stamp + ".db")
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Backup")
+        dlg.transient(self)
+        dlg.grab_set()
+        lbl = ctk.CTkLabel(dlg, text="Creating backup...", font=theme.FONT_SMALL, text_color=theme.TEXT)
+        lbl.pack(padx=24, pady=(20, 8))
+        prog = ctk.CTkProgressBar(dlg, mode="indeterminate")
+        prog.pack(padx=24, pady=(0, 20))
+        prog.start()
+
+        def work(progress):
+            progress("Checkpointing database...")
             ok = db.backup_to(dest)
+            info = db.verify_backup(dest)[1] if ok else None
             try:
-                att_src = os.path.join(_base_dir(), "attachments")
+                att_src = os.path.join(_data_dir(), "attachments")
                 if os.path.isdir(att_src):
                     att_dest = os.path.join(folder, "attachments_" + stamp)
                     if os.path.exists(att_dest):
@@ -2291,17 +2313,30 @@ class App(ctk.CTk):
             except Exception as e:
                 log.debug_exc(logger)
             _prune_auto_backups(folder)
-            info = db.verify_backup(dest)[1]
+            return ok, info
+
+        def on_done(result):
+            prog.stop()
+            dlg.destroy()
+            ok, info = result
             if ok:
-                messagebox.showinfo(lang.t("app_name"), "Backup created and verified (" + str(info) + " patients):\n" + dest)
+                messagebox.showinfo(lang.t("app_name"), "Backup created and verified (" + str(info) + " patients):\\n" + dest)
             else:
-                messagebox.showwarning(lang.t("app_name"), "Backup created but verification failed:\n" + str(info))
-        except Exception as e:
+                messagebox.showwarning(lang.t("app_name"), "Backup created but verification failed.")
+
+        def on_error(e):
+            prog.stop()
+            dlg.destroy()
             messagebox.showerror(lang.t("app_name"), str(e))
 
+        def on_progress(msg):
+            lbl.configure(text=msg)
+
+        from workers import BackgroundTask
+        BackgroundTask(self, work, on_done=on_done, on_error=on_error, on_progress=on_progress).start()
     def _restore_backup(self):
         try:
-            folder = os.path.join(_base_dir(), "backup")
+            folder = os.path.join(_data_dir(), "backup")
             if not os.path.isdir(folder):
                 messagebox.showinfo(lang.t("app_name"), "No backups found.")
                 return
@@ -2383,7 +2418,7 @@ class App(ctk.CTk):
     def _auto_backup(self):
         try:
             import datetime
-            folder = os.path.join(_base_dir(), "backup")
+            folder = os.path.join(_data_dir(), "backup")
             os.makedirs(folder, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d")
             dest = os.path.join(folder, "patients_auto_" + stamp + ".db")
@@ -2420,8 +2455,70 @@ class App(ctk.CTk):
 
 
 
+_SINGLE_INSTANCE_PORT = 47832
+
+
+def _try_acquire_instance():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", _SINGLE_INSTANCE_PORT))
+        s.listen(1)
+        return s, True
+    except OSError:
+        try:
+            s.close()
+        except Exception:
+            pass
+        return None, False
+
+
 def main():
-    # Without a console, uncaught errors would vanish in the windowed exe.
+    sock, primary = _try_acquire_instance()
+    if not primary:
+        try:
+            c = socket.create_connection(("127.0.0.1", _SINGLE_INSTANCE_PORT), timeout=2)
+            c.sendall(b"focus\n")
+            c.close()
+        except Exception:
+            pass
+        try:
+            messagebox.showinfo("Patient Database", "The application is already running.")
+        except Exception:
+            pass
+        return
+
+    app_holder = {"app": None}
+
+    def _focus_app():
+        app = app_holder.get("app")
+        if app is None:
+            return
+        try:
+            app.deiconify()
+            app.lift()
+            app.focus_force()
+        except Exception:
+            pass
+
+    def _listener():
+        while True:
+            try:
+                conn, _ = sock.accept()
+                data = conn.recv(64)
+                conn.close()
+                if b"focus" in data:
+                    a = app_holder.get("app")
+                    if a is not None:
+                        try:
+                            a.after(0, _focus_app)
+                        except Exception:
+                            pass
+            except Exception:
+                break
+
+    threading.Thread(target=_listener, daemon=True).start()
+
     sys.excepthook = _excepthook
     threading.excepthook = _thread_excepthook
     try:
@@ -2434,7 +2531,12 @@ def main():
         _log_uncaught(*sys.exc_info())
         _show_crash_dialog(exc)
         return
+    app_holder["app"] = app
     app.mainloop()
+    try:
+        sock.close()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

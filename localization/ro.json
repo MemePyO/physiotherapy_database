@@ -241,6 +241,7 @@
   "ui_backup": "Backup",
   "ui_patients": "Pacienți",
   "ui_new": "Nou",
+  "ui_new_patient": "Pacient nou",
   "ui_name": "Nume",
   "ui_locality": "Localitate",
   "ui_deleted_at": "Șters la",

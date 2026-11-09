@@ -708,8 +708,8 @@ class PatientFilePanel(ctk.CTkFrame):
         ).pack(side="left", padx=2)
         self._load_exercises()
 
-        # Outcomes tab (Caled Testari -> VAS)
-        out_tab = self.tabview.add("Caled Testari")
+        # Outcomes tab (Tests -> VAS)
+        out_tab = self.tabview.add("Tests")
         out_tab.grid_columnconfigure(0, weight=1)
         out_tab.grid_rowconfigure(1, weight=1)
         ctk.CTkLabel(out_tab, text="VAS", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(

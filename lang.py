@@ -554,6 +554,7 @@ STRINGS = {
     "ui_backup": {"en": "Backup", "ro": "Backup"},
     "ui_patients": {"en": "Patients", "ro": "Pacienți"},
     "ui_new": {"en": "New", "ro": "Nou"},
+    "ui_new_patient": {"en": "New Patient", "ro": "Pacient nou"},
     "ui_name": {"en": "Name", "ro": "Nume"},
     "ui_locality": {"en": "Locality", "ro": "Localitate"},
     "ui_deleted_at": {"en": "Deleted at", "ro": "Șters la"},

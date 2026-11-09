@@ -13,7 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Schema version tracking via `PRAGMA user_version` and `db.get_schema_version()`.
 - Periodic integrity check (throttled, on view switch).
 - Edit buttons for sessions, exercises, and VAS outcomes.
-- "Caled Testari" tab (renamed from "Rezultate (VAS)") containing VAS outcomes.
+- "Tests" tab (renamed from "Rezultate (VAS)") containing VAS outcomes.
 - Grouped Diagnostic/Objective/Evaluation/Observation into a browser-like tab view.
 - All editable fields now shown in physio tables (modalities, notes, assigned date).
 - New appointment form moved under the calendar in the left panel.

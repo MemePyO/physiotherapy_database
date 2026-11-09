@@ -241,6 +241,7 @@
   "ui_backup": "Backup",
   "ui_patients": "Patients",
   "ui_new": "New",
+  "ui_new_patient": "New Patient",
   "ui_name": "Name",
   "ui_locality": "Locality",
   "ui_deleted_at": "Deleted at",

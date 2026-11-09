@@ -1,6 +1,18 @@
-"""Themed dialog components for the Physiotherapy Patient Database."""
+"""Dialog windows for the patient database app."""
+from .common import *  # noqa
+from .export_fields_dialog import ExportFieldsDialog
+from .add_patient_dialog import AddPatientDialog
+from .save_as_dialog import SaveAsDialog
+from .restore_backup_dialog import RestoreBackupDialog
+from .trash_dialog import TrashDialog
+from .settings_dialog import SettingsDialog
+from .base_dialog import BaseDialog
+from .input_dialog import CTkInputDialog, ask_string
+from .confirmation_dialog import CTkConfirmationDialog, ask_yes_no
 
-from .base_dialog import BaseDialog  # noqa: F401
-from .confirmation_dialog import CTkConfirmationDialog  # noqa: F401
-from .input_dialog import CTkInputDialog  # noqa: F401
-from .legacy import *  # noqa: F401,F403
+__all__ = [
+    "ExportFieldsDialog", "AddPatientDialog", "SaveAsDialog",
+    "RestoreBackupDialog", "TrashDialog", "SettingsDialog",
+    "BaseDialog", "CTkInputDialog", "ask_string",
+    "CTkConfirmationDialog", "ask_yes_no",
+]

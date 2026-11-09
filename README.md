@@ -1,82 +1,103 @@
-# Appointment Tracker (Desktop)
+# Patient Database (Physiotherapy)
 
-A Windows desktop app for tracking patient appointments and exporting them to
-Excel, with the same `X` / `L` / `C` / empty pattern used in the monthly tables.
-
-**Web version (phone):** https://memepyo.github.io/appointment-tracker/ —
-[web app repo](https://github.com/MemePyO/appointment-tracker)
-
-## Legend
-
-| Cell | Meaning |
-|------|---------|
-| `X` | Appointment |
-| `L` | Legal free day |
-| `C` | Free day |
-| *(empty)* | Not there |
-
-`X` always wins over `L`/`C`.
+A Windows desktop application for managing physiotherapy patient records, treatment plans, sessions, VAS outcome measures, home exercise programs (HEP), and an appointment calendar. Built with CustomTkinter and SQLite.
 
 ## Features
 
-- Modern GUI (CustomTkinter), 1120×760
-- **Add / edit / remove patients** with appointment days (`1, 5, 12-14`)
-- **Autocomplete** patient names — every name you enter is remembered in `patients.json`
-- **Pattern for all patients** — same `C` / `L` free days applied to everyone
-- **Counts** (`X`) per patient, shown live in the table
-- **Save / load projects** (`.json`)
-- **Year field** next to Month (defaults to the current year; saved/loaded with the project)
-- **Export choice** — Export asks whether to **update an existing workbook**
-  (pick the file; same-month collision still asks before replacing) or to
-  **create a new one** (Windows overwrite prompt). The chosen file is remembered.
-- **Introdu ședință tab** — mark one appointment by date (e.g. STOICA FLORIN,
-  30.04.2026): puts an `X` on that patient's day in the matching `MM.YYYY` sheet,
-  adds the patient (styled row, COUNTIF/TOTAL kept correct) if missing, creates the
-  sheet if missing, and does nothing if the `X` is already there.
-- **Auto L days** — the **auto** button next to L days fills the field with every
-  Saturday and Sunday of the chosen Month + Year
-- **Language selector** — switch the interface (labels, buttons, dialogs, errors)
-  between English and Română; remembered between launches. Month names
-  (`ianuarie…decembrie`) and exported Excel headers stay Romanian always
-- **Multi-sheet Excel workbook** — one sheet per month, named from the Month + Year
-  fields (`septembrie` + `2026` → sheet `09.2026`). Every export goes into the same
-  `.xlsx`; if that month's sheet already exists a popup asks whether to replace it
-  or keep the old one, all other months are kept. Month accepts `ianuarie…decembrie`
-  (any case) or a number like `9`.
-- **Export real `.xlsx`** — title row, per-day columns (1–31), `COUNTIF` formulas, `TOTAL` row with `SUM`, color-coded cells
-- **Remembers the last export workbook** (in `settings.json`), so the next export
-  preselects the same file
-- **Phone ↔ PC** — load/export the same `.json` project format as the web app
+- **Patient records** — name, locality, sex, DOB, diagnostic, objective, evaluation, observation (bilingual EN/RO).
+- **Treatment plans** — ICD code, body region, side, prescribed sessions, dates, goals, contraindications, notes.
+- **Sessions** — date, duration, modalities, exercises, pain before/after (VAS), status.
+- **Home Exercise Program (HEP)** — name, sets, reps, hold time, frequency, assigned date, notes.
+- **Outcome measures** — VAS/NRS tracking over time.
+- **Appointment calendar** — month grid with inline schedule preview and new-appointment form.
+- **Export** — Excel, CSV, PDF, Word with selectable fields.
+- **Backup/Restore** — automatic daily backups (last 7), manual backup, restore with verification.
+- **Diagnostics view** — recent errors, health checks, startup self-test.
+- **Themes** — Classic and MediDashboard (light/dark), UI scaling 100/125/150%.
+- **Bilingual** — English and Romanian.
 
 ## Requirements
 
 - Python 3.10+ (tested on 3.14)
 - Dependencies:
+  ```
+  pip install -r requirements.txt
+  ```
+
+## Installation
+
+```bash
+git clone <repo-url>
+cd physiotherapy_database
+pip install -r requirements.txt
+python main.py
+```
+
+## Configuration
+
+Settings are stored in `settings.json` (auto-created):
+- `ui_theme`: "classic" or "medidash"
+- `appearance`: "Light" or "Dark"
+- `ui_scale`: 1.0, 1.25, or 1.5
+- `ui_language`: "en" or "ro"
+- `sort_by`, `sort_dir`: patient list sorting
+
+## Project Structure
 
 ```
-pip install customtkinter openpyxl
+physiotherapy_database/
+├── main.py              # Application entry point, views, navigation
+├── patient_panel.py     # Embedded patient file panel (tabs, sections)
+├── db.py                # SQLite schema, CRUD, migrations, backup
+├── lang.py              # Bilingual string table (EN/RO)
+├── theme.py             # Theme tokens (classic/medidash, light/dark)
+├── utils.py             # Helpers (normalization, validation, PDF, etc.)
+├── dialogs.py           # Dialog windows (add patient, settings, etc.)
+├── tooltip.py           # Hover tooltips
+├── log.py               # Centralized logging (rotating file + ring buffer)
+├── version.py           # App version
+├── assets/              # Images, icons
+├── backup/              # Database backups (auto + manual)
+├── attachments/         # Patient file attachments
+├── tests/               # pytest test suite (43 tests)
+└── dist/                # Built executable (PyInstaller)
 ```
 
-## Run
+## Database Architecture
 
+SQLite with WAL mode. Tables:
+- `patients` — master patient records
+- `deleted_patients` — soft-deleted patients (trash)
+- `treatment_plans` — ICD code, body region, goals, etc.
+- `sessions` — therapy sessions with VAS before/after
+- `appointments` — scheduled appointments
+- `outcome_measures` — VAS/NRS tracking
+- `exercises` — home exercise program (HEP)
+- `patient_history` — audit trail of text changes
+- `attachments` — file attachments metadata
+
+Schema version tracked via `PRAGMA user_version`. WAL checkpoint runs before every backup. Backups use SQLite's backup API for consistency.
+
+## Build Instructions
+
+```bash
+# Install PyInstaller
+pip install pyinstaller
+
+# Build (Windows)
+build.bat
 ```
-python appointment_tracker.py
-```
 
-## Files
+Output: `dist\PhysioDatabase.exe` (single-file, windowed).
 
-| File | Role |
-|------|------|
-| `appointment_tracker.py` | Launcher |
-| `frontend.py` | GUI (CustomTkinter) + autocomplete widget |
-| `backend.py` | Core logic: parsing, validation, patient registry, Excel table layout |
-| `workbook.py` | Multi-sheet Excel workbook export (one sheet per month, `MM.YYYY`) |
-| `sheet_check.py` | Replace-existing-sheet confirmation popup |
-| `appointment.py` | "Introdu ședință" tab: mark an X by date into the workbook |
-| `weekend.py` | Auto-fill L days (every Saturday + Sunday of a month/year) |
-| `lang.py` | EN/RO string table shared with the web app |
-| `patients.json` | Remembered patient names (created automatically) |
-| `settings.json` | Last export path (created automatically, not committed) |
+## Troubleshooting
 
-Projects are saved wherever you choose via the file dialog; the Excel export
-matches the phone/web version's layout exactly, so files are interchangeable.
+- **"Database is locked"**: Close other instances. The app uses a 15s busy timeout.
+- **Missing tables after restore**: The app runs `db.init_db()` after restore to ensure schema.
+- **Blank/white areas in UI**: Switch themes in Settings.
+- **Logs**: Check `app.log` in the app directory (or `dist\app.log` for the exe).
+- **Diagnostics**: View > Diagnostics shows recent errors, health checks, and startup self-test results.
+
+## License
+
+Private / internal use.

@@ -1897,9 +1897,8 @@ class App(ctk.CTk):
 
     def _search_patients_dialog(self):
         try:
-            import tkinter.simpledialog as _sd
-            term = _sd.askstring("Search patients", "Search patients:", initialvalue=getattr(self, "_search_text", ""),
-                                 parent=self)
+            from dialogs.input_dialog import ask_string
+            term = ask_string(self, "Search patients", "Search patients:", initialvalue=getattr(self, "_search_text", ""))
         except Exception:
             term = None
         if term is None:
@@ -2190,7 +2189,6 @@ class App(ctk.CTk):
             from openpyxl import Workbook
             from openpyxl.styles import Font, Alignment, PatternFill
             from tkinter import filedialog
-            # remember last selection
             import json as _json
             settings = load_settings()
             initial = settings.get("export_fields")
@@ -2201,34 +2199,65 @@ class App(ctk.CTk):
             if not dlg.result:
                 return
             chosen = dlg.result
-            # persist
             settings["export_fields"] = chosen
             save_settings(settings)
 
             path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], title="Save as Excel")
             if not path:
                 return
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Pacienti"
-            headers = [h for k, h in EXPORT_FIELDS if k in chosen]
-            ws.append(headers)
-            for c in range(1, len(headers) + 1):
-                cell = ws.cell(row=1, column=c)
-                cell.font = Font(bold=True, color="FFFFFF")
-                cell.fill = PatternFill("solid", fgColor="4472C4")
-                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            patients = db.get_all_patients()
-            for i, p in enumerate(patients, 1):
-                ws.append([_field_value(p, k, i) for k in chosen])
-            for row in ws.iter_rows(min_row=2):
-                for cell in row:
-                    cell.alignment = Alignment(vertical="top", wrap_text=True)
-            for idx in range(1, len(headers) + 1):
-                ws.column_dimensions[chr(64 + idx)].width = 18
-            ws.freeze_panes = "A2"
-            wb.save(path)
-            self._show_status_banner(lang.t("ui_export_excel_ok"))
+
+            # progress dialog
+            pdlg = ctk.CTkToplevel(self)
+            pdlg.title("Export")
+            pdlg.transient(self)
+            pdlg.grab_set()
+            plbl = ctk.CTkLabel(pdlg, text="Exporting...", font=theme.FONT_SMALL, text_color=theme.TEXT)
+            plbl.pack(padx=24, pady=(20, 8))
+            pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
+            pbar.pack(padx=24, pady=(0, 20))
+            pbar.start()
+
+            def work(progress):
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Pacienti"
+                headers = [h for k, h in EXPORT_FIELDS if k in chosen]
+                ws.append(headers)
+                for c in range(1, len(headers) + 1):
+                    cell = ws.cell(row=1, column=c)
+                    cell.font = Font(bold=True, color="FFFFFF")
+                    cell.fill = PatternFill("solid", fgColor="4472C4")
+                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                patients = db.get_all_patients()
+                total = len(patients)
+                for i, p in enumerate(patients, 1):
+                    ws.append([_field_value(p, k, i) for k in chosen])
+                    if i % 50 == 0:
+                        progress("Exporting %d/%d..." % (i, total))
+                for row in ws.iter_rows(min_row=2):
+                    for cell in row:
+                        cell.alignment = Alignment(vertical="top", wrap_text=True)
+                for idx in range(1, len(headers) + 1):
+                    ws.column_dimensions[chr(64 + idx)].width = 18
+                ws.freeze_panes = "A2"
+                wb.save(path)
+                return total
+
+            def on_done(total):
+                pbar.stop()
+                pdlg.destroy()
+                self._show_status_banner(lang.t("ui_export_excel_ok"))
+
+            def on_error(e):
+                pbar.stop()
+                pdlg.destroy()
+                messagebox.showerror(lang.t("app_name"), str(e))
+
+            def on_progress(msg):
+                plbl.configure(text=msg)
+
+            from workers import BackgroundTask
+            BackgroundTask(self, work, on_done=on_done, on_error=on_error, on_progress=on_progress).start()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 

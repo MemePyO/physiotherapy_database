@@ -1,11 +1,13 @@
 """Patient database module using SQLite."""
+
 import json
 import os
-import sys
 import sqlite3
+import sys
 from datetime import datetime
 
 import log
+
 logger = log.get_logger(__name__)
 
 
@@ -27,6 +29,7 @@ MAX_LOCALITY_LEN = 100
 def _data_dir() -> str:
     try:
         import paths
+
         return paths.app_data_dir()
     except Exception:
         return _base_dir()
@@ -74,16 +77,17 @@ def pre_operation_backup(label: str = "op") -> None:
         folder = os.path.join(_data_dir(), "backup")
         os.makedirs(folder, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        dest = os.path.join(folder, "pre_%s_%s.db" % (label, stamp))
+        dest = os.path.join(folder, f"pre_{label}_{stamp}.db")
         if not backup_to(dest):
             # Last-resort fallback (may be incomplete in WAL mode).
             import shutil
+
             shutil.copy2(db_path(), dest)
     except Exception as e:
         logger.warning("pre_operation_backup failed: %s", e)
 
 
-def _get_conn() -> 'sqlite3.Connection':
+def _get_conn() -> "sqlite3.Connection":
     # A generous timeout lets a transient lock resolve instead of raising
     # "database is locked"; the journal mode is set once in init_db().
     conn = sqlite3.connect(db_path(), timeout=15)
@@ -94,6 +98,7 @@ def _get_conn() -> 'sqlite3.Connection':
 
 
 from contextlib import contextmanager
+
 
 @contextmanager
 def _conn():
@@ -121,6 +126,7 @@ def init_db() -> None:
     """Initialize database schema and migrate from patients.json if exists."""
     try:
         import paths
+
         paths.migrate_legacy_data(_base_dir())
     except Exception:
         pass
@@ -238,7 +244,7 @@ def check_integrity() -> bool:
         cur = conn.cursor()
         cur.execute("PRAGMA integrity_check")
         res = cur.fetchone()
-        ok = (res is not None and str(res[0]).lower() == "ok")
+        ok = res is not None and str(res[0]).lower() == "ok"
         cur.execute("PRAGMA foreign_key_check")
         fk_issues = cur.fetchall()
         conn.close()
@@ -273,8 +279,10 @@ def migrate_from_json(conn) -> None:
         if not name_str:
             continue
         try:
-            cur.execute("INSERT OR IGNORE INTO patients (name, sex, dob, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-                        (name_str, "", "", _now(), _now()))
+            cur.execute(
+                "INSERT OR IGNORE INTO patients (name, sex, dob, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (name_str, "", "", _now(), _now()),
+            )
         except Exception:
             continue
 
@@ -286,7 +294,14 @@ def migrate_from_json(conn) -> None:
         pass
 
 
-def add_patient(name: str, localitate: str = "", nr_zile: str = "", decision_date: str = "", sex: str = "", dob: str = "") -> int:
+def add_patient(
+    name: str,
+    localitate: str = "",
+    nr_zile: str = "",
+    decision_date: str = "",
+    sex: str = "",
+    dob: str = "",
+) -> int:
     """Add a new patient to the database."""
     name_str = str(name).strip()
     if not name_str:
@@ -304,7 +319,7 @@ def add_patient(name: str, localitate: str = "", nr_zile: str = "", decision_dat
     try:
         cur.execute(
             "INSERT INTO patients (name, localitate, nr_zile, decision_date, sex, dob, patient_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (name_str, localitate, nr_zile, decision_date, sex, dob, code, _now(), _now())
+            (name_str, localitate, nr_zile, decision_date, sex, dob, code, _now(), _now()),
         )
         conn.commit()
         patient_id = cur.lastrowid
@@ -313,7 +328,7 @@ def add_patient(name: str, localitate: str = "", nr_zile: str = "", decision_dat
     except sqlite3.IntegrityError:
         conn.close()
         raise ValueError("Patient already exists")
-    except Exception as e:
+    except Exception:
         conn.close()
         raise
 
@@ -356,7 +371,19 @@ def get_all_patients(sort_by: str = "name", sort_dir: str = "asc") -> list[dict]
     return [dict(row) for row in rows]
 
 
-def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, decision_date=None, diagnostic=None, objective=None, evaluation=None, observation=None, sex=None, dob=None) -> None:
+def update_patient(
+    patient_id: int,
+    name=None,
+    localitate=None,
+    nr_zile=None,
+    decision_date=None,
+    diagnostic=None,
+    objective=None,
+    evaluation=None,
+    observation=None,
+    sex=None,
+    dob=None,
+) -> None:
     """Update patient information and record history for changed fields."""
     conn = _get_conn()
     cur = conn.cursor()
@@ -376,8 +403,12 @@ def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, de
         if len(localitate) > MAX_LOCALITY_LEN:
             raise ValueError("Locality too long")
         provided["localitate"] = localitate
-    for _f, _v in (("diagnostic", diagnostic), ("objective", objective),
-                    ("evaluation", evaluation), ("observation", observation)):
+    for _f, _v in (
+        ("diagnostic", diagnostic),
+        ("objective", objective),
+        ("evaluation", evaluation),
+        ("observation", observation),
+    ):
         if _v is not None and len(_v) > MAX_TEXT_LEN:
             raise ValueError("%s too long (max %d)" % (_f, MAX_TEXT_LEN))
     if nr_zile is not None:
@@ -424,8 +455,10 @@ def update_patient(patient_id: int, name=None, localitate=None, nr_zile=None, de
         new_val = v if v is not None else ""
         if str(old_val) != str(new_val):
             try:
-                cur.execute("INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
-                            (patient_id, f, str(old_val), str(new_val), now))
+                cur.execute(
+                    "INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
+                    (patient_id, f, str(old_val), str(new_val), now),
+                )
             except Exception as e:
                 logger.warning("history insert failed: %s", e)
     conn.commit()
@@ -443,13 +476,27 @@ def delete_patient(patient_id: int) -> int | None:
         return None
     d = dict(row)
     try:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO deleted_patients (patient_id, name, localitate, diagnostic, objective, evaluation, observation, sex, dob, patient_code, created_at, updated_at, deleted_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (d.get('id'), d.get('name'), d.get('localitate', ''), d.get('diagnostic', ''),
-              d.get('objective', ''), d.get('evaluation', ''), d.get('observation', ''),
-              d.get('sex', ''), d.get('dob', ''), d.get('patient_code', ''),
-              d.get('created_at', ''), d.get('updated_at', ''), _now()))
+        """,
+            (
+                d.get("id"),
+                d.get("name"),
+                d.get("localitate", ""),
+                d.get("diagnostic", ""),
+                d.get("objective", ""),
+                d.get("evaluation", ""),
+                d.get("observation", ""),
+                d.get("sex", ""),
+                d.get("dob", ""),
+                d.get("patient_code", ""),
+                d.get("created_at", ""),
+                d.get("updated_at", ""),
+                _now(),
+            ),
+        )
         deleted_row_id = cur.lastrowid
         cur.execute("DELETE FROM patients WHERE id = ?", (patient_id,))
         conn.commit()
@@ -477,13 +524,25 @@ def restore_deleted(deleted_row_id: int) -> int | None:
         return None
     d = dict(row)
     try:
-        cur.execute("""
+        cur.execute(
+            """
             INSERT INTO patients (name, localitate, diagnostic, objective, evaluation, observation, sex, dob, patient_code, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (d.get('name'), d.get('localitate', ''), d.get('diagnostic', ''),
-              d.get('objective', ''), d.get('evaluation', ''), d.get('observation', ''),
-              d.get('sex', ''), d.get('dob', ''), d.get('patient_code', ''),
-              d.get('created_at', '') or _now(), _now()))
+        """,
+            (
+                d.get("name"),
+                d.get("localitate", ""),
+                d.get("diagnostic", ""),
+                d.get("objective", ""),
+                d.get("evaluation", ""),
+                d.get("observation", ""),
+                d.get("sex", ""),
+                d.get("dob", ""),
+                d.get("patient_code", ""),
+                d.get("created_at", "") or _now(),
+                _now(),
+            ),
+        )
         pid = cur.lastrowid
         cur.execute("DELETE FROM deleted_patients WHERE id = ?", (deleted_row_id,))
         conn.commit()
@@ -501,16 +560,18 @@ def get_patient_names() -> list[str]:
     cur.execute("SELECT name FROM patients ORDER BY name")
     rows = cur.fetchall()
     conn.close()
-    return [row['name'] for row in rows]
+    return [row["name"] for row in rows]
 
 
 def get_localities() -> list[str]:
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT DISTINCT localitate FROM patients WHERE localitate != '' ORDER BY localitate")
+    cur.execute(
+        "SELECT DISTINCT localitate FROM patients WHERE localitate != '' ORDER BY localitate"
+    )
     rows = cur.fetchall()
     conn.close()
-    return [row['localitate'] for row in rows]
+    return [row["localitate"] for row in rows]
 
 
 def ensure_patient_exists(name: str) -> int | None:
@@ -520,34 +581,33 @@ def ensure_patient_exists(name: str) -> int | None:
         return None
     patient = get_patient(name=name_str)
     if patient:
-        return patient['id']
+        return patient["id"]
     try:
         return add_patient(name_str)
     except Exception as e:
         logger.debug("add_patient failed, retrying lookup: %s", e)
         patient = get_patient(name=name_str)
-        return patient['id'] if patient else None
+        return patient["id"] if patient else None
 
 
 def get_diagnostic(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
-    return p.get('diagnostic', '') if p else ''
+    return p.get("diagnostic", "") if p else ""
 
 
 def get_objective(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
-    return p.get('objective', '') if p else ''
+    return p.get("objective", "") if p else ""
 
 
 def get_evaluation(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
-    return p.get('evaluation', '') if p else ''
+    return p.get("evaluation", "") if p else ""
 
 
 def get_observation(patient_id: int) -> str:
     p = get_patient(patient_id=patient_id)
-    return p.get('observation', '') if p else ''
-
+    return p.get("observation", "") if p else ""
 
 
 def attachments_dir() -> str:
@@ -562,6 +622,7 @@ def _patient_attach_folder(patient_id: int) -> str:
 
 def add_attachment(patient_id: int, source_path: str) -> int:
     import shutil
+
     if not source_path or not os.path.exists(source_path):
         raise ValueError("File not found")
     size = os.path.getsize(source_path)
@@ -581,14 +642,18 @@ def add_attachment(patient_id: int, source_path: str) -> int:
             i += 1
         dest = os.path.join(folder, "%s_%d%s" % (stem, i, ext))
     # containment check
-    if os.path.commonpath([os.path.abspath(folder), os.path.abspath(dest)]) != os.path.abspath(folder):
+    if os.path.commonpath([os.path.abspath(folder), os.path.abspath(dest)]) != os.path.abspath(
+        folder
+    ):
         raise ValueError("Invalid destination path")
     shutil.copy2(source_path, dest)
     size = os.path.getsize(dest)
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute("INSERT INTO attachments (patient_id, filename, stored_path, size, added_at) VALUES (?, ?, ?, ?, ?)",
-                (patient_id, os.path.basename(dest), dest, size, _now()))
+    cur.execute(
+        "INSERT INTO attachments (patient_id, filename, stored_path, size, added_at) VALUES (?, ?, ?, ?, ?)",
+        (patient_id, os.path.basename(dest), dest, size, _now()),
+    )
     conn.commit()
     aid = cur.lastrowid
     conn.close()
@@ -632,8 +697,10 @@ def delete_attachment(att_id: int) -> None:
 def add_history(patient_id: int, field: str, old_value, new_value) -> None:
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute("INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
-                (patient_id, field, str(old_value or ""), str(new_value or ""), _now()))
+    cur.execute(
+        "INSERT INTO patient_history (patient_id, field, old_value, new_value, changed_at) VALUES (?, ?, ?, ?, ?)",
+        (patient_id, field, str(old_value or ""), str(new_value or ""), _now()),
+    )
     conn.commit()
     conn.close()
 
@@ -650,7 +717,10 @@ def delete_history(patient_id: int) -> None:
 def list_history(patient_id: int, limit: int = 200) -> list[dict]:
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM patient_history WHERE patient_id = ? ORDER BY id DESC LIMIT ?", (patient_id, limit))
+    cur.execute(
+        "SELECT * FROM patient_history WHERE patient_id = ? ORDER BY id DESC LIMIT ?",
+        (patient_id, limit),
+    )
     rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -673,12 +743,14 @@ def verify_backup(path: str) -> tuple[bool, object]:
     except Exception as e:
         return False, str(e)
 
+
 def pre_migration_backup() -> str | None:
     """Create a backup of patients.db before schema migration, if it exists."""
     dbp = db_path()
     if not os.path.exists(dbp):
         return None
     import datetime
+
     folder = os.path.join(os.path.dirname(dbp), "backup")
     try:
         os.makedirs(folder, exist_ok=True)
@@ -690,13 +762,34 @@ def pre_migration_backup() -> str | None:
     except Exception as e:
         logger.warning("pre_migration_backup failed: %s", e)
         return None
+
+
 # --- physiotherapy helpers ---
 
 
-BODY_REGIONS = ["Cervical", "Thoracic", "Lumbar", "Shoulder", "Elbow", "Wrist/Hand",
-                "Hip", "Knee", "Ankle/Foot", "Other"]
+BODY_REGIONS = [
+    "Cervical",
+    "Thoracic",
+    "Lumbar",
+    "Shoulder",
+    "Elbow",
+    "Wrist/Hand",
+    "Hip",
+    "Knee",
+    "Ankle/Foot",
+    "Other",
+]
 SIDES = ["Left", "Right", "Bilateral", "N/A"]
-MODALITIES = ["Ultrasound", "TENS", "Manual therapy", "Exercise", "Heat", "Cold", "Laser", "Traction"]
+MODALITIES = [
+    "Ultrasound",
+    "TENS",
+    "Manual therapy",
+    "Exercise",
+    "Heat",
+    "Cold",
+    "Laser",
+    "Traction",
+]
 # Bump when the schema changes; migrations are keyed off PRAGMA user_version.
 SCHEMA_VERSION = 1
 
@@ -711,13 +804,17 @@ def get_schema_version() -> int:
         return int(v or 0)
     except Exception:
         return 0
+
+
 OUTCOME_MEASURES = ["VAS", "NRS"]
 
 
 def get_plan(patient_id):
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM treatment_plans WHERE patient_id = ? ORDER BY id DESC LIMIT 1", (patient_id,))
+    cur.execute(
+        "SELECT * FROM treatment_plans WHERE patient_id = ? ORDER BY id DESC LIMIT 1", (patient_id,)
+    )
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -729,19 +826,29 @@ def upsert_plan(patient_id, **fields):
     cur.execute("SELECT id FROM treatment_plans WHERE patient_id = ?", (patient_id,))
     row = cur.fetchone()
     now = _now()
-    cols = ["diagnosis_code", "body_region", "side", "prescribed_sessions", "start_date", "end_date",
-            "goals", "contraindications", "notes"]
+    cols = [
+        "diagnosis_code",
+        "body_region",
+        "side",
+        "prescribed_sessions",
+        "start_date",
+        "end_date",
+        "goals",
+        "contraindications",
+        "notes",
+    ]
     vals = [fields.get(c) for c in cols]
     if row:
         pid = row["id"]
-        updates = ", ".join("%s = ?" % c for c in cols) + ", updated_at = ?"
-        cur.execute("UPDATE treatment_plans SET %s WHERE id = ?" % updates, vals + [now, pid])
+        updates = ", ".join(f"{c} = ?" for c in cols) + ", updated_at = ?"
+        cur.execute(f"UPDATE treatment_plans SET {updates} WHERE id = ?", vals + [now, pid])
     else:
         cur.execute(
             "INSERT INTO treatment_plans (patient_id, diagnosis_code, body_region, side, prescribed_sessions, "
             "start_date, end_date, goals, contraindications, notes, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [patient_id] + vals + [now, now])
+            [patient_id] + vals + [now, now],
+        )
         pid = cur.lastrowid
     conn.commit()
     conn.close()
@@ -751,7 +858,9 @@ def upsert_plan(patient_id, **fields):
 def list_sessions(patient_id):
     conn = _get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM sessions WHERE patient_id = ? ORDER BY date DESC, id DESC", (patient_id,))
+    cur.execute(
+        "SELECT * FROM sessions WHERE patient_id = ? ORDER BY date DESC, id DESC", (patient_id,)
+    )
     rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -764,10 +873,22 @@ def add_session(patient_id, **fields):
     cur.execute(
         "INSERT INTO sessions (patient_id, plan_id, session_no, date, duration_min, modalities, exercises, "
         "pain_before, pain_after, notes, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (patient_id, fields.get("plan_id"), fields.get("session_no", 1), fields.get("date", ""),
-         fields.get("duration_min", 30), fields.get("modalities", ""), fields.get("exercises", ""),
-         fields.get("pain_before", 0), fields.get("pain_after", 0), fields.get("notes", ""),
-         fields.get("status", "done"), now, now))
+        (
+            patient_id,
+            fields.get("plan_id"),
+            fields.get("session_no", 1),
+            fields.get("date", ""),
+            fields.get("duration_min", 30),
+            fields.get("modalities", ""),
+            fields.get("exercises", ""),
+            fields.get("pain_before", 0),
+            fields.get("pain_after", 0),
+            fields.get("notes", ""),
+            fields.get("status", "done"),
+            now,
+            now,
+        ),
+    )
     conn.commit()
     sid = cur.lastrowid
     conn.close()
@@ -778,13 +899,23 @@ def update_session(session_id, **fields):
     conn = _get_conn()
     cur = conn.cursor()
     now = _now()
-    cols = ["plan_id", "session_no", "date", "duration_min", "modalities", "exercises",
-            "pain_before", "pain_after", "notes", "status"]
+    cols = [
+        "plan_id",
+        "session_no",
+        "date",
+        "duration_min",
+        "modalities",
+        "exercises",
+        "pain_before",
+        "pain_after",
+        "notes",
+        "status",
+    ]
     updates = []
     params = []
     for c in cols:
         if c in fields and fields[c] is not None:
-            updates.append("%s = ?" % c)
+            updates.append(f"{c} = ?")
             params.append(fields[c])
     if not updates:
         conn.close()
@@ -792,7 +923,7 @@ def update_session(session_id, **fields):
     updates.append("updated_at = ?")
     params.append(now)
     params.append(session_id)
-    cur.execute("UPDATE sessions SET %s WHERE id = ?" % ", ".join(updates), params)
+    cur.execute("UPDATE sessions SET {} WHERE id = ?".format(", ".join(updates)), params)
     conn.commit()
     conn.close()
 
@@ -809,7 +940,10 @@ def list_appointments(start=None, end=None):
     conn = _get_conn()
     cur = conn.cursor()
     if start and end:
-        cur.execute("SELECT * FROM appointments WHERE datetime >= ? AND datetime <= ? ORDER BY datetime", (start, end))
+        cur.execute(
+            "SELECT * FROM appointments WHERE datetime >= ? AND datetime <= ? ORDER BY datetime",
+            (start, end),
+        )
     else:
         cur.execute("SELECT * FROM appointments ORDER BY datetime")
     rows = cur.fetchall()
@@ -821,8 +955,10 @@ def add_appointment(patient_id, dt, duration_min=30, status="scheduled", notes="
     conn = _get_conn()
     cur = conn.cursor()
     now = _now()
-    cur.execute("INSERT INTO appointments (patient_id, datetime, duration_min, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (patient_id, dt, duration_min, status, notes, now))
+    cur.execute(
+        "INSERT INTO appointments (patient_id, datetime, duration_min, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (patient_id, dt, duration_min, status, notes, now),
+    )
     conn.commit()
     aid = cur.lastrowid
     conn.close()
@@ -837,13 +973,13 @@ def update_appointment(app_id, **fields):
     params = []
     for c in cols:
         if c in fields and fields[c] is not None:
-            updates.append("%s = ?" % c)
+            updates.append(f"{c} = ?")
             params.append(fields[c])
     if not updates:
         conn.close()
         return
     params.append(app_id)
-    cur.execute("UPDATE appointments SET %s WHERE id = ?" % ", ".join(updates), params)
+    cur.execute("UPDATE appointments SET {} WHERE id = ?".format(", ".join(updates)), params)
     conn.commit()
     conn.close()
 
@@ -860,9 +996,14 @@ def list_outcomes(patient_id, measure=None):
     conn = _get_conn()
     cur = conn.cursor()
     if measure:
-        cur.execute("SELECT * FROM outcome_measures WHERE patient_id = ? AND measure = ? ORDER BY date", (patient_id, measure))
+        cur.execute(
+            "SELECT * FROM outcome_measures WHERE patient_id = ? AND measure = ? ORDER BY date",
+            (patient_id, measure),
+        )
     else:
-        cur.execute("SELECT * FROM outcome_measures WHERE patient_id = ? ORDER BY date", (patient_id,))
+        cur.execute(
+            "SELECT * FROM outcome_measures WHERE patient_id = ? ORDER BY date", (patient_id,)
+        )
     rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -872,8 +1013,10 @@ def add_outcome(patient_id, measure, value, date, notes=""):
     conn = _get_conn()
     cur = conn.cursor()
     now = _now()
-    cur.execute("INSERT INTO outcome_measures (patient_id, measure, value, date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (patient_id, measure, value, date, notes, now))
+    cur.execute(
+        "INSERT INTO outcome_measures (patient_id, measure, value, date, notes, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (patient_id, measure, value, date, notes, now),
+    )
     conn.commit()
     oid = cur.lastrowid
     conn.close()
@@ -896,13 +1039,13 @@ def update_outcome(oid, **fields):
     params = []
     for c in cols:
         if c in fields and fields[c] is not None:
-            updates.append("%s = ?" % c)
+            updates.append(f"{c} = ?")
             params.append(fields[c])
     if not updates:
         conn.close()
         return
     params.append(oid)
-    cur.execute("UPDATE outcome_measures SET %s WHERE id = ?" % ", ".join(updates), params)
+    cur.execute("UPDATE outcome_measures SET {} WHERE id = ?".format(", ".join(updates)), params)
     conn.commit()
     conn.close()
 
@@ -923,9 +1066,18 @@ def add_exercise(patient_id, **fields):
     cur.execute(
         "INSERT INTO exercises (patient_id, name, sets, reps, hold_sec, frequency, notes, assigned_date, created_at) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (patient_id, fields.get("name", ""), fields.get("sets", 3), fields.get("reps", 10),
-         fields.get("hold_sec", 0), fields.get("frequency", ""), fields.get("notes", ""),
-         fields.get("assigned_date", ""), now))
+        (
+            patient_id,
+            fields.get("name", ""),
+            fields.get("sets", 3),
+            fields.get("reps", 10),
+            fields.get("hold_sec", 0),
+            fields.get("frequency", ""),
+            fields.get("notes", ""),
+            fields.get("assigned_date", ""),
+            now,
+        ),
+    )
     conn.commit()
     eid = cur.lastrowid
     conn.close()
@@ -940,13 +1092,13 @@ def update_exercise(eid, **fields):
     params = []
     for c in cols:
         if c in fields and fields[c] is not None:
-            updates.append("%s = ?" % c)
+            updates.append(f"{c} = ?")
             params.append(fields[c])
     if not updates:
         conn.close()
         return
     params.append(eid)
-    cur.execute("UPDATE exercises SET %s WHERE id = ?" % ", ".join(updates), params)
+    cur.execute("UPDATE exercises SET {} WHERE id = ?".format(", ".join(updates)), params)
     conn.commit()
     conn.close()
 

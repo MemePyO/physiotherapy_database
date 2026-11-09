@@ -3,6 +3,7 @@
 Keeps the Tk UI responsive by running work on a worker thread and reporting
 completion back to the Tk thread via ``after()``.
 """
+
 import threading
 
 
@@ -11,9 +12,9 @@ class BackgroundTask:
 
     def __init__(self, owner, work, on_done=None, on_error=None, on_progress=None):
         self.owner = owner
-        self.work = work            # callable(progress_callback) -> result
-        self.on_done = on_done      # callable(result)
-        self.on_error = on_error    # callable(exception)
+        self.work = work  # callable(progress_callback) -> result
+        self.on_done = on_done  # callable(result)
+        self.on_error = on_error  # callable(exception)
         self.on_progress = on_progress  # callable(message)
         self._thread = None
         self.cancelled = False
@@ -29,7 +30,8 @@ class BackgroundTask:
                 self._schedule(lambda: self.on_done(result) if self.on_done else None)
         except Exception as e:
             if not self.cancelled:
-                self._schedule(lambda: self.on_error(e) if self.on_error else None)
+                err = e
+                self._schedule(lambda err=err: self.on_error(err) if self.on_error else None)
 
     def _progress(self, message):
         if self.on_progress:

@@ -16,7 +16,6 @@ STRINGS = {
     "tab_build": {"en": "Build / Export", "ro": "Build / Export"},
     "tab_mark": {"en": "Mark appointment", "ro": "Introdu ședință"},
     "tab_patients": {"en": "Patients / Database", "ro": "Pacienți / Bază de date"},
-
     # ---- header ----
     "label_title": {"en": "Title (name):", "ro": "Titlu (nume):"},
     "ph_title": {"en": "e.g. POPOVICI EMANUEL", "ro": "ex. POPOVICI EMANUEL"},
@@ -28,7 +27,6 @@ STRINGS = {
         "en": "X = appointment  |  L = legal free day  |  C = free day  |  empty = not there",
         "ro": "X = ședință  |  L = zi liberă legală  |  C = zi liberă  |  gol = nu e prezent",
     },
-
     # ---- pattern ----
     "label_c_days": {"en": "C days (free):", "ro": "Zile C (libere):"},
     "ph_c_days": {"en": "e.g. 2, 5, 10, 13", "ro": "ex. 2, 5, 10, 13"},
@@ -39,7 +37,6 @@ STRINGS = {
         "en": "same pattern for all patients",
         "ro": "același model pentru toți pacienții",
     },
-
     # ---- patient form ----
     "label_patient": {"en": "Patient name:", "ro": "Nume pacient:"},
     "ph_patient": {"en": "e.g. MOLAN MARIA", "ro": "ex. MOLAN MARIA"},
@@ -53,7 +50,6 @@ STRINGS = {
     "btn_add": {"en": "Add patient", "ro": "Adaugă pacient"},
     "btn_update_sel": {"en": "Update selected", "ro": "Actualizează selectat"},
     "btn_remove_sel": {"en": "Remove selected", "ro": "Elimină selectat"},
-    
     # ---- patient database ----
     "label_patient_name": {"en": "Patient name", "ro": "Nume pacient"},
     "label_localitate": {"en": "Locality", "ro": "Localitate"},
@@ -65,7 +61,6 @@ STRINGS = {
     "label_evaluation": {"en": "Evaluation", "ro": "Evaluare"},
     "label_notes": {"en": "Notes", "ro": "Note"},
     "label_observation": {"en": "Observation", "ro": "Observație"},
-    
     "btn_add_patient_db": {"en": "Add patient", "ro": "Adaugă pacient"},
     "btn_open_file": {"en": "Open file", "ro": "Deschide fișa"},
     "btn_delete_patient": {"en": "Delete patient", "ro": "Șterge pacient"},
@@ -80,12 +75,10 @@ STRINGS = {
     "btn_edit": {"en": "Edit", "ro": "Editează"},
     "btn_remove": {"en": "Remove", "ro": "Elimină"},
     "btn_ok": {"en": "OK", "ro": "OK"},
-    
     "section_diagnoses": {"en": "Diagnoses", "ro": "Diagnostice"},
     "section_objectives": {"en": "Objectives", "ro": "Obiective"},
     "section_evaluations": {"en": "Evaluations", "ro": "Evaluări"},
     "section_observations": {"en": "Observations", "ro": "Observații"},
-    
     "th_date": {"en": "Date", "ro": "Data"},
     "th_diagnostic": {"en": "Diagnostic", "ro": "Diagnostic"},
     "th_objective": {"en": "Objective", "ro": "Obiectiv"},
@@ -96,9 +89,7 @@ STRINGS = {
     "th_obj_count": {"en": "Objectives", "ro": "Obiective"},
     "th_eval_count": {"en": "Evaluations", "ro": "Evaluări"},
     "th_obs_count": {"en": "Observations", "ro": "Observații"},
-    
     "patient_page_title": {"en": "Patient File", "ro": "Fișă pacient"},
-    
     "dlg_add_patient": {"en": "Add patient", "ro": "Adaugă pacient"},
     "dlg_edit_patient": {"en": "Edit patient", "ro": "Editează pacient"},
     "dlg_add_diagnosis": {"en": "Add diagnosis", "ro": "Adaugă diagnostic"},
@@ -109,16 +100,22 @@ STRINGS = {
     "dlg_edit_evaluation": {"en": "Edit evaluation", "ro": "Editează evaluare"},
     "dlg_add_observation": {"en": "Add observation", "ro": "Adaugă observație"},
     "dlg_edit_observation": {"en": "Edit observation", "ro": "Editează observație"},
-    
-    "msg_select_patient": {"en": "Select a patient first.", "ro": "Selectați mai întâi un pacient."},
+    "msg_select_patient": {
+        "en": "Select a patient first.",
+        "ro": "Selectați mai întâi un pacient.",
+    },
     "msg_select_item": {"en": "Select an item first.", "ro": "Selectați mai întâi un element."},
-    "msg_required_fields": {"en": "Date and content are required.", "ro": "Data și conținutul sunt obligatorii."},
+    "msg_required_fields": {
+        "en": "Date and content are required.",
+        "ro": "Data și conținutul sunt obligatorii.",
+    },
     "msg_saved": {"en": "Saved.", "ro": "Salvat."},
-    "confirm_delete_patient": {"en": "Delete patient {name} and all their data?", "ro": "Ștergeți pacientul {name} și toate datele sale?"},
+    "confirm_delete_patient": {
+        "en": "Delete patient {name} and all their data?",
+        "ro": "Ștergeți pacientul {name} și toate datele sale?",
+    },
     "confirm_remove_item": {"en": "Remove this item?", "ro": "Eliminați acest element?"},
-    
     "app_name": {"en": "Patient Database", "ro": "Bază de date pacienți"},
-
     # ---- table headings (screen only; Excel stays Romanian) ----
     "th_nr": {"en": "NR.", "ro": "NR."},
     "th_patient": {"en": "PATIENT", "ro": "PACIENT"},
@@ -127,14 +124,12 @@ STRINGS = {
     "th_dec": {"en": "DECISION DATE", "ro": "DATA DECIZIE"},
     "th_zile": {"en": "NR DAYS", "ro": "NR. ZILE"},
     "th_loc": {"en": "LOCALITY", "ro": "LOCALITATE"},
-
     # ---- bottom buttons ----
     "btn_save": {"en": "Save project...", "ro": "Salvează proiectul..."},
     "btn_load": {"en": "Load project...", "ro": "Încarcă proiectul..."},
     "btn_clear": {"en": "Clear all", "ro": "Golește tot"},
     "btn_export": {"en": "Export to Excel...", "ro": "Exportă în Excel..."},
     "btn_cancel": {"en": "Cancel", "ro": "Anulează"},
-
     # ---- status bar ----
     "status_counts": {
         "en": "{n} patients | {k} known names",
@@ -172,9 +167,14 @@ STRINGS = {
     },
     "status_exported_csv": {"en": "CSV export successful", "ro": "Export CSV reușit"},
     "status_exported_word": {"en": "Word export successful", "ro": "Export Word reușit"},
-    "msg_backup_created": {"en": "Backup created and verified ({n} patients):\\n{path}", "ro": "Backup creat și verificat ({n} pacienți):\\n{path}"},
-    "msg_backup_warn": {"en": "Backup created but verification failed:\\n{info}", "ro": "Backup creat dar verificarea a eșuat:\\n{info}"},
-
+    "msg_backup_created": {
+        "en": "Backup created and verified ({n} patients):\\n{path}",
+        "ro": "Backup creat și verificat ({n} pacienți):\\n{path}",
+    },
+    "msg_backup_warn": {
+        "en": "Backup created but verification failed:\\n{info}",
+        "ro": "Backup creat dar verificarea a eșuat:\\n{info}",
+    },
     # ---- generic errors (backend/shared) ----
     "err_days_whole": {
         "en": "Days must be a whole number between 1 and 31.",
@@ -276,7 +276,6 @@ STRINGS = {
         "en": "Date must look like 30.04.2026",
         "ro": "Data trebuie să arate ca 30.04.2026",
     },
-
     # ---- desktop popups ----
     "info_select_patient": {
         "en": "Select a patient in the table first.",
@@ -302,7 +301,6 @@ STRINGS = {
         "en": "Exported sheet {sheet}:\n{path}",
         "ro": "Exportat foaia {sheet}:\n{path}",
     },
-
     # ---- file dialogs ----
     "dlg_save_project": {"en": "Save project", "ro": "Salvează proiectul"},
     "dlg_load_project": {"en": "Load project", "ro": "Încarcă proiectul"},
@@ -321,7 +319,6 @@ STRINGS = {
         "en": "Select Excel workbook",
         "ro": "Selectează registru Excel",
     },
-
     # ---- export mode dialog ----
     "dlg_export_title": {"en": "Export to Excel", "ro": "Exportă în Excel"},
     "dlg_export_question": {
@@ -336,25 +333,31 @@ STRINGS = {
         "en": "Create new workbook...",
         "ro": "Creează registru nou...",
     },
-
     # ---- sheet replace confirm ----
     "confirm_sheet_replace": {
-        "en": ("Sheet {sheet} already exists in:\n{path}\n\n"
-               "Replace it with the new data?\n\n"
-               "Yes = replace the old sheet\n"
-               "No = keep the existing sheet (export cancelled)"),
-        "ro": ("Foaia {sheet} există deja în:\n{path}\n\n"
-               "O înlocuiești cu datele noi?\n\n"
-               "Da = înlocuiește vechea foaie\n"
-               "Nu = păstrează foaia existentă (export anulat)"),
+        "en": (
+            "Sheet {sheet} already exists in:\n{path}\n\n"
+            "Replace it with the new data?\n\n"
+            "Yes = replace the old sheet\n"
+            "No = keep the existing sheet (export cancelled)"
+        ),
+        "ro": (
+            "Foaia {sheet} există deja în:\n{path}\n\n"
+            "O înlocuiești cu datele noi?\n\n"
+            "Da = înlocuiește vechea foaie\n"
+            "Nu = păstrează foaia existentă (export anulat)"
+        ),
     },
-
     # ---- mark tab (Introdu ședință) ----
     "mark_desc": {
-        "en": ("Mark an appointment (X) for a patient on a date in the Excel "
-               "workbook. The patient is added to the month sheet if missing."),
-        "ro": ("Marchează o ședință (X) pentru un pacient la o dată în "
-               "registrul Excel. Pacientul este adăugat în foaia lunii dacă lipsește."),
+        "en": (
+            "Mark an appointment (X) for a patient on a date in the Excel "
+            "workbook. The patient is added to the month sheet if missing."
+        ),
+        "ro": (
+            "Marchează o ședință (X) pentru un pacient la o dată în "
+            "registrul Excel. Pacientul este adăugat în foaia lunii dacă lipsește."
+        ),
     },
     "mark_ph_name": {"en": "e.g. STOICA FLORIN", "ro": "ex. STOICA FLORIN"},
     "mark_date_label": {"en": "Date:", "ro": "Data:"},
@@ -376,7 +379,6 @@ STRINGS = {
         "en": "Marked X for {who} on {sheet}",
         "ro": "Marcat X pentru {who} pe {sheet}",
     },
-
     # ---- web: chrome / boot ----
     "web_pill_loading": {"en": "loading", "ro": "se încarcă"},
     "web_status_boot1": {
@@ -422,10 +424,14 @@ STRINGS = {
     },
     "web_modal_title": {"en": "Export to Excel", "ro": "Exportă în Excel"},
     "web_modal_hint": {
-        "en": ("Update the workbook saved in this browser, or create a "
-               "brand-new one. The file is always downloaded to your device."),
-        "ro": ("Actualizează registrul salvat în acest browser sau creează unul "
-               "nou. Fișierul se descarcă mereu pe dispozitiv."),
+        "en": (
+            "Update the workbook saved in this browser, or create a "
+            "brand-new one. The file is always downloaded to your device."
+        ),
+        "ro": (
+            "Actualizează registrul salvat în acest browser sau creează unul "
+            "nou. Fișierul se descarcă mereu pe dispozitiv."
+        ),
     },
     "web_btn_ex_update": {
         "en": "Update existing workbook…",
@@ -436,7 +442,6 @@ STRINGS = {
         "ro": "Creează registru nou…",
     },
     "web_lang_label": {"en": "Language", "ro": "Limbă"},
-
     # ---- web: toasts / confirms / dynamic ----
     "web_toast_patient_added": {"en": "Patient added.", "ro": "Pacient adăugat."},
     "web_toast_patient_updated": {"en": "Patient updated.", "ro": "Pacient actualizat."},
@@ -446,20 +451,25 @@ STRINGS = {
     "web_label_c_field": {"en": "C days", "ro": "Zile C"},
     "web_label_l_field": {"en": "L days", "ro": "Zile L"},
     "web_confirm_sheet": {
-        "en": ("Sheet {sheet} already exists in the stored workbook.\n\n"
-               "Replace it with the new data?"),
-        "ro": ("Foaia {sheet} există deja în registrul salvat.\n\n"
-               "O înlocuiești cu datele noi?"),
+        "en": (
+            "Sheet {sheet} already exists in the stored workbook.\n\n"
+            "Replace it with the new data?"
+        ),
+        "ro": ("Foaia {sheet} există deja în registrul salvat.\n\n" "O înlocuiești cu datele noi?"),
     },
     "web_toast_exported": {
         "en": "Exported sheet {sheet} — file downloaded.",
         "ro": "Exportat foaia {sheet} — fișier descărcat.",
     },
     "web_toast_no_workbook_update": {
-        "en": ("No workbook saved in this browser yet — use "
-               "“Create new workbook” or “Load workbook (.xlsx)” first."),
-        "ro": ("Niciun registru salvat în acest browser — folosește "
-               "«Creează registru nou» sau «Încarcă registru (.xlsx)» mai întâi."),
+        "en": (
+            "No workbook saved in this browser yet — use "
+            "“Create new workbook” or “Load workbook (.xlsx)” first."
+        ),
+        "ro": (
+            "Niciun registru salvat în acest browser — folosește "
+            "«Creează registru nou» sau «Încarcă registru (.xlsx)» mai întâi."
+        ),
     },
     "web_toast_still_loading": {
         "en": "Still loading — try again in a moment.",
@@ -482,10 +492,14 @@ STRINGS = {
         "ro": "Data e obligatorie, ex. 30.04.2026.",
     },
     "web_toast_no_workbook_mark": {
-        "en": ("No workbook in this browser yet — export a new one first "
-               "(or use “Load workbook (.xlsx)”)."),
-        "ro": ("Niciun registru în acest browser — exportă unul nou mai întâi "
-               "(sau folosește «Încarcă registru (.xlsx)»)."),
+        "en": (
+            "No workbook in this browser yet — export a new one first "
+            "(or use “Load workbook (.xlsx)”)."
+        ),
+        "ro": (
+            "Niciun registru în acest browser — exportă unul nou mai întâi "
+            "(sau folosește «Încarcă registru (.xlsx)»)."
+        ),
     },
     "web_suffix_downloaded": {
         "en": " — file downloaded.",
@@ -505,7 +519,6 @@ STRINGS = {
     },
     "web_lang_en": {"en": "English", "ro": "English"},
     "ui_theme_label": {"en": "Theme:", "ro": "Temă:"},
-
     # ---- UI (desktop) ----
     "ui_section_diagnostic": {"en": "Diagnostic", "ro": "Diagnostic"},
     "ui_section_objective": {"en": "Objective", "ro": "Obiectiv"},
@@ -520,7 +533,10 @@ STRINGS = {
     "ui_restore_all": {"en": "Restore all", "ro": "Restaurează tot"},
     "ui_purge": {"en": "Purge", "ro": "Șterge definitiv"},
     "ui_empty_trash": {"en": "Empty", "ro": "Golește"},
-    "ui_open_trash": {"en": "Open Trash (deleted patients)", "ro": "Deschide coș (pacienți șterși)"},
+    "ui_open_trash": {
+        "en": "Open Trash (deleted patients)",
+        "ro": "Deschide coș (pacienți șterși)",
+    },
     "ui_backup_now": {"en": "Backup now", "ro": "Backup acum"},
     "ui_restore_backup": {"en": "Restore...", "ro": "Restaurează..."},
     "ui_import": {"en": "Import...", "ro": "Importă..."},
@@ -561,7 +577,10 @@ STRINGS = {
     "ui_refresh": {"en": "Refresh", "ro": "Reîmprospătează"},
     "ui_schedule": {"en": "Schedule", "ro": "Programări"},
     "ui_new_appointment": {"en": "New appointment", "ro": "Programare nouă"},
-    "ui_no_appointments": {"en": "No appointments on this day.", "ro": "Nicio programare în această zi."},
+    "ui_no_appointments": {
+        "en": "No appointments on this day.",
+        "ro": "Nicio programare în această zi.",
+    },
     "ui_patient": {"en": "Patient", "ro": "Pacient"},
     "ui_pick_patient": {"en": "Select a patient first.", "ro": "Selectați mai întâi un pacient."},
     "ui_time": {"en": "Time (HH:MM)", "ro": "Ora (HH:MM)"},
@@ -572,12 +591,21 @@ STRINGS = {
     "ui_clear_history": {"en": "Clear history", "ro": "Șterge istoricul"},
     "ui_last_modified": {"en": "Last modified:", "ro": "Ultima modificare:"},
     "ui_last_activity": {"en": "Last Activity:", "ro": "Ultima activitate:"},
-    "ui_select_patient_file": {"en": "Select a patient to view their file", "ro": "Selectați un pacient pentru a-i vedea fișa"},
-    "ui_no_patients": {"en": "No patients yet. Use “+ New Patient” to add the first one.", "ro": "Niciun pacient încă. Folosiți „+ Pacient nou” pentru a adăuga primul."},
+    "ui_select_patient_file": {
+        "en": "Select a patient to view their file",
+        "ro": "Selectați un pacient pentru a-i vedea fișa",
+    },
+    "ui_no_patients": {
+        "en": "No patients yet. Use “+ New Patient” to add the first one.",
+        "ro": "Niciun pacient încă. Folosiți „+ Pacient nou” pentru a adăuga primul.",
+    },
     "ui_no_match": {"en": "No patient matches “{q}”.", "ro": "Niciun pacient nu corespunde „{q}”."},
     "ui_count_of": {"en": "{n} of {total} patients", "ro": "{n} din {total} pacienți"},
     "ui_count_all": {"en": "{n} patients", "ro": "{n} pacienți"},
-    "ui_hint_keys": {"en": "Tip: ↑/↓ moves between patients, Enter opens the file.", "ro": "Sugestie: ↑/↓ schimbă pacientul, Enter deschide fișa."},
+    "ui_hint_keys": {
+        "en": "Tip: ↑/↓ moves between patients, Enter opens the file.",
+        "ro": "Sugestie: ↑/↓ schimbă pacientul, Enter deschide fișa.",
+    },
     "ui_keyboard_shortcuts": {"en": "Keyboard shortcuts", "ro": "Scurtături tastatură"},
     "ui_about": {"en": "About", "ro": "Despre"},
     "ui_close": {"en": "Close", "ro": "Închide"},
@@ -586,8 +614,14 @@ STRINGS = {
     "ui_sex": {"en": "Sex", "ro": "Sex"},
     "ui_diagnosis": {"en": "Diagnosis", "ro": "Diagnostic"},
     "ui_photo": {"en": "Photo", "ro": "Fotografie"},
-    "ui_name_required": {"en": "Patient name is required.", "ro": "Numele pacientului este obligatoriu."},
-    "ui_invalid_date": {"en": "Invalid date (use DD.MM.YYYY).", "ro": "Dată invalidă (folosiți ZZ.LL.AAAA)."},
+    "ui_name_required": {
+        "en": "Patient name is required.",
+        "ro": "Numele pacientului este obligatoriu.",
+    },
+    "ui_invalid_date": {
+        "en": "Invalid date (use DD.MM.YYYY).",
+        "ro": "Dată invalidă (folosiți ZZ.LL.AAAA).",
+    },
     "ui_not_saved_yet": {"en": "Not saved yet", "ro": "Nesalvat încă"},
     "ui_auto": {"en": "auto", "ro": "auto"},
     "ui_deleted": {"en": "Deleted", "ro": "Șters"},
@@ -595,19 +629,30 @@ STRINGS = {
     "ui_export_excel_ok": {"en": "Export Excel successful", "ro": "Export Excel reușit"},
     "ui_export_word_ok": {"en": "Export Word successful", "ro": "Export Word reușit"},
     "ui_export_csv_ok": {"en": "Export CSV successful", "ro": "Export CSV reușit"},
-    "ui_backup_created": {"en": "Backup created and verified ({n} patients):\\n{path}", "ro": "Backup creat și verificat ({n} pacienți):\\n{path}"},
-    "ui_backup_warn": {"en": "Backup created but verification failed:\\n{info}", "ro": "Backup creat dar verificarea a eșuat:\\n{info}"},
+    "ui_backup_created": {
+        "en": "Backup created and verified ({n} patients):\\n{path}",
+        "ro": "Backup creat și verificat ({n} pacienți):\\n{path}",
+    },
+    "ui_backup_warn": {
+        "en": "Backup created but verification failed:\\n{info}",
+        "ro": "Backup creat dar verificarea a eșuat:\\n{info}",
+    },
     "ui_imported": {"en": "Imported {n} patients.", "ro": "Importați {n} pacienți."},
     "ui_file_attached": {"en": "File attached.", "ro": "Fișier atașat."},
     "ui_file_not_found": {"en": "File not found.", "ro": "Fișierul nu a fost găsit."},
     "ui_select_attachment": {"en": "Select an attachment.", "ro": "Selectați un atașament."},
-    "ui_select_patient_first": {"en": "Select a patient first.", "ro": "Selectați mai întâi un pacient."},
-    "ui_deleted_patient": {"en": "Deleted patient '{name}'. Press Ctrl+Z to undo.", "ro": "Pacient șters „{name}”. Apăsați Ctrl+Z pentru anulare."},
+    "ui_select_patient_first": {
+        "en": "Select a patient first.",
+        "ro": "Selectați mai întâi un pacient.",
+    },
+    "ui_deleted_patient": {
+        "en": "Deleted patient '{name}'. Press Ctrl+Z to undo.",
+        "ro": "Pacient șters „{name}”. Apăsați Ctrl+Z pentru anulare.",
+    },
     "ui_restore_patient": {"en": "Undo: patient restored.", "ro": "Anulare: pacient restaurat."},
     "ui_empty_pdf": {"en": "Empty PDF.", "ro": "PDF gol."},
     "ui_no_preview": {"en": "No preview available.", "ro": "Previzualizare indisponibilă."},
     "ui_all_files": {"en": "All files", "ro": "Toate fișierele"},
-
     # ---- diagnostics / error reporting ----
     "ui_diagnostics": {"en": "Diagnostics", "ro": "Diagnosticare"},
     "ui_recent_errors": {"en": "Recent errors", "ro": "Erori recente"},
@@ -616,7 +661,10 @@ STRINGS = {
     "ui_copy_errors": {"en": "Copy all", "ro": "Copiază tot"},
     "ui_copied": {"en": "Copied to clipboard", "ro": "Copiat în clipboard"},
     "ui_open_log": {"en": "Open log file", "ro": "Deschide fișierul log"},
-    "ui_no_log_file": {"en": "The log file does not exist yet.", "ro": "Fișierul log nu există încă."},
+    "ui_no_log_file": {
+        "en": "The log file does not exist yet.",
+        "ro": "Fișierul log nu există încă.",
+    },
     "ui_health_check": {"en": "Health check", "ro": "Verificare stare"},
     "ui_db_integrity": {"en": "Database integrity", "ro": "Integritatea bazei de date"},
     "ui_appointments": {"en": "Appointments", "ro": "Programări"},
@@ -626,12 +674,18 @@ STRINGS = {
     "ui_failed": {"en": "FAILED", "ro": "EȘUAT"},
     "ui_none": {"en": "none", "ro": "niciunul"},
     "ui_log_file": {"en": "Log file", "ro": "Fișier log"},
-    "ui_unexpected_error": {"en": "An unexpected error occurred. The details were saved to app.log.",
-                            "ro": "A apărut o eroare neașteptată. Detaliile au fost salvate în app.log."},
-    "ui_error_details_hint": {"en": "Open View > Diagnostics to review recent errors.",
-                              "ro": "Deschideți Vizualizare > Diagnosticare pentru a vedea erorile recente."},
-    "ui_error_banner": {"en": "An error occurred — see View > Diagnostics",
-                        "ro": "A apărut o eroare — vezi Vizualizare > Diagnosticare"},
+    "ui_unexpected_error": {
+        "en": "An unexpected error occurred. The details were saved to app.log.",
+        "ro": "A apărut o eroare neașteptată. Detaliile au fost salvate în app.log.",
+    },
+    "ui_error_details_hint": {
+        "en": "Open View > Diagnostics to review recent errors.",
+        "ro": "Deschideți Vizualizare > Diagnosticare pentru a vedea erorile recente.",
+    },
+    "ui_error_banner": {
+        "en": "An error occurred — see View > Diagnostics",
+        "ro": "A apărut o eroare — vezi Vizualizare > Diagnosticare",
+    },
 }
 
 

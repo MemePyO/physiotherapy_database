@@ -1,4 +1,7 @@
-import sys, os, tempfile
+import os
+import sys
+import tempfile
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db
@@ -11,7 +14,11 @@ def _fresh_app(monkeypatch, tmp_path):
     monkeypatch.setattr(db, "db_path", lambda: dbfile)
     db.init_db()
     db.add_patient("Ana", "Cluj")
-    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0})
+    monkeypatch.setattr(
+        main,
+        "load_settings",
+        lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0},
+    )
     main.theme.set_theme("classic")
     main.theme.set_appearance("Light")
     app = main.App()

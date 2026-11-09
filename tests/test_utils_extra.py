@@ -1,9 +1,13 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import tkinter as tk
+
 import customtkinter as ctk
-from utils import _strip_inline_formatting, _apply_inline_formatting, _norm
+
+from utils import _apply_inline_formatting, _norm, _strip_inline_formatting
 
 
 def test_strip_inline():

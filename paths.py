@@ -4,9 +4,9 @@ All mutable application data (database, logs, settings, backups, attachments)
 lives under a per-user data directory instead of beside the executable, so the
 app works even when installed in a read-only location such as Program Files.
 """
+
 import os
 import sys
-import threading
 
 
 def _is_frozen():
@@ -20,7 +20,9 @@ def app_data_dir() -> str:
     elif sys.platform == "darwin":
         base = os.path.join(os.path.expanduser("~"), "Library", "Application Support")
     else:
-        base = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+        base = os.environ.get("XDG_DATA_HOME") or os.path.join(
+            os.path.expanduser("~"), ".local", "share"
+        )
     path = os.path.join(base, "PhysioDatabase")
     os.makedirs(path, exist_ok=True)
     return path
@@ -29,6 +31,7 @@ def app_data_dir() -> str:
 def migrate_legacy_data(legacy_dir: str) -> None:
     """One-time copy of data from the old exe-adjacent location."""
     import shutil
+
     if not os.path.isdir(legacy_dir):
         return
     # only migrate if the new location is empty

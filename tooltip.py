@@ -4,6 +4,7 @@ Only one tooltip can exist at a time, and it is a label placed inside the app
 window instead of a separate top-level window, so it can never be left behind
 on the desktop when the pointer moves away quickly.
 """
+
 import customtkinter as ctk
 
 import theme
@@ -41,9 +42,16 @@ def attach_tooltip(widget, text, delay=0):
         try:
             top = widget.winfo_toplevel()
             label = ctk.CTkLabel(
-                top, text=text, fg_color=theme.PANEL, text_color=theme.TEXT,
-                corner_radius=6, padx=8, pady=4, font=theme.FONT_SMALL,
-                border_width=1, border_color=theme.BORDER,
+                top,
+                text=text,
+                fg_color=theme.PANEL,
+                text_color=theme.TEXT,
+                corner_radius=6,
+                padx=8,
+                pady=4,
+                font=theme.FONT_SMALL,
+                border_width=1,
+                border_color=theme.BORDER,
             )
         except Exception:
             return

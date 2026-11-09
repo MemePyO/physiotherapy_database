@@ -1,4 +1,8 @@
-import sys, os, tempfile, tkinter.filedialog as fd
+import os
+import sys
+import tempfile
+import tkinter.filedialog as fd
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db
@@ -17,6 +21,7 @@ def _setup_db(monkeypatch, tmp_path):
 def test_export_csv_creates_file(monkeypatch, tmp_path):
     _setup_db(monkeypatch, tmp_path)
     import main
+
     main.theme.set_theme("classic")
     app = main.App()
     app.update()
@@ -50,6 +55,7 @@ def test_export_excel_creates_file(monkeypatch, tmp_path):
 def test_export_pdf_creates_file(monkeypatch, tmp_path):
     _setup_db(monkeypatch, tmp_path)
     import main
+
     main.theme.set_theme("classic")
     app = main.App()
     app.update()
@@ -63,6 +69,7 @@ def test_export_pdf_creates_file(monkeypatch, tmp_path):
 def test_export_word_creates_file(monkeypatch, tmp_path):
     _setup_db(monkeypatch, tmp_path)
     import main
+
     main.theme.set_theme("classic")
     app = main.App()
     app.update()

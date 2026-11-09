@@ -5,6 +5,7 @@ memory so the Diagnostics view can show them without asking the user to read
 the log file.  Swallowed exceptions logged through ``debug_exc`` are captured
 too — they are exactly the ones that used to disappear silently.
 """
+
 import collections
 import datetime
 import logging
@@ -27,6 +28,7 @@ _recent_lock = threading.Lock()
 def _base_dir() -> str:
     try:
         import paths
+
         return paths.app_data_dir()
     except Exception:
         if getattr(sys, "frozen", False):
@@ -36,8 +38,8 @@ def _base_dir() -> str:
 
 # Patterns that may contain PII or secrets; redacted in all log output.
 _REDACT_PATTERNS = [
-    re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"),          # emails
-    re.compile(r"\b\d{6,}\b"),                              # long numeric IDs/phones
+    re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"),  # emails
+    re.compile(r"\b\d{6,}\b"),  # long numeric IDs/phones
 ]
 
 

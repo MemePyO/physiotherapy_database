@@ -1,4 +1,8 @@
-import sys, os, tempfile, tkinter.messagebox as mb
+import os
+import sys
+import tempfile
+import tkinter.messagebox as mb
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db
@@ -11,10 +15,16 @@ def _fresh_app(monkeypatch, tmp_path):
     monkeypatch.setattr(db, "db_path", lambda: dbfile)
     db.init_db()
     pid = db.add_patient("Ana", "Cluj", sex="F", dob="01.02.1990")
-    db.update_patient(pid, diagnostic="diag **bold**", objective="obj", evaluation="eva", observation="obs")
+    db.update_patient(
+        pid, diagnostic="diag **bold**", objective="obj", evaluation="eva", observation="obs"
+    )
     main.theme.set_theme("classic")
     main.theme.set_appearance("Light")
-    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0})
+    monkeypatch.setattr(
+        main,
+        "load_settings",
+        lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0},
+    )
     app = main.App()
     app.update()
     return app, pid

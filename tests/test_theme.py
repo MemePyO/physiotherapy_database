@@ -1,4 +1,6 @@
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import theme
@@ -26,9 +28,24 @@ def test_unknown_theme_falls_back():
 
 
 def test_required_keys_present():
-    required = ["BG", "PANEL", "BORDER", "TEXT", "MUTED", "ACCENT", "ACCENT_DARK",
-                "SELECTED", "DANGER", "FONT_TITLE", "FONT_BODY", "ICON_FONT",
-                "SIDEBAR_W", "AVATAR_SIZE", "CARD_RADIUS", "PADDING"]
+    required = [
+        "BG",
+        "PANEL",
+        "BORDER",
+        "TEXT",
+        "MUTED",
+        "ACCENT",
+        "ACCENT_DARK",
+        "SELECTED",
+        "DANGER",
+        "FONT_TITLE",
+        "FONT_BODY",
+        "ICON_FONT",
+        "SIDEBAR_W",
+        "AVATAR_SIZE",
+        "CARD_RADIUS",
+        "PADDING",
+    ]
     for name in ("classic", "medidash"):
         for k in required:
             assert k in theme.PALETTES[name], (name, k)

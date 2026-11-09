@@ -1,4 +1,9 @@
-import sys, os, tempfile, tkinter.messagebox as mb, tkinter.filedialog as fd
+import os
+import sys
+import tempfile
+import tkinter.filedialog as fd
+import tkinter.messagebox as mb
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db
@@ -14,7 +19,11 @@ def _fresh_app(monkeypatch, tmp_path):
     db.update_patient(pid, diagnostic="diag", objective="obj", evaluation="eva", observation="obs")
     main.theme.set_theme("classic")
     main.theme.set_appearance("Light")
-    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0})
+    monkeypatch.setattr(
+        main,
+        "load_settings",
+        lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0},
+    )
     app = main.App()
     app.update()
     return app, pid
@@ -80,10 +89,20 @@ def test_patient_panel_more(monkeypatch, tmp_path):
     panel = app.patient_panels[pid]
     # cancel new not applicable; test _edit_patient_info via dialog (patch)
     import patient_panel as pp
+
     class _StubDlg:
         def __init__(self, *a, **k):
-            self.result = {"name": "Ana", "localitate": "Cluj", "sex": "F", "dob": "01.02.1990",
-                           "diagnostic": "d", "objective": "o", "evaluation": "e", "observation": "ob"}
+            self.result = {
+                "name": "Ana",
+                "localitate": "Cluj",
+                "sex": "F",
+                "dob": "01.02.1990",
+                "diagnostic": "d",
+                "objective": "o",
+                "evaluation": "e",
+                "observation": "ob",
+            }
+
     monkeypatch.setattr(pp, "EditPatientDialog", _StubDlg)
     monkeypatch.setattr(panel, "wait_window", lambda w: None)
     panel._edit_patient_info()

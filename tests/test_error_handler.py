@@ -1,4 +1,5 @@
 """Tests for the crash handler, the in-memory error list and the Diagnostics view."""
+
 import os
 import sys
 import tempfile
@@ -21,8 +22,11 @@ def _fresh_app(monkeypatch):
     db.init_db()
     main.theme.set_theme("classic")
     main.theme.set_appearance("Light")
-    monkeypatch.setattr(main, "load_settings",
-                        lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0})
+    monkeypatch.setattr(
+        main,
+        "load_settings",
+        lambda: {"ui_theme": "classic", "appearance": "Light", "ui_scale": 1.0},
+    )
     monkeypatch.setattr(mb, "showerror", lambda *a, **k: None)
     app = main.App()
     app.update()

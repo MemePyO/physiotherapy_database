@@ -5,9 +5,11 @@ active palette and every ``theme.X`` read afterwards resolves to the new values.
 ``classic`` is the original look, ``medidash`` matches the MediDashboard Pro
 reference design (see ``C:/Users/Admin/Desktop/MediDashboard Code``).
 """
+
 import tkinter.font as _tkfont
 
 # ---- font family selection -------------------------------------------------
+
 
 def _has_font(name):
     try:
@@ -17,7 +19,9 @@ def _has_font(name):
 
 
 def _inter():
-    return "Inter" if _has_font("Inter") else ("Segoe UI" if _has_font("Segoe UI") else "sans-serif")
+    return (
+        "Inter" if _has_font("Inter") else ("Segoe UI" if _has_font("Segoe UI") else "sans-serif")
+    )
 
 
 def _mdl2():
@@ -36,6 +40,7 @@ _CLASSIC_FONT_BODY = ("Segoe UI", 11)
 _CLASSIC_FONT_BOLD = ("Segoe UI", 11, "bold")
 _CLASSIC_FONT_SMALL = ("Segoe UI", 10)
 _CLASSIC_FONT_SECTION = ("Segoe UI", 12, "bold")
+
 
 def _modern():
     if _has_font("Bahnschrift"):
@@ -256,4 +261,3 @@ _apply(PALETTES["classic"])
 _active = "classic"
 _base = "classic"
 _appearance = "Light"
-

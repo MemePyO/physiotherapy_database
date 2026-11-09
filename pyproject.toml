@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501", "UP031", "E402", "E701", "E702"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["main", "db", "lang", "theme", "utils", "log", "paths", "workers", "patient_panel", "dialogs"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"

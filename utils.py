@@ -1,5 +1,5 @@
 """Shared helper utilities for the patient database app."""
-import os
+
 import re
 import unicodedata
 
@@ -11,6 +11,8 @@ def _strip_inline_formatting(text):
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
     text = re.sub(r"\*(.+?)\*", r"\1", text)
     return text
+
+
 def _apply_inline_formatting(widget):
     """Render **bold** and *italic* markdown inline in a CTkTextbox."""
     try:
@@ -22,6 +24,7 @@ def _apply_inline_formatting(widget):
 
     try:
         import tkinter.font as _tkfont
+
         base = tb.cget("font")
         f = _tkfont.Font(font=base)
         bold_font = f.copy()
@@ -87,6 +90,7 @@ def _apply_inline_formatting(widget):
 
 def _patch_scrollable(sf):
     """Make a CTkScrollableFrame's internal Configure binding safe (no crash on missing event)."""
+
     def _handler(e=None):
         try:
             canvas = getattr(sf, "_parent_canvas", None)
@@ -97,6 +101,7 @@ def _patch_scrollable(sf):
                 canvas.configure(scrollregion=bbox)
         except Exception:
             pass
+
     try:
         sf.bind("<Configure>", _handler)
     except Exception:
@@ -131,12 +136,14 @@ def _safe_configure(widget, **kwargs):
 
 def _safe_after(widget, ms, callback):
     """Schedule a callback without crashing if the widget is destroyed meanwhile."""
+
     def _wrapped():
         try:
             if _exists(widget):
                 callback()
         except Exception:
             pass
+
     try:
         return widget.after(ms, _wrapped)
     except Exception:
@@ -175,6 +182,7 @@ def _validate_dob(text):
         return True
     try:
         import datetime
+
         datetime.datetime.strptime(text, "%d.%m.%Y")
         return True
     except ValueError:
@@ -189,8 +197,10 @@ def _rtf_escape(text):
 
 def _make_simple_pdf(text):
     lines = text.split("\n")
+
     def esc(t):
         return t.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
     content_lines = ["BT", "/F1 10 Tf", "50 780 Td", "12 TL"]
     for ln in lines:
         content_lines.append("(" + esc(ln[:110]) + ") Tj T*")
@@ -199,9 +209,17 @@ def _make_simple_pdf(text):
     objects = []
     objects.append(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
     objects.append(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-    objects.append(b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n")
+    objects.append(
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n"
+    )
     objects.append(b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
-    objects.append(b"5 0 obj\n<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream\nendobj\n")
+    objects.append(
+        b"5 0 obj\n<< /Length "
+        + str(len(stream)).encode()
+        + b" >>\nstream\n"
+        + stream
+        + b"\nendstream\nendobj\n"
+    )
     out = b"%PDF-1.4\n"
     offsets = []
     for o in objects:
@@ -212,5 +230,11 @@ def _make_simple_pdf(text):
     out += b"0000000000 65535 f \n"
     for off in offsets:
         out += ("%010d 00000 n \n" % off).encode()
-    out += b"trailer\n<< /Size " + str(len(objects) + 1).encode() + b" /Root 1 0 R >>\nstartxref\n" + str(xref_pos).encode() + b"\n%%EOF\n"
+    out += (
+        b"trailer\n<< /Size "
+        + str(len(objects) + 1).encode()
+        + b" /Root 1 0 R >>\nstartxref\n"
+        + str(xref_pos).encode()
+        + b"\n%%EOF\n"
+    )
     return out

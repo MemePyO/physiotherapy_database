@@ -1,4 +1,9 @@
-import sys, os, tempfile, tkinter.messagebox as mb, tkinter.filedialog as fd
+import os
+import sys
+import tempfile
+import tkinter.filedialog as fd
+import tkinter.messagebox as mb
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db
@@ -14,7 +19,9 @@ def _fresh_app(monkeypatch, tmp_path, theme="classic"):
     db.update_patient(pid, diagnostic="diag", objective="obj", evaluation="eva", observation="obs")
     main.theme.set_theme(theme)
     main.theme.set_appearance("Light")
-    monkeypatch.setattr(main, "load_settings", lambda: {"ui_theme": theme, "appearance": "Light", "ui_scale": 1.0})
+    monkeypatch.setattr(
+        main, "load_settings", lambda: {"ui_theme": theme, "appearance": "Light", "ui_scale": 1.0}
+    )
     app = main.App()
     app.update()
     return app, pid
@@ -57,6 +64,7 @@ def test_more_main_paths2(monkeypatch, tmp_path):
     app.update()
     # settings dialog
     from dialogs import SettingsDialog
+
     dlg = SettingsDialog(app)
     app.update()
     dlg.destroy()

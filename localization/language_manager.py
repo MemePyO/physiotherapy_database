@@ -13,7 +13,8 @@ _FALLBACK = {}
 def _base_dir():
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
+    # language_manager.py lives in localization/, so go up one level
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _load_json(lang_code):

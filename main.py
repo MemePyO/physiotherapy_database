@@ -30,6 +30,19 @@ _ERROR_DIALOG_INTERVAL = 60.0
 _last_error_dialog = 0.0
 
 
+def _is_benign_tcl_error(exc_type, exc_value):
+    """Tk focus/destroy races during theme rebuilds are harmless."""
+    name = getattr(exc_type, "__name__", str(exc_type))
+    if "TclError" not in name:
+        return False
+    msg = str(exc_value).lower()
+    if "bad window path name" in msg:
+        return True
+    if "invalid command name" in msg and "focus" in msg:
+        return True
+    return False
+
+
 def _log_uncaught(exc_type, exc_value, exc_tb):
     logger.error("Unhandled exception: %s", exc_value,
                  exc_info=(exc_type, exc_value, exc_tb))
@@ -97,8 +110,7 @@ def _show_crash_dialog(exc_value, owner=None):
 
 def _excepthook(exc_type, exc_value, exc_tb):
     """Catch exceptions that escape the main thread."""
-    if ("TclError" in getattr(exc_type, "__name__", str(exc_type))
-            and "bad window path name" in str(exc_value)):
+    if _is_benign_tcl_error(exc_type, exc_value):
         return
     _log_uncaught(exc_type, exc_value, exc_tb)
     _show_crash_dialog(exc_value)
@@ -106,8 +118,7 @@ def _excepthook(exc_type, exc_value, exc_tb):
 
 def _thread_excepthook(args):
     """Catch exceptions that escape background threads."""
-    if ("TclError" in getattr(args.exc_type, "__name__", str(args.exc_type))
-            and "bad window path name" in str(args.exc_value)):
+    if _is_benign_tcl_error(args.exc_type, args.exc_value):
         return
     _log_uncaught(args.exc_type, args.exc_value, args.exc_traceback)
 
@@ -387,8 +398,7 @@ class App(ctk.CTk):
         Without this override the traceback would only go to stderr, which a
         windowed exe does not have — the user would just see nothing happen.
         """
-        if ("TclError" in getattr(exc_type, "__name__", str(exc_type))
-                and "bad window path name" in str(exc_value)):
+        if _is_benign_tcl_error(exc_type, exc_value):
             return
         _log_uncaught(exc_type, exc_value, exc_tb)
         if getattr(self, "_closing", False):

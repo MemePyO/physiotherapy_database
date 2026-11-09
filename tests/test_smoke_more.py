@@ -88,7 +88,7 @@ def test_patient_panel_more(monkeypatch, tmp_path):
     app.update()
     panel = app.patient_panels[pid]
     # cancel new not applicable; test _edit_patient_info via dialog (patch)
-    import patient_panel as pp
+    import ui.patient_panel as pp
 
     class _StubDlg:
         def __init__(self, *a, **k):

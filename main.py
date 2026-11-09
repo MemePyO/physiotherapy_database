@@ -184,8 +184,8 @@ from dialogs import (
     SettingsDialog,
     TrashDialog,
 )
-from patient_panel import PatientFilePanel
 from tooltip import attach_tooltip, hide_tooltip
+from ui.patient_panel import PatientFilePanel
 from utils import (
     _initials,
     _norm,

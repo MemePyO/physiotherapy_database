@@ -47,14 +47,20 @@ Settings are stored in `settings.json` (auto-created):
 ```
 physiotherapy_database/
 ├── main.py              # Application entry point, views, navigation
-├── patient_panel.py     # Embedded patient file panel (tabs, sections)
+├── ui/                  # UI components
+│   └── patient_panel/   # Embedded patient file panel (package)
+├── services/            # Business logic (patient, export, validation, migration)
+├── data/                # Data access and migrations
+├── localization/        # Language files (en.json, ro.json)
+├── dialogs/             # Dialog windows (package)
 ├── db.py                # SQLite schema, CRUD, migrations, backup
-├── lang.py              # Bilingual string table (EN/RO)
+├── lang.py              # Bilingual string table (EN/RO) [legacy]
 ├── theme.py             # Theme tokens (classic/medidash, light/dark)
 ├── utils.py             # Helpers (normalization, validation, PDF, etc.)
-├── dialogs.py           # Dialog windows (add patient, settings, etc.)
 ├── tooltip.py           # Hover tooltips
 ├── log.py               # Centralized logging (rotating file + ring buffer)
+├── paths.py             # Data directory and single-instance lock
+├── workers.py           # Background task runner
 ├── version.py           # App version
 ├── assets/              # Images, icons
 ├── backup/              # Database backups (auto + manual)

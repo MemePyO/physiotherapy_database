@@ -11,7 +11,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 ignore = ["E501", "UP031", "E402", "E701", "E702"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["main", "db", "lang", "theme", "utils", "log", "paths", "workers", "patient_panel", "dialogs"]
+known-first-party = ["main", "db", "lang", "theme", "utils", "log", "paths", "workers", "dialogs", "ui", "services", "data", "localization"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,9 +1,15 @@
 """Tests for services/validation_service.py."""
-import sys, os
+
+import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.validation_service import (
-    validate_patient, validate_session, validate_vas, validate_time,
+    validate_patient,
+    validate_session,
+    validate_time,
+    validate_vas,
 )
 
 

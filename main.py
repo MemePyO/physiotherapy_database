@@ -2254,6 +2254,7 @@ class App(ctk.CTk):
                     except Exception:
                         log.debug_exc(logger)
                 from services.patient_service import get_patient_service
+
                 svc = get_patient_service()
                 deleted_row_id = svc.delete_patient(pid)
                 if deleted_row_id is not None:
@@ -3138,7 +3139,9 @@ class App(ctk.CTk):
             pdlg.title("Import")
             pdlg.transient(self)
             pdlg.grab_set()
-            plbl = ctk.CTkLabel(pdlg, text="Importing...", font=theme.FONT_SMALL, text_color=theme.TEXT)
+            plbl = ctk.CTkLabel(
+                pdlg, text="Importing...", font=theme.FONT_SMALL, text_color=theme.TEXT
+            )
             plbl.pack(padx=24, pady=(20, 8))
             pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
             pbar.pack(padx=24, pady=(0, 20))

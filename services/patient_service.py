@@ -2,8 +2,8 @@
 
 UI code should talk to this service instead of calling db.* directly.
 """
+
 import db
-import utils
 from services.validation_service import validate_patient
 
 
@@ -15,31 +15,52 @@ class PatientService:
         patients = db.get_all_patients(sort_by=sort_by, sort_dir=sort_dir)
         if query:
             q = query.strip().lower()
-            patients = [p for p in patients if q in (p.get("name") or "").lower()
-                        or q in (p.get("localitate") or "").lower()
-                        or q in (p.get("diagnostic") or "").lower()]
+            patients = [
+                p
+                for p in patients
+                if q in (p.get("name") or "").lower()
+                or q in (p.get("localitate") or "").lower()
+                or q in (p.get("diagnostic") or "").lower()
+            ]
         return patients
 
     def get_patient(self, patient_id=None, name=None):
         return db.get_patient(patient_id=patient_id, name=name)
 
-    def create_patient(self, name, localitate="", sex="", dob="", diagnostic="",
-                       objective="", evaluation="", observation="", nr_zile="",
-                       decision_date=""):
+    def create_patient(
+        self,
+        name,
+        localitate="",
+        sex="",
+        dob="",
+        diagnostic="",
+        objective="",
+        evaluation="",
+        observation="",
+        nr_zile="",
+        decision_date="",
+    ):
         validation = validate_patient(name, dob, sex, localitate)
         if not validation.ok():
             return None, validation
-        pid = db.add_patient(name, localitate, nr_zile=nr_zile,
-                             decision_date=decision_date, sex=sex, dob=dob)
-        db.update_patient(pid, diagnostic=diagnostic, objective=objective,
-                          evaluation=evaluation, observation=observation)
+        pid = db.add_patient(
+            name, localitate, nr_zile=nr_zile, decision_date=decision_date, sex=sex, dob=dob
+        )
+        db.update_patient(
+            pid,
+            diagnostic=diagnostic,
+            objective=objective,
+            evaluation=evaluation,
+            observation=observation,
+        )
         return pid, validation
 
     def update_patient(self, patient_id, **fields):
         name = fields.get("name")
         if name is not None:
-            v = validate_patient(name, fields.get("dob", ""), fields.get("sex", ""),
-                                 fields.get("localitate", ""))
+            v = validate_patient(
+                name, fields.get("dob", ""), fields.get("sex", ""), fields.get("localitate", "")
+            )
             if not v.ok():
                 return v
         db.update_patient(patient_id, **fields)

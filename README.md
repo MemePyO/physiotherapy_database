@@ -49,12 +49,11 @@ physiotherapy_database/
 ├── main.py              # Application entry point, views, navigation
 ├── ui/                  # UI components
 │   └── patient_panel/   # Embedded patient file panel (package)
-├── services/            # Business logic (patient, export, validation, migration)
+├── services/            # Business logic (patient, export, validation)
 ├── data/                # Data access and migrations
-├── localization/        # Language files (en.json, ro.json)
 ├── dialogs/             # Dialog windows (package)
-├── db.py                # SQLite schema, CRUD, migrations, backup
-├── lang.py              # Bilingual string table (EN/RO) [legacy]
+├── db.py                # SQLite schema, CRUD, backup
+├── lang.py              # Bilingual string table (EN/RO)
 ├── theme.py             # Theme tokens (classic/medidash, light/dark)
 ├── utils.py             # Helpers (normalization, validation, PDF, etc.)
 ├── tooltip.py           # Hover tooltips
@@ -65,7 +64,7 @@ physiotherapy_database/
 ├── assets/              # Images, icons
 ├── backup/              # Database backups (auto + manual)
 ├── attachments/         # Patient file attachments
-├── tests/               # pytest test suite (43 tests)
+├── tests/               # pytest test suite (71 tests)
 └── dist/                # Built executable (PyInstaller)
 ```
 

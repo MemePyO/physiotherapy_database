@@ -22,6 +22,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Backup pruning only removes app-generated `patients_*.db` (never `pre_*` safety copies).
 - Startup self-test (DB integrity, schema version, settings, assets, backup folder, disk).
 
+### Removed
+- Unused `app/` package (empty aspirational structure, zero imports).
+- Unused `localization/` package and JSON catalogs (the app uses `lang.py`).
+- Duplicate `services/migration_manager.py` (superseded by `data.migrations`).
+- Duplicate `services/background_tasks.py` re-export shim (use `workers.BackgroundTask`).
+
 ### Fixed
 - `utils._exists` missing function definition (caused AttributeError in delayed callbacks).
 - `patient_panel._now` NameError when adding VAS.

@@ -220,12 +220,18 @@ def init_db() -> None:
 
     migrate_from_json(conn)
     conn.commit()
-    # record schema version for future migrations
+
+    # Apply registered schema migrations (e.g. add indexes) and stamp the
+    # schema version.  run_migrations() is idempotent: it only applies
+    # migrations with a version greater than PRAGMA user_version.
     try:
+        from data.migrations import run_migrations
+
+        run_migrations(conn)
         conn.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
         conn.commit()
     except Exception as e:
-        logger.warning("set user_version failed: %s", e)
+        logger.warning("schema migration failed: %s", e)
     conn.close()
 
     # Integrity check (non-fatal: log result)
@@ -791,7 +797,7 @@ MODALITIES = [
     "Traction",
 ]
 # Bump when the schema changes; migrations are keyed off PRAGMA user_version.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SESSION_STATUSES = ["scheduled", "done", "cancelled", "no-show"]
 

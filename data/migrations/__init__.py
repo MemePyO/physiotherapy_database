@@ -65,3 +65,7 @@ def validate_schema(conn, expected_tables=None):
     }
     missing = [t for t in expected_tables if t not in existing]
     return len(missing) == 0, missing
+
+
+# Import built-in migrations so they register themselves on import.
+from . import schema as _schema  # noqa: E402,F401

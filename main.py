@@ -54,7 +54,6 @@ def _log_uncaught(exc_type, exc_value, exc_tb):
 def _write_crash_dump(exc_type, exc_value, exc_tb):
     """Write a small crash_*.log (traceback + version + theme) for post-mortem."""
     try:
-        import datetime
         import traceback as _tb
 
         folder = _base_dir()
@@ -348,10 +347,8 @@ class App(ctk.CTk):
                     "Database integrity check failed. Restore from latest backup?",
                 ):
                     # find latest backup by modification time (not name)
-                    import glob as _g
-
                     folder = os.path.join(_data_dir(), "backup")
-                    files = _g.glob(os.path.join(folder, "*.db"))
+                    files = glob.glob(os.path.join(folder, "*.db"))
                     files = [
                         f
                         for f in files
@@ -360,8 +357,6 @@ class App(ctk.CTk):
                     if files:
                         latest = max(files, key=os.path.getmtime)
                         try:
-                            import shutil
-
                             shutil.copy2(latest, db.db_path())
                             # ensure schema tables exist even if the backup predates a migration
                             db.init_db()
@@ -1421,8 +1416,6 @@ class App(ctk.CTk):
 
     def _maybe_check_integrity(self):
         """Periodically verify DB integrity (throttled) and warn on failure."""
-        import time
-
         now = time.monotonic()
         last = getattr(self, "_integrity_check_at", 0.0)
         if now - last < 60.0:
@@ -1659,15 +1652,13 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=4)
 
     def _view_calendar(self):
-        import datetime as _dt
-
         f = self.overview_content
         f.grid_rowconfigure(1, weight=0)
         # month navigation
         nav = ctk.CTkFrame(f, fg_color="transparent")
         nav.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        self._cal_year = getattr(self, "_cal_year", _dt.date.today().year)
-        self._cal_month = getattr(self, "_cal_month", _dt.date.today().month)
+        self._cal_year = getattr(self, "_cal_year", datetime.date.today().year)
+        self._cal_month = getattr(self, "_cal_month", datetime.date.today().month)
 
         def _render():
             for w in grid.winfo_children():
@@ -1687,9 +1678,9 @@ class App(ctk.CTk):
             for a in apps:
                 try:
                     d = (
-                        _dt.datetime.strptime(a["datetime"], "%d.%m.%Y %H:%M")
+                        datetime.datetime.strptime(a["datetime"], "%d.%m.%Y %H:%M")
                         if " " in a["datetime"]
-                        else _dt.datetime.strptime(a["datetime"], "%d.%m.%Y")
+                        else datetime.datetime.strptime(a["datetime"], "%d.%m.%Y")
                     )
                 except Exception:
                     continue
@@ -2441,7 +2432,6 @@ class App(ctk.CTk):
             panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=0)
             self.patient_panels[None] = panel
             self.selected_patient_id = None
-            self._show_placeholder() if False else None
             return
         self._save_open_files()
         self.selected_patient_id = patient_id
@@ -2637,43 +2627,6 @@ class App(ctk.CTk):
             log.debug_exc(logger)
         theme.set_theme(name)
         self._rebuild_ui()
-
-    def _show_account_menu(self):
-        menu = tk.Menu(self, tearoff=0)
-        menu.add_command(label="Language: " + lang.get_language().upper())
-        menu.add_command(label="Toggle light/dark", command=self._toggle_theme)
-        menu.add_separator()
-        menu.add_command(label="Theme: Classic", command=lambda: self._apply_ui_theme("classic"))
-        menu.add_command(
-            label="Theme: MediDashboard", command=lambda: self._apply_ui_theme("medidash")
-        )
-        menu.add_separator()
-        menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
-        menu.add_command(
-            label="About",
-            command=lambda: messagebox.showinfo(
-                lang.t("app_name"),
-                "Patient Database\nVersion " + __version__ + "\nSQLite-backed patient records.",
-            ),
-        )
-        try:
-            btn = getattr(self, "_account_btn", None)
-            x = (
-                btn.winfo_rootx()
-                if (btn is not None and btn.winfo_exists())
-                else self.winfo_rootx()
-            )
-            y = (
-                (btn.winfo_rooty() + btn.winfo_height())
-                if (btn is not None and btn.winfo_exists())
-                else self.winfo_rooty()
-            )
-            menu.tk_popup(x, y)
-        finally:
-            try:
-                menu.grab_release()
-            except Exception:
-                log.debug_exc(logger)
 
     def _export_csv(self):
         try:
@@ -3011,9 +2964,6 @@ class App(ctk.CTk):
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _backup_now(self):
-        import datetime
-        import shutil
-
         folder = os.path.join(_data_dir(), "backup")
         os.makedirs(folder, exist_ok=True)
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -3110,8 +3060,6 @@ class App(ctk.CTk):
                 def work(progress):
                     db.pre_operation_backup("restore")
                     db.checkpoint()
-                    import shutil
-
                     shutil.copy2(src, db.db_path())
                     try:
                         db.init_db()
@@ -3229,8 +3177,6 @@ class App(ctk.CTk):
 
     def _auto_backup(self):
         try:
-            import datetime
-
             folder = os.path.join(_data_dir(), "backup")
             os.makedirs(folder, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d")

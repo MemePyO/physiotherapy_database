@@ -364,6 +364,67 @@ SORT_COLUMNS = {
     "created": "created_at",
 }
 
+# Columns that UPDATE statements are allowed to touch.  Keeping them in one
+# place means a caller can never smuggle an arbitrary column name into the
+# generated SQL (values are always bound as parameters).
+PATIENT_UPDATE_COLUMNS = (
+    "name",
+    "localitate",
+    "nr_zile",
+    "decision_date",
+    "diagnostic",
+    "objective",
+    "evaluation",
+    "observation",
+    "sex",
+    "dob",
+)
+PLAN_UPDATE_COLUMNS = (
+    "diagnosis_code",
+    "body_region",
+    "side",
+    "prescribed_sessions",
+    "start_date",
+    "end_date",
+    "goals",
+    "contraindications",
+    "notes",
+)
+SESSION_UPDATE_COLUMNS = (
+    "plan_id",
+    "session_no",
+    "date",
+    "duration_min",
+    "modalities",
+    "exercises",
+    "pain_before",
+    "pain_after",
+    "notes",
+    "status",
+)
+APPOINTMENT_UPDATE_COLUMNS = ("datetime", "duration_min", "status", "notes")
+OUTCOME_UPDATE_COLUMNS = ("measure", "value", "date", "notes")
+EXERCISE_UPDATE_COLUMNS = (
+    "name",
+    "sets",
+    "reps",
+    "hold_sec",
+    "frequency",
+    "notes",
+    "assigned_date",
+)
+
+
+def _update_clause(allowed_columns, fields):
+    """Build ``(assignments, params)`` for UPDATE, limited to allowlisted columns."""
+    assignments = []
+    params = []
+    for col in allowed_columns:
+        if col in fields and fields[col] is not None:
+            assignments.append(f"{col} = ?")
+            params.append(fields[col])
+    return assignments, params
+
 
 def get_all_patients(sort_by: str = "name", sort_dir: str = "asc") -> list[dict]:
     """Get all patients, optionally sorted."""
@@ -438,11 +499,16 @@ def update_patient(
         conn.close()
         return
 
+    unknown = set(provided) - set(PATIENT_UPDATE_COLUMNS)
+    if unknown:
+        raise ValueError("Unsupported patient field(s): " + ", ".join(sorted(unknown)))
+
     updates = []
     params = []
-    for f, v in provided.items():
-        updates.append(f"{f} = ?")
-        params.append(v)
+    for f in PATIENT_UPDATE_COLUMNS:
+        if f in provided:
+            updates.append(f"{f} = ?")
+            params.append(provided[f])
     updates.append("updated_at = ?")
     params.append(_now())
     params.append(patient_id)
@@ -858,17 +924,7 @@ def upsert_plan(patient_id, **fields):
     cur.execute("SELECT id FROM treatment_plans WHERE patient_id = ?", (patient_id,))
     row = cur.fetchone()
     now = _now()
-    cols = [
-        "diagnosis_code",
-        "body_region",
-        "side",
-        "prescribed_sessions",
-        "start_date",
-        "end_date",
-        "goals",
-        "contraindications",
-        "notes",
-    ]
+    cols = PLAN_UPDATE_COLUMNS
     vals = [fields.get(c) for c in cols]
     if row:
         pid = row["id"]
@@ -931,24 +987,7 @@ def update_session(session_id, **fields):
     conn = _get_conn()
     cur = conn.cursor()
     now = _now()
-    cols = [
-        "plan_id",
-        "session_no",
-        "date",
-        "duration_min",
-        "modalities",
-        "exercises",
-        "pain_before",
-        "pain_after",
-        "notes",
-        "status",
-    ]
-    updates = []
-    params = []
-    for c in cols:
-        if c in fields and fields[c] is not None:
-            updates.append(f"{c} = ?")
-            params.append(fields[c])
+    updates, params = _update_clause(SESSION_UPDATE_COLUMNS, fields)
     if not updates:
         conn.close()
         return
@@ -1000,13 +1039,7 @@ def add_appointment(patient_id, dt, duration_min=30, status="scheduled", notes="
 def update_appointment(app_id, **fields):
     conn = _get_conn()
     cur = conn.cursor()
-    cols = ["datetime", "duration_min", "status", "notes"]
-    updates = []
-    params = []
-    for c in cols:
-        if c in fields and fields[c] is not None:
-            updates.append(f"{c} = ?")
-            params.append(fields[c])
+    updates, params = _update_clause(APPOINTMENT_UPDATE_COLUMNS, fields)
     if not updates:
         conn.close()
         return
@@ -1066,13 +1099,7 @@ def delete_outcome(oid):
 def update_outcome(oid, **fields):
     conn = _get_conn()
     cur = conn.cursor()
-    cols = ["measure", "value", "date", "notes"]
-    updates = []
-    params = []
-    for c in cols:
-        if c in fields and fields[c] is not None:
-            updates.append(f"{c} = ?")
-            params.append(fields[c])
+    updates, params = _update_clause(OUTCOME_UPDATE_COLUMNS, fields)
     if not updates:
         conn.close()
         return
@@ -1119,13 +1146,7 @@ def add_exercise(patient_id, **fields):
 def update_exercise(eid, **fields):
     conn = _get_conn()
     cur = conn.cursor()
-    cols = ["name", "sets", "reps", "hold_sec", "frequency", "notes", "assigned_date"]
-    updates = []
-    params = []
-    for c in cols:
-        if c in fields and fields[c] is not None:
-            updates.append(f"{c} = ?")
-            params.append(fields[c])
+    updates, params = _update_clause(EXERCISE_UPDATE_COLUMNS, fields)
     if not updates:
         conn.close()
         return

@@ -21,6 +21,7 @@ dist/
 *.db-wal
 *.db-shm
 patients.db
+patients.json.migrated
 
 # Logs
 *.log

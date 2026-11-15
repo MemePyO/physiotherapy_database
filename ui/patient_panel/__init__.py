@@ -11,6 +11,7 @@ import lang
 import log
 import theme
 import utils
+from error_ui import report_error
 from services.attachment_service import get_attachment_service
 from services.history_service import get_history_service
 from services.patient_service import get_patient_service
@@ -771,7 +772,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().update_outcome(oid, **data)
             self._load_outcomes()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _load_plan(self):
         try:
@@ -815,7 +816,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().upsert_plan(self.patient_id, **fields)
             messagebox.showinfo(lang.t("app_name"), "Plan salvat.")
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _show_editor(self, title, fields, values):
         """Small modal form. Returns a dict of the entered values, or None."""
@@ -898,7 +899,7 @@ class PatientFilePanel(ctk.CTkFrame):
             self._load_sessions()
             messagebox.showinfo(lang.t("app_name"), "Sesiune adăugată.")
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _delete_session(self):
         sel = self.ses_tree.selection()
@@ -911,7 +912,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().delete_session(int(sel[0]))
             self._load_sessions()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _edit_session(self):
         sel = self.ses_tree.selection()
@@ -950,7 +951,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().update_session(sid, **data)
             self._load_sessions()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _load_exercises(self):
         try:
@@ -987,7 +988,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().add_exercise(self.patient_id, name=name)
             self._load_exercises()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _delete_exercise(self):
         sel = self.hep_tree.selection()
@@ -1000,7 +1001,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().delete_exercise(int(sel[0]))
             self._load_exercises()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _edit_exercise(self):
         sel = self.hep_tree.selection()
@@ -1032,7 +1033,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().update_exercise(eid, **data)
             self._load_exercises()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _load_outcomes(self):
         try:
@@ -1066,17 +1067,17 @@ class PatientFilePanel(ctk.CTkFrame):
             try:
                 v = float(val)
             except ValueError:
-                messagebox.showerror(lang.t("app_name"), "Valoare invalidă.")
+                report_error("Valoare invalidă.")
                 return
             if v < 0 or v > 10:
-                messagebox.showerror(lang.t("app_name"), "VAS trebuie 0-10.")
+                report_error("VAS trebuie 0-10.")
                 return
             get_physio_service().add_outcome(
                 self.patient_id, "VAS", v, datetime.datetime.now().strftime("%d.%m.%Y")
             )
             self._load_outcomes()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _delete_outcome(self):
         sel = self.out_tree.selection()
@@ -1089,7 +1090,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_physio_service().delete_outcome(int(sel[0]))
             self._load_outcomes()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _toolbar_action(self, field, action):
         txt = getattr(self, field + "_text")
@@ -1201,7 +1202,7 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception:
                 name = ""
             if not name:
-                messagebox.showerror(lang.t("app_name"), "Patient name is required.")
+                report_error("Patient name is required.")
                 return
             dob = ""
             try:
@@ -1209,7 +1210,7 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception:
                 dob = ""
             if dob and not _validate_dob(dob):
-                messagebox.showerror(lang.t("app_name"), "Invalid date (use DD.MM.YYYY).")
+                report_error("Invalid date (use DD.MM.YYYY).")
                 return
             sex = ""
             try:
@@ -1300,7 +1301,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 except Exception:
                     log.debug_exc(logger)
             except Exception as e:
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
             return
 
         try:
@@ -1339,7 +1340,7 @@ class PatientFilePanel(ctk.CTkFrame):
             if not silent:
                 messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _print_pdf(self):
         try:
@@ -1392,7 +1393,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 log.debug_exc(logger)
             messagebox.showinfo(lang.t("app_name"), "PDF saved:\n" + path)
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _edit_patient_info(self):
         if getattr(self, "_is_new", False):
@@ -1420,7 +1421,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 if self.on_close_callback:
                     self.on_close_callback()
             except Exception as e:
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
     def mark_dirty(self):
         if getattr(self, "_is_new", False):
@@ -1521,7 +1522,7 @@ class PatientFilePanel(ctk.CTkFrame):
             self._load_attachments()
             messagebox.showinfo(lang.t("app_name"), lang.t("ui_file_attached"))
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _open_attachment(self):
         sel = self.attach_tree.selection()
@@ -1533,7 +1534,7 @@ class PatientFilePanel(ctk.CTkFrame):
             return
         path = att.get("stored_path", "")
         if not path or not os.path.exists(path):
-            messagebox.showerror(lang.t("app_name"), lang.t("ui_file_not_found"))
+            report_error(lang.t("ui_file_not_found"))
             return
         try:
             if os.name == "nt":
@@ -1543,7 +1544,7 @@ class PatientFilePanel(ctk.CTkFrame):
 
                 subprocess.Popen(["xdg-open", path])
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _preview_attachment(self):
         sel = self.attach_tree.selection()
@@ -1555,7 +1556,7 @@ class PatientFilePanel(ctk.CTkFrame):
             return
         path = att.get("stored_path", "")
         if not path or not os.path.exists(path):
-            messagebox.showerror(lang.t("app_name"), lang.t("ui_file_not_found"))
+            report_error(lang.t("ui_file_not_found"))
             return
         ext = os.path.splitext(path)[1].lower()
         image_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
@@ -1589,7 +1590,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 # fallback to OS viewer
                 self._open_attachment()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _show_preview_image(self, img, title="Preview"):
         from PIL import ImageTk
@@ -1615,7 +1616,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_attachment_service().delete(int(sel[0]))
             self._load_attachments()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     # ---- history ----
     def _load_history(self):
@@ -1645,7 +1646,7 @@ class PatientFilePanel(ctk.CTkFrame):
             get_history_service().clear(self.patient_id)
             self._load_history()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
 
 # ---- edit dialog ----
@@ -1697,12 +1698,10 @@ class EditPatientDialog(ctk.CTkToplevel):
     def _ok(self):
         name = self.entry_name.get().strip()
         if not name:
-            messagebox.showerror(lang.t("app_name"), lang.t("err_patient_name_required"))
+            report_error(lang.t("err_patient_name_required"))
             return
         if not _validate_dob(self.entry_dob.get()):
-            messagebox.showerror(
-                lang.t("app_name"), "Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)"
-            )
+            report_error("Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)")
             return
         sex = self.entry_sex.get().strip()
         if sex == "NA":

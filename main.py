@@ -18,6 +18,7 @@ import customtkinter as ctk
 import lang
 import log
 import theme
+from error_ui import report_error
 from services import export_service
 from services.appointment_service import get_appointment_service
 from services.backup_service import get_backup_service
@@ -371,7 +372,7 @@ class App(ctk.CTk):
                                 lang.t("app_name"), "Restored from " + os.path.basename(latest)
                             )
                         except Exception as e:
-                            messagebox.showerror(lang.t("app_name"), str(e))
+                            report_error(str(e))
         except Exception:
             log.debug_exc(logger)
         self._startup_checks = self._run_startup_checks()
@@ -1169,7 +1170,7 @@ class App(ctk.CTk):
                 tree.delete(sel[0])
                 self.refresh_patients_db()
             except Exception as e:
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
         def _restore_all():
             for iid in list(tree.get_children()):
@@ -1177,7 +1178,7 @@ class App(ctk.CTk):
                     get_patient_service().restore_patient(int(iid))
                     tree.delete(iid)
                 except Exception as e:
-                    messagebox.showerror(lang.t("app_name"), str(e))
+                    report_error(str(e))
             self.refresh_patients_db()
 
         def _purge():
@@ -1611,7 +1612,7 @@ class App(ctk.CTk):
             os.startfile(path)
         except Exception as e:
             log.debug_exc(logger)
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _view_saveas(self):
         f = self.overview_content
@@ -2109,7 +2110,7 @@ class App(ctk.CTk):
             elif not self._visible_patient_ids:
                 self._show_list_empty(lang.t("empty_no_match", q=search_raw.strip()))
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
         try:
             if (
                 "_canvas" in locals()
@@ -2274,7 +2275,7 @@ class App(ctk.CTk):
                 self.refresh_patients_db()
                 self._show_undo_hint()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _show_status_banner(self, text):
         """Show a short status message at the bottom of the overview panel."""
@@ -2368,7 +2369,7 @@ class App(ctk.CTk):
                 self._open_patient_by_id(new_pid)
             messagebox.showinfo(lang.t("app_name"), lang.t("ui_restore_patient"))
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
         return "break"
 
     def _copy_name_by_id(self, pid):
@@ -2667,11 +2668,11 @@ class App(ctk.CTk):
             def on_error(e):
                 pbar.stop()
                 pdlg.destroy()
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _sort_by(self, col):
         if self.sort_by == col:
@@ -2790,7 +2791,7 @@ class App(ctk.CTk):
             elif fmt == "word":
                 self._export_word()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _export_excel(self):
         try:
@@ -2865,7 +2866,7 @@ class App(ctk.CTk):
             def on_error(e):
                 pbar.stop()
                 pdlg.destroy()
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
             def on_progress(msg):
                 plbl.configure(text=msg)
@@ -2874,7 +2875,7 @@ class App(ctk.CTk):
                 self, work, on_done=on_done, on_error=on_error, on_progress=on_progress
             ).start()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _export_pdf(self):
         try:
@@ -2909,11 +2910,11 @@ class App(ctk.CTk):
             def on_error(e):
                 pbar.stop()
                 pdlg.destroy()
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _export_word(self):
         try:
@@ -2948,11 +2949,11 @@ class App(ctk.CTk):
             def on_error(e):
                 pbar.stop()
                 pdlg.destroy()
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _backup_now(self):
         folder = os.path.join(_data_dir(), "backup")
@@ -3005,7 +3006,7 @@ class App(ctk.CTk):
         def on_error(e):
             prog.stop()
             dlg.destroy()
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
         def on_progress(msg):
             lbl.configure(text=msg)
@@ -3030,9 +3031,7 @@ class App(ctk.CTk):
                 src = os.path.join(folder, dlg.result)
                 ok, info = get_backup_service().verify(src)
                 if not ok:
-                    messagebox.showerror(
-                        lang.t("app_name"), "Backup verification failed: " + str(info)
-                    )
+                    report_error("Backup verification failed: " + str(info))
                     return
                 pdlg = ctk.CTkToplevel(self)
                 pdlg.title("Restore")
@@ -3065,11 +3064,11 @@ class App(ctk.CTk):
                 def on_error(e):
                     pbar.stop()
                     pdlg.destroy()
-                    messagebox.showerror(lang.t("app_name"), str(e))
+                    report_error(str(e))
 
                 BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _import_data(self):
         try:
@@ -3146,11 +3145,11 @@ class App(ctk.CTk):
             def on_error(e):
                 pbar.stop()
                 pdlg.destroy()
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
-            messagebox.showerror(lang.t("app_name"), str(e))
+            report_error(str(e))
 
     def _show_trash(self):
         dlg = TrashDialog(self)
@@ -3197,7 +3196,7 @@ class App(ctk.CTk):
                 self.refresh_patients_db()
                 self.known_patients = get_patient_service().get_patient_names()
             except Exception as e:
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
 
 _SINGLE_INSTANCE_PORT = 47832

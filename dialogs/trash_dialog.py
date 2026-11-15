@@ -1,3 +1,4 @@
+from error_ui import report_error
 from services.patient_service import get_patient_service
 
 from .common import ctk, lang, messagebox, ttk
@@ -40,7 +41,7 @@ class TrashDialog(ctk.CTkToplevel):
                 get_patient_service().restore_patient(int(sel[0]))
                 tree.delete(sel[0])
             except Exception as e:
-                messagebox.showerror(lang.t("app_name"), str(e))
+                report_error(str(e))
 
         def _purge():
             sel = tree.selection()
@@ -57,7 +58,7 @@ class TrashDialog(ctk.CTkToplevel):
                     get_patient_service().restore_patient(int(iid))
                     tree.delete(iid)
                 except Exception as e:
-                    messagebox.showerror(lang.t("app_name"), str(e))
+                    report_error(str(e))
 
         def _empty_trash():
             if not messagebox.askyesno(

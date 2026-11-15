@@ -1,6 +1,7 @@
+from error_ui import report_error
 from services.patient_service import get_patient_service
 
-from .common import _validate_dob, ctk, lang, messagebox
+from .common import _validate_dob, ctk, lang
 
 
 class AddPatientDialog(ctk.CTkToplevel):
@@ -76,12 +77,10 @@ class AddPatientDialog(ctk.CTkToplevel):
     def _ok(self):
         name = self.entry_name.get().strip()
         if not name:
-            messagebox.showerror(lang.t("app_name"), lang.t("err_patient_name_required"))
+            report_error(lang.t("err_patient_name_required"))
             return
         if not _validate_dob(self.entry_dob.get()):
-            messagebox.showerror(
-                lang.t("app_name"), "Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)"
-            )
+            report_error("Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)")
             return
         sex = self.entry_sex.get().strip()
         if sex == "NA":

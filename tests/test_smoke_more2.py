@@ -1,44 +1,9 @@
-import os
-import sys
-import tempfile
-import tkinter.filedialog as fd
-import tkinter.messagebox as mb
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import db
 import main
 
 
-def _fresh_app(monkeypatch, tmp_path, theme="classic"):
-    d = tempfile.mkdtemp()
-    dbfile = os.path.join(d, "test.db")
-    monkeypatch.setattr(db, "db_path", lambda: dbfile)
-    db.init_db()
-    pid = db.add_patient("Ana", "Cluj", sex="F", dob="01.02.1990")
-    db.update_patient(pid, diagnostic="diag", objective="obj", evaluation="eva", observation="obs")
-    main.theme.set_theme(theme)
-    main.theme.set_appearance("Light")
-    monkeypatch.setattr(
-        main, "load_settings", lambda: {"ui_theme": theme, "appearance": "Light", "ui_scale": 1.0}
-    )
-    app = main.App()
-    app.update()
-    return app, pid
-
-
-def _silent(monkeypatch, tmp_path):
-    mb.showinfo = lambda *a, **k: None
-    mb.showerror = lambda *a, **k: None
-    mb.askyesno = lambda *a, **k: True
-    fd.asksaveasfilename = lambda **kw: os.path.join(tempfile.mkdtemp(), "out")
-    fd.askopenfilename = lambda **kw: ""
+def test_more_main_paths2(patient_app, monkeypatch):
+    app, pid = patient_app
     monkeypatch.setattr(main.App, "wait_window", lambda self, w: None)
-
-
-def test_more_main_paths2(monkeypatch, tmp_path):
-    _silent(monkeypatch, tmp_path)
-    app, pid = _fresh_app(monkeypatch, tmp_path)
     app.selected_patient_id = pid
     # theme + scale + language
     app._toggle_theme()
@@ -68,12 +33,10 @@ def test_more_main_paths2(monkeypatch, tmp_path):
     dlg = SettingsDialog(app)
     app.update()
     dlg.destroy()
-    app.destroy()
 
 
-def test_more_panel_paths(monkeypatch, tmp_path):
-    _silent(monkeypatch, tmp_path)
-    app, pid = _fresh_app(monkeypatch, tmp_path)
+def test_more_panel_paths(patient_app):
+    app, pid = patient_app
     app._open_patient_by_id(pid)
     app.update()
     panel = app.patient_panels[pid]
@@ -84,4 +47,3 @@ def test_more_panel_paths(monkeypatch, tmp_path):
     # _on_text_change
     panel._on_text_change("diagnostic", panel.diagnostic_text)
     # cancel new not applicable
-    app.destroy()

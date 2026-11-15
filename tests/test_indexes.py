@@ -1,11 +1,5 @@
 """Tests for database indexes and schema migrations."""
 
-import os
-import sys
-import tempfile
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import db
 
 # Indexes created by migration version 2 (data/migrations/schema.py).
@@ -26,14 +20,6 @@ EXPECTED_INDEXES = {
 }
 
 
-def _fresh_db(monkeypatch):
-    folder = tempfile.mkdtemp()
-    dbfile = os.path.join(folder, "test.db")
-    monkeypatch.setattr(db, "db_path", lambda: dbfile)
-    db.init_db()
-    return dbfile
-
-
 def _index_names(dbfile, table):
     import sqlite3
 
@@ -47,36 +33,31 @@ def _index_names(dbfile, table):
     return {r[0] for r in rows}
 
 
-def test_indexes_created_on_fresh_db(monkeypatch):
-    dbfile = _fresh_db(monkeypatch)
+def test_indexes_created_on_fresh_db(fresh_db):
     for table, indexes in EXPECTED_INDEXES.items():
-        present = _index_names(dbfile, table)
+        present = _index_names(fresh_db, table)
         for idx in indexes:
             assert idx in present, f"{idx} missing on {table}: {present}"
 
 
-def test_schema_version_stamped(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_schema_version_stamped(fresh_db):
     assert db.get_schema_version() >= db.SCHEMA_VERSION
 
 
-def test_init_db_is_idempotent(monkeypatch):
-    dbfile = _fresh_db(monkeypatch)
+def test_init_db_is_idempotent(fresh_db):
     # Second run must not fail and must keep the indexes.
     db.init_db()
     for table, indexes in EXPECTED_INDEXES.items():
-        present = _index_names(dbfile, table)
+        present = _index_names(fresh_db, table)
         for idx in indexes:
             assert idx in present
 
 
-def test_existing_db_at_version_1_gets_migrated(monkeypatch):
+def test_existing_db_at_version_1_gets_migrated(fresh_db):
     """Simulate a pre-index database stamped at version 1."""
-    dbfile = _fresh_db(monkeypatch)
-
     import sqlite3
 
-    conn = sqlite3.connect(dbfile)
+    conn = sqlite3.connect(fresh_db)
     try:
         for table, indexes in EXPECTED_INDEXES.items():
             for idx in indexes:
@@ -86,12 +67,12 @@ def test_existing_db_at_version_1_gets_migrated(monkeypatch):
     finally:
         conn.close()
 
-    assert "idx_appointments_datetime" not in _index_names(dbfile, "appointments")
+    assert "idx_appointments_datetime" not in _index_names(fresh_db, "appointments")
 
     db.init_db()
 
     for table, indexes in EXPECTED_INDEXES.items():
-        present = _index_names(dbfile, table)
+        present = _index_names(fresh_db, table)
         for idx in indexes:
             assert idx in present, f"{idx} missing after migration on {table}"
     assert db.get_schema_version() >= 2

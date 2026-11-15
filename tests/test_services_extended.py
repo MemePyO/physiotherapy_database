@@ -1,10 +1,6 @@
 """Tests for the extended service layer."""
 
 import os
-import sys
-import tempfile
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db
 from services.appointment_service import AppointmentService
@@ -15,14 +11,6 @@ from services.patient_service import PatientService
 from services.physio_service import PhysioService
 
 
-def _fresh_db(monkeypatch):
-    folder = tempfile.mkdtemp()
-    dbfile = os.path.join(folder, "test.db")
-    monkeypatch.setattr(db, "db_path", lambda: dbfile)
-    db.init_db()
-    return folder, dbfile
-
-
 def _patient(name="Ana Test"):
     return db.add_patient(name)
 
@@ -30,25 +18,22 @@ def _patient(name="Ana Test"):
 # --- database service ----------------------------------------------------
 
 
-def test_database_service_path_and_init(monkeypatch):
-    folder, dbfile = _fresh_db(monkeypatch)
+def test_database_service_path_and_init(fresh_db):
     svc = DatabaseService()
-    assert svc.path() == dbfile
+    assert svc.path() == fresh_db
     assert os.path.exists(svc.path())
     assert svc.check_integrity() is True
     assert svc.schema_version() >= svc.expected_schema_version
 
 
-def test_database_service_checkpoint(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_database_service_checkpoint(fresh_db):
     DatabaseService().checkpoint()
 
 
 # --- patient service -----------------------------------------------------
 
 
-def test_patient_purge_and_empty_deleted(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_patient_purge_and_empty_deleted(fresh_db):
     svc = PatientService()
     pid = svc.create_patient("Ana Test")[0]
     row_id = svc.delete_patient(pid)
@@ -64,8 +49,7 @@ def test_patient_purge_and_empty_deleted(monkeypatch):
     assert svc.list_deleted() == []
 
 
-def test_patient_restore(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_patient_restore(fresh_db):
     svc = PatientService()
     pid = svc.create_patient("Ana Test")[0]
     row_id = svc.delete_patient(pid)
@@ -77,8 +61,7 @@ def test_patient_restore(monkeypatch):
 # --- physio service ------------------------------------------------------
 
 
-def test_plan_upsert_and_get(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_plan_upsert_and_get(fresh_db):
     pid = _patient()
     svc = PhysioService()
     assert svc.get_plan(pid) is None
@@ -93,8 +76,7 @@ def test_plan_upsert_and_get(monkeypatch):
     assert plan2["diagnosis_code"] == "M54.6"
 
 
-def test_session_crud(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_session_crud(fresh_db):
     pid = _patient()
     svc = PhysioService()
     sid = svc.add_session(pid, date="01.02.2026", duration_min=45, pain_before=7, pain_after=4)
@@ -107,8 +89,7 @@ def test_session_crud(monkeypatch):
     assert svc.list_sessions(pid) == []
 
 
-def test_exercise_crud(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_exercise_crud(fresh_db):
     pid = _patient()
     svc = PhysioService()
     eid = svc.add_exercise(pid, name="Bridging", sets=3, reps=10)
@@ -121,8 +102,7 @@ def test_exercise_crud(monkeypatch):
     assert svc.list_exercises(pid) == []
 
 
-def test_outcome_crud(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_outcome_crud(fresh_db):
     pid = _patient()
     svc = PhysioService()
     oid = svc.add_outcome(pid, measure="VAS", value=8, date="01.02.2026")
@@ -140,8 +120,7 @@ def test_outcome_crud(monkeypatch):
 # --- appointment service -------------------------------------------------
 
 
-def test_appointment_crud(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_appointment_crud(fresh_db):
     pid = _patient()
     svc = AppointmentService()
     aid = svc.add(pid, "01.02.2026 09:00", duration_min=30)
@@ -159,8 +138,7 @@ def test_appointment_crud(monkeypatch):
 # --- attachment service --------------------------------------------------
 
 
-def test_attachment_crud(monkeypatch, tmp_path):
-    _fresh_db(monkeypatch)
+def test_attachment_crud(fresh_db, tmp_path):
     pid = _patient()
     svc = AttachmentService()
     f = tmp_path / "note.txt"
@@ -177,8 +155,7 @@ def test_attachment_crud(monkeypatch, tmp_path):
 # --- history service -----------------------------------------------------
 
 
-def test_history_add_list_clear(monkeypatch):
-    _fresh_db(monkeypatch)
+def test_history_add_list_clear(fresh_db):
     pid = _patient()
     svc = HistoryService()
     svc.add(pid, "diagnostic", "", "lower back pain")

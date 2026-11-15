@@ -30,6 +30,14 @@ def test_database_service_checkpoint(fresh_db):
     DatabaseService().checkpoint()
 
 
+def test_database_service_connection(fresh_db):
+    conn = DatabaseService().connection()
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM patients").fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
 # --- patient service -----------------------------------------------------
 
 

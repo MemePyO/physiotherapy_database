@@ -76,7 +76,7 @@ def pre_operation_backup(label: str = "op") -> None:
     try:
         folder = os.path.join(_data_dir(), "backup")
         os.makedirs(folder, exist_ok=True)
-        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         dest = os.path.join(folder, f"pre_{label}_{stamp}.db")
         if not backup_to(dest):
             # Last-resort fallback (may be incomplete in WAL mode).
@@ -330,6 +330,7 @@ def add_patient(
         conn.commit()
         patient_id = cur.lastrowid
         conn.close()
+        assert patient_id is not None
         return patient_id
     except sqlite3.IntegrityError:
         conn.close()
@@ -755,6 +756,7 @@ def add_attachment(patient_id: int, source_path: str) -> int:
     conn.commit()
     aid = cur.lastrowid
     conn.close()
+    assert aid is not None
     return aid
 
 
@@ -847,12 +849,11 @@ def pre_migration_backup() -> str | None:
     dbp = db_path()
     if not os.path.exists(dbp):
         return None
-    import datetime
 
     folder = os.path.join(os.path.dirname(dbp), "backup")
     try:
         os.makedirs(folder, exist_ok=True)
-        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         dest = os.path.join(folder, "pre_migration_" + stamp + ".db")
         if backup_to(dest):
             return dest

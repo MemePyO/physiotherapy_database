@@ -37,6 +37,17 @@ def test_validate_patient_invalid_sex():
     assert "sex" in r.errors
 
 
+def test_validate_patient_locality_too_long():
+    r = validate_patient("Ana", locality="x" * 101)
+    assert not r.ok()
+    assert "locality" in r.errors
+
+
+def test_validation_result_bool():
+    assert bool(validate_patient("Ana")) is True
+    assert bool(validate_patient("")) is False
+
+
 def test_validate_session_valid():
     r = validate_session("01.02.2026", 30, 5, 3)
     assert r.ok()

@@ -1,5 +1,6 @@
 """Frontend: customtkinter GUI with Patient Database."""
 
+import csv
 import datetime
 import glob
 import json
@@ -10,19 +11,21 @@ import sys
 import threading
 import time
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import filedialog, messagebox, ttk
 
 import customtkinter as ctk
 
 import lang
 import log
 import theme
+from services import export_service
 from services.appointment_service import get_appointment_service
 from services.backup_service import get_backup_service
 from services.database_service import get_database_service
 from services.patient_service import get_patient_service
 from services.physio_service import SESSION_STATUSES
 from version import __version__
+from workers import BackgroundTask
 
 logger = log.get_logger(__name__)
 
@@ -2253,8 +2256,6 @@ class App(ctk.CTk):
                             page.destroy()
                     except Exception:
                         log.debug_exc(logger)
-                from services.patient_service import get_patient_service
-
                 svc = get_patient_service()
                 deleted_row_id = svc.delete_patient(pid)
                 if deleted_row_id is not None:
@@ -2635,7 +2636,6 @@ class App(ctk.CTk):
 
     def _export_csv(self):
         try:
-            from tkinter import filedialog
 
             path = filedialog.asksaveasfilename(
                 defaultextension=".csv", filetypes=[("CSV", "*.csv")], title="Export CSV"
@@ -2656,7 +2656,6 @@ class App(ctk.CTk):
             pbar.start()
 
             def work(progress):
-                from services import export_service
 
                 return export_service.export_csv(path)
 
@@ -2669,8 +2668,6 @@ class App(ctk.CTk):
                 pbar.stop()
                 pdlg.destroy()
                 messagebox.showerror(lang.t("app_name"), str(e))
-
-            from workers import BackgroundTask
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
@@ -2797,7 +2794,6 @@ class App(ctk.CTk):
 
     def _export_excel(self):
         try:
-            from tkinter import filedialog
 
             from openpyxl import Workbook
             from openpyxl.styles import Alignment, Font, PatternFill
@@ -2874,8 +2870,6 @@ class App(ctk.CTk):
             def on_progress(msg):
                 plbl.configure(text=msg)
 
-            from workers import BackgroundTask
-
             BackgroundTask(
                 self, work, on_done=on_done, on_error=on_error, on_progress=on_progress
             ).start()
@@ -2884,7 +2878,6 @@ class App(ctk.CTk):
 
     def _export_pdf(self):
         try:
-            from tkinter import filedialog
 
             path = filedialog.asksaveasfilename(
                 defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], title="Save as PDF"
@@ -2905,7 +2898,6 @@ class App(ctk.CTk):
             pbar.start()
 
             def work(progress):
-                from services import export_service
 
                 return export_service.export_pdf(path)
 
@@ -2919,15 +2911,12 @@ class App(ctk.CTk):
                 pdlg.destroy()
                 messagebox.showerror(lang.t("app_name"), str(e))
 
-            from workers import BackgroundTask
-
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _export_word(self):
         try:
-            from tkinter import filedialog
 
             path = filedialog.asksaveasfilename(
                 defaultextension=".doc", filetypes=[("Word", "*.doc")], title="Save as Word"
@@ -2948,7 +2937,6 @@ class App(ctk.CTk):
             pbar.start()
 
             def work(progress):
-                from services import export_service
 
                 return export_service.export_word(path)
 
@@ -2961,8 +2949,6 @@ class App(ctk.CTk):
                 pbar.stop()
                 pdlg.destroy()
                 messagebox.showerror(lang.t("app_name"), str(e))
-
-            from workers import BackgroundTask
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
@@ -3024,8 +3010,6 @@ class App(ctk.CTk):
         def on_progress(msg):
             lbl.configure(text=msg)
 
-        from workers import BackgroundTask
-
         BackgroundTask(
             self, work, on_done=on_done, on_error=on_error, on_progress=on_progress
         ).start()
@@ -3083,8 +3067,6 @@ class App(ctk.CTk):
                     pdlg.destroy()
                     messagebox.showerror(lang.t("app_name"), str(e))
 
-                from workers import BackgroundTask
-
                 BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -3092,7 +3074,6 @@ class App(ctk.CTk):
     def _import_data(self):
         try:
             get_backup_service().pre_operation("import")
-            from tkinter import filedialog
 
             path = filedialog.askopenfilename(
                 title="Import (CSV/Excel)",
@@ -3114,8 +3095,6 @@ class App(ctk.CTk):
             pbar.start()
 
             def work(progress):
-                import csv
-
                 rows = []
                 if path.lower().endswith(".csv"):
                     with open(path, newline="", encoding="utf-8-sig") as fh:
@@ -3168,8 +3147,6 @@ class App(ctk.CTk):
                 pbar.stop()
                 pdlg.destroy()
                 messagebox.showerror(lang.t("app_name"), str(e))
-
-            from workers import BackgroundTask
 
             BackgroundTask(self, work, on_done=on_done, on_error=on_error).start()
         except Exception as e:

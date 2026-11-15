@@ -14,10 +14,14 @@ from tkinter import messagebox, ttk
 
 import customtkinter as ctk
 
-import db
 import lang
 import log
 import theme
+from services.appointment_service import get_appointment_service
+from services.backup_service import get_backup_service
+from services.database_service import get_database_service
+from services.patient_service import get_patient_service
+from services.physio_service import SESSION_STATUSES
 from version import __version__
 
 logger = log.get_logger(__name__)
@@ -339,9 +343,9 @@ class App(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
 
         # Initialize database
-        db.init_db()
+        get_database_service().init()
         try:
-            if not db.check_integrity():
+            if not get_database_service().check_integrity():
                 if messagebox.askyesno(
                     lang.t("app_name"),
                     "Database integrity check failed. Restore from latest backup?",
@@ -357,9 +361,9 @@ class App(ctk.CTk):
                     if files:
                         latest = max(files, key=os.path.getmtime)
                         try:
-                            shutil.copy2(latest, db.db_path())
+                            shutil.copy2(latest, get_database_service().path())
                             # ensure schema tables exist even if the backup predates a migration
-                            db.init_db()
+                            get_database_service().init()
                             messagebox.showinfo(
                                 lang.t("app_name"), "Restored from " + os.path.basename(latest)
                             )
@@ -374,7 +378,7 @@ class App(ctk.CTk):
         self.patients_file = patients_file
         self.list_error = None
         try:
-            self.known_patients = db.get_patient_names()
+            self.known_patients = get_patient_service().get_patient_names()
         except Exception as exc:
             self.known_patients = []
             self.list_error = str(exc)
@@ -1142,7 +1146,7 @@ class App(ctk.CTk):
         tree.column("localitate", width=90)
         tree.column("deleted_at", width=130)
         tree.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
-        rows = db.list_deleted()
+        rows = get_patient_service().list_deleted()
         for r in rows:
             tree.insert(
                 "",
@@ -1158,7 +1162,7 @@ class App(ctk.CTk):
             if not sel:
                 return
             try:
-                db.restore_deleted(int(sel[0]))
+                get_patient_service().restore_patient(int(sel[0]))
                 tree.delete(sel[0])
                 self.refresh_patients_db()
             except Exception as e:
@@ -1167,7 +1171,7 @@ class App(ctk.CTk):
         def _restore_all():
             for iid in list(tree.get_children()):
                 try:
-                    db.restore_deleted(int(iid))
+                    get_patient_service().restore_patient(int(iid))
                     tree.delete(iid)
                 except Exception as e:
                     messagebox.showerror(lang.t("app_name"), str(e))
@@ -1177,21 +1181,15 @@ class App(ctk.CTk):
             sel = tree.selection()
             if not sel or not messagebox.askyesno(lang.t("app_name"), "Permanently delete?"):
                 return
-            db.pre_operation_backup("purge")
-            conn = db._get_conn()
-            conn.execute("DELETE FROM deleted_patients WHERE id = ?", (int(sel[0]),))
-            conn.commit()
-            conn.close()
+            get_backup_service().pre_operation("purge")
+            get_patient_service().purge_deleted([int(sel[0])])
             tree.delete(sel[0])
 
         def _empty():
             if not messagebox.askyesno(lang.t("app_name"), "Empty trash?"):
                 return
-            db.pre_operation_backup("purge")
-            conn = db._get_conn()
-            conn.execute("DELETE FROM deleted_patients")
-            conn.commit()
-            conn.close()
+            get_backup_service().pre_operation("purge")
+            get_patient_service().empty_deleted()
             for iid in list(tree.get_children()):
                 tree.delete(iid)
 
@@ -1422,7 +1420,7 @@ class App(ctk.CTk):
             return
         self._integrity_check_at = now
         try:
-            ok = db.check_integrity()
+            ok = get_database_service().check_integrity()
             self._integrity_ok = ok
             if not ok and not getattr(self, "_closing", False):
                 logger.warning("periodic integrity check failed")
@@ -1440,20 +1438,25 @@ class App(ctk.CTk):
         results = []
         # database integrity
         try:
-            ok = db.check_integrity()
+            ok = get_database_service().check_integrity()
             results.append(("Database integrity", ok, "OK" if ok else "FAILED"))
         except Exception as e:
             log.debug_exc(logger)
             results.append(("Database integrity", False, str(e)))
         # schema version
         try:
-            v = db.get_schema_version()
-            ok = v >= db.SCHEMA_VERSION
+            v = get_database_service().schema_version()
+            ok = v >= get_database_service().expected_schema_version
             results.append(
                 (
                     "Schema version",
                     ok,
-                    "v%d" % v if ok else "v%d (expected %d)" % (v, db.SCHEMA_VERSION),
+                    (
+                        "v%d" % v
+                        if ok
+                        else "v%d (expected %d)"
+                        % (v, get_database_service().expected_schema_version)
+                    ),
                 )
             )
         except Exception as e:
@@ -1461,7 +1464,7 @@ class App(ctk.CTk):
             results.append(("Schema version", False, str(e)))
         # schema / counts
         try:
-            n = len(db.get_all_patients())
+            n = len(get_patient_service().list_patients())
             results.append(("Patients loaded", True, str(n)))
         except Exception as e:
             log.debug_exc(logger)
@@ -1536,17 +1539,17 @@ class App(ctk.CTk):
         """Read-only checks; each one is guarded so the view never crashes."""
         rows = []
         try:
-            ok = db.check_integrity()
+            ok = get_database_service().check_integrity()
             rows.append((lang.t("ui_db_integrity"), lang.t("ui_ok") if ok else lang.t("ui_failed")))
         except Exception:
             log.debug_exc(logger)
             rows.append((lang.t("ui_db_integrity"), lang.t("ui_failed")))
         try:
-            rows.append((lang.t("ui_patients"), str(len(db.get_all_patients()))))
+            rows.append((lang.t("ui_patients"), str(len(get_patient_service().list_patients()))))
         except Exception:
             log.debug_exc(logger)
         try:
-            rows.append((lang.t("ui_appointments"), str(len(db.list_appointments()))))
+            rows.append((lang.t("ui_appointments"), str(len(get_appointment_service().list()))))
         except Exception:
             log.debug_exc(logger)
         try:
@@ -1673,7 +1676,7 @@ class App(ctk.CTk):
                 )
             cal = _cal.Calendar(firstweekday=0)
             weeks = cal.monthdayscalendar(self._cal_year, self._cal_month)
-            apps = db.list_appointments()
+            apps = get_appointment_service().list()
             by_day = {}
             for a in apps:
                 try:
@@ -1769,7 +1772,7 @@ class App(ctk.CTk):
         ).grid(row=1, column=0, sticky="w", padx=8)
         patients = {}
         try:
-            for p in db.get_all_patients():
+            for p in get_patient_service().list_patients():
                 patients[p["name"]] = p
         except Exception:
             log.debug_exc(logger)
@@ -1800,7 +1803,7 @@ class App(ctk.CTk):
         ).grid(row=3, column=0, sticky="w", padx=8)
         self._cal_status_var = ctk.StringVar(value="scheduled")
         ctk.CTkOptionMenu(
-            form, values=list(db.SESSION_STATUSES), variable=self._cal_status_var, width=140
+            form, values=list(SESSION_STATUSES), variable=self._cal_status_var, width=140
         ).grid(row=3, column=1, columnspan=3, sticky="w", padx=8, pady=2)
 
         ctk.CTkLabel(
@@ -1847,7 +1850,7 @@ class App(ctk.CTk):
                 dur = 30
             day = getattr(self, "_cal_selected_day", datetime.date.today().day)
             dt = "%02d.%02d.%d %02d:%02d" % (day, self._cal_month, self._cal_year, hh, mm)
-            db.add_appointment(
+            get_appointment_service().add(
                 p["id"],
                 dt,
                 duration_min=dur,
@@ -1915,7 +1918,7 @@ class App(ctk.CTk):
             for w in lst.winfo_children():
                 w.destroy()
             apps = []
-            for a in db.list_appointments():
+            for a in get_appointment_service().list():
                 try:
                     d = datetime.datetime.strptime(a["datetime"].split(" ")[0], "%d.%m.%Y")
                 except Exception:
@@ -1940,7 +1943,7 @@ class App(ctk.CTk):
                 return
             pmap = {}
             try:
-                for p in db.get_all_patients():
+                for p in get_patient_service().list_patients():
                     pmap[p["id"]] = p["name"]
             except Exception:
                 log.debug_exc(logger)
@@ -1977,13 +1980,13 @@ class App(ctk.CTk):
                 st_var = ctk.StringVar(value=a.get("status", "scheduled"))
 
                 def _set_status(v, aid=a["id"]):
-                    db.update_appointment(aid, status=v)
+                    get_appointment_service().update(aid, status=v)
                     _render_list()
                     self._show_view("calendar")
 
                 ctk.CTkOptionMenu(
                     card,
-                    values=list(db.SESSION_STATUSES),
+                    values=list(SESSION_STATUSES),
                     variable=st_var,
                     width=110,
                     command=lambda v, f=_set_status: f(v),
@@ -1993,7 +1996,7 @@ class App(ctk.CTk):
                     if btn.cget("text") != "\u2713":
                         btn.configure(text="\u2713", fg_color="#c0392b")
                         return
-                    db.delete_appointment(aid)
+                    get_appointment_service().delete(aid)
                     _render_list()
                     self._show_view("calendar")
 
@@ -2047,7 +2050,9 @@ class App(ctk.CTk):
         self._visible_patient_ids = []
         self._card_widgets = {}
         try:
-            patients = db.get_all_patients(sort_by=self.sort_by, sort_dir=self.sort_dir)
+            patients = get_patient_service().list_patients(
+                sort_by=self.sort_by, sort_dir=self.sort_dir
+            )
             search_raw = ""
             entry = getattr(self, "search_entry", None)
             try:
@@ -2354,7 +2359,7 @@ class App(ctk.CTk):
                 except Exception:
                     log.debug_exc(logger)
                 self._undo_hint = None
-            new_pid = db.restore_deleted(row_id)
+            new_pid = get_patient_service().restore_patient(row_id)
             self._last_deleted_row_id = None
             self._last_deleted_name = None
             self.refresh_patients_db()
@@ -2366,7 +2371,7 @@ class App(ctk.CTk):
         return "break"
 
     def _copy_name_by_id(self, pid):
-        p = db.get_patient(patient_id=pid)
+        p = get_patient_service().get_patient(patient_id=pid)
         if p:
             self.clipboard_clear()
             self.clipboard_append(p.get("name", ""))
@@ -2767,7 +2772,7 @@ class App(ctk.CTk):
     def _copy_current_name(self):
         if self.selected_patient_id is None:
             return
-        p = db.get_patient(patient_id=self.selected_patient_id)
+        p = get_patient_service().get_patient(patient_id=self.selected_patient_id)
         if p:
             self.clipboard_clear()
             self.clipboard_append(p.get("name", ""))
@@ -2841,7 +2846,7 @@ class App(ctk.CTk):
                     cell.alignment = Alignment(
                         horizontal="center", vertical="center", wrap_text=True
                     )
-                patients = db.get_all_patients()
+                patients = get_patient_service().list_patients()
                 total = len(patients)
                 for i, p in enumerate(patients, 1):
                     ws.append([_field_value(p, k, i) for k in chosen])
@@ -2983,8 +2988,8 @@ class App(ctk.CTk):
 
         def work(progress):
             progress("Checkpointing database...")
-            ok = db.backup_to(dest)
-            info = db.verify_backup(dest)[1] if ok else None
+            ok = get_backup_service().backup_to(dest)
+            info = get_backup_service().verify(dest)[1] if ok else None
             try:
                 att_src = os.path.join(_data_dir(), "attachments")
                 if os.path.isdir(att_src):
@@ -3039,7 +3044,7 @@ class App(ctk.CTk):
             self.wait_window(dlg)
             if dlg.result:
                 src = os.path.join(folder, dlg.result)
-                ok, info = db.verify_backup(src)
+                ok, info = get_backup_service().verify(src)
                 if not ok:
                     messagebox.showerror(
                         lang.t("app_name"), "Backup verification failed: " + str(info)
@@ -3058,11 +3063,11 @@ class App(ctk.CTk):
                 pbar.start()
 
                 def work(progress):
-                    db.pre_operation_backup("restore")
-                    db.checkpoint()
-                    shutil.copy2(src, db.db_path())
+                    get_backup_service().pre_operation("restore")
+                    get_backup_service().checkpoint()
+                    shutil.copy2(src, get_database_service().path())
                     try:
-                        db.init_db()
+                        get_database_service().init()
                     except Exception:
                         pass
                     return True
@@ -3086,7 +3091,7 @@ class App(ctk.CTk):
 
     def _import_data(self):
         try:
-            db.pre_operation_backup("import")
+            get_backup_service().pre_operation("import")
             from tkinter import filedialog
 
             path = filedialog.askopenfilename(
@@ -3138,9 +3143,9 @@ class App(ctk.CTk):
                     eva = str(r[4]).strip() if len(r) > 4 and r[4] is not None else ""
                     obs = str(r[5]).strip() if len(r) > 5 and r[5] is not None else ""
                     try:
-                        pid = db.ensure_patient_exists(name)
+                        pid = get_patient_service().ensure_patient_exists(name)
                         if pid is not None:
-                            db.update_patient(
+                            get_patient_service().update_patient(
                                 pid,
                                 localitate=loc,
                                 diagnostic=diag,
@@ -3182,7 +3187,7 @@ class App(ctk.CTk):
             stamp = datetime.datetime.now().strftime("%Y%m%d")
             dest = os.path.join(folder, "patients_auto_" + stamp + ".db")
             if not os.path.exists(dest):
-                db.backup_to(dest)
+                get_backup_service().backup_to(dest)
             _prune_auto_backups(folder)
         except Exception:
             log.debug_exc(logger)
@@ -3192,7 +3197,7 @@ class App(ctk.CTk):
         self.wait_window(dlg)
         if dlg.result:
             try:
-                existing = db.get_patient(name=dlg.result["name"])
+                existing = get_patient_service().get_patient(name=dlg.result["name"])
                 if existing:
                     if messagebox.askyesno(
                         lang.t("app_name"), "Patient already exists. Open their file?"
@@ -3202,23 +3207,18 @@ class App(ctk.CTk):
                         return
                     else:
                         return
-                pid = db.add_patient(
+                pid, _validation = get_patient_service().create_patient(
                     dlg.result["name"],
                     dlg.result["localitate"],
                     sex=dlg.result.get("sex", ""),
                     dob=dlg.result.get("dob", ""),
-                )
-                db.update_patient(
-                    pid,
                     diagnostic=dlg.result["diagnostic"],
                     objective=dlg.result["objective"],
                     evaluation=dlg.result["evaluation"],
                     observation=dlg.result["observation"],
-                    sex=dlg.result.get("sex", ""),
-                    dob=dlg.result.get("dob", ""),
                 )
                 self.refresh_patients_db()
-                self.known_patients = db.get_patient_names()
+                self.known_patients = get_patient_service().get_patient_names()
             except Exception as e:
                 messagebox.showerror(lang.t("app_name"), str(e))
 

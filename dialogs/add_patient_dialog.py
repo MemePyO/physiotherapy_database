@@ -1,4 +1,6 @@
-from .common import _validate_dob, ctk, db, lang, messagebox
+from services.patient_service import get_patient_service
+
+from .common import _validate_dob, ctk, lang, messagebox
 
 
 class AddPatientDialog(ctk.CTkToplevel):
@@ -28,7 +30,7 @@ class AddPatientDialog(ctk.CTkToplevel):
         ctk.CTkLabel(scroll, text=lang.t("label_localitate") + ":").grid(
             row=2, column=0, sticky="w", pady=(0, 2)
         )
-        self.entry_loc = ctk.CTkComboBox(scroll, values=db.get_localities())
+        self.entry_loc = ctk.CTkComboBox(scroll, values=get_patient_service().get_localities())
         self.entry_loc.grid(row=3, column=0, sticky="ew", pady=(0, 8))
 
         ctk.CTkLabel(scroll, text="Sex:").grid(row=4, column=0, sticky="w", pady=(0, 2))

@@ -1,16 +1,25 @@
 """Embedded patient file panel (dashboard style) with tabbed sections."""
 
+import datetime
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import customtkinter as ctk
 
-import db
 import lang
 import log
 import theme
 import utils
+from services.attachment_service import get_attachment_service
+from services.history_service import get_history_service
+from services.patient_service import get_patient_service
+from services.physio_service import (
+    BODY_REGIONS,
+    SESSION_STATUSES,
+    SIDES,
+    get_physio_service,
+)
 
 logger = log.get_logger(__name__)
 
@@ -29,8 +38,6 @@ def _validate_dob(text):
     if not text:
         return True
     try:
-        import datetime
-
         datetime.datetime.strptime(text, "%d.%m.%Y")
         return True
     except ValueError:
@@ -116,7 +123,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 "updated_at": "",
             }
         else:
-            self.patient = db.get_patient(patient_id=patient_id)
+            self.patient = get_patient_service().get_patient(patient_id=patient_id)
             if not self.patient:
                 self.destroy()
                 return
@@ -597,15 +604,11 @@ class PatientFilePanel(ctk.CTkFrame):
             if key == "body_region":
                 w = ctk.CTkOptionMenu(
                     plan_tab,
-                    values=getattr(
-                        db, "BODY_REGIONS", ["Cervical", "Lumbar", "Shoulder", "Knee", "Other"]
-                    ),
+                    values=BODY_REGIONS,
                     width=180,
                 )
             elif key == "side":
-                w = ctk.CTkOptionMenu(
-                    plan_tab, values=["Left", "Right", "Bilateral", "N/A"], width=120
-                )
+                w = ctk.CTkOptionMenu(plan_tab, values=SIDES, width=120)
             else:
                 w = ctk.CTkEntry(plan_tab, width=180)
             w.grid(row=r, column=1, sticky="w", padx=6, pady=2)
@@ -749,7 +752,7 @@ class PatientFilePanel(ctk.CTkFrame):
             messagebox.showinfo(lang.t("app_name"), "Selectați o măsurătoare.")
             return
         oid = int(sel[0])
-        rows = [o for o in db.list_outcomes(self.patient_id) if o["id"] == oid]
+        rows = [o for o in get_physio_service().list_outcomes(self.patient_id) if o["id"] == oid]
         if not rows:
             return
         o = rows[0]
@@ -765,16 +768,14 @@ class PatientFilePanel(ctk.CTkFrame):
             return
         try:
             data["value"] = float(data["value"]) if str(data["value"]).strip() else 0
-            db.update_outcome(oid, **data)
+            get_physio_service().update_outcome(oid, **data)
             self._load_outcomes()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _load_plan(self):
         try:
-            import db as _db
-
-            plan = _db.get_plan(self.patient_id)
+            plan = get_physio_service().get_plan(self.patient_id)
             if not plan:
                 return
             for key, w in getattr(self, "plan_entries", {}).items():
@@ -797,8 +798,6 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _save_plan(self):
         try:
-            import db as _db
-
             fields = {}
             for key, w in getattr(self, "plan_entries", {}).items():
                 if isinstance(w, ctk.CTkOptionMenu):
@@ -813,7 +812,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 fields["prescribed_sessions"] = int(fields.get("prescribed_sessions") or 0)
             except ValueError:
                 fields["prescribed_sessions"] = 0
-            _db.upsert_plan(self.patient_id, **fields)
+            get_physio_service().upsert_plan(self.patient_id, **fields)
             messagebox.showinfo(lang.t("app_name"), "Plan salvat.")
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -864,11 +863,9 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _load_sessions(self):
         try:
-            import db as _db
-
             for row in self.ses_tree.get_children():
                 self.ses_tree.delete(row)
-            for s in _db.list_sessions(self.patient_id):
+            for s in get_physio_service().list_sessions(self.patient_id):
                 vas = "{}→{}".format(s.get("pain_before", 0), s.get("pain_after", 0))
                 self.ses_tree.insert(
                     "",
@@ -889,8 +886,6 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _add_session(self):
         try:
-            import db as _db
-
             if getattr(self, "patient_id", None) is None:
                 messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
                 return
@@ -899,7 +894,7 @@ class PatientFilePanel(ctk.CTkFrame):
             date = ask_string(self, "Sesiune nouă", "Data (DD.MM.YYYY):")
             if not date:
                 return
-            _db.add_session(self.patient_id, date=date, status="done")
+            get_physio_service().add_session(self.patient_id, date=date, status="done")
             self._load_sessions()
             messagebox.showinfo(lang.t("app_name"), "Sesiune adăugată.")
         except Exception as e:
@@ -913,9 +908,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not messagebox.askyesno(lang.t("app_name"), "Ștergeți sesiunea?"):
             return
         try:
-            import db as _db
-
-            _db.delete_session(int(sel[0]))
+            get_physio_service().delete_session(int(sel[0]))
             self._load_sessions()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -926,7 +919,7 @@ class PatientFilePanel(ctk.CTkFrame):
             messagebox.showinfo(lang.t("app_name"), "Selectați o sesiune.")
             return
         sid = int(sel[0])
-        rows = [s for s in db.list_sessions(self.patient_id) if s["id"] == sid]
+        rows = [s for s in get_physio_service().list_sessions(self.patient_id) if s["id"] == sid]
         if not rows:
             return
         s = rows[0]
@@ -936,7 +929,7 @@ class PatientFilePanel(ctk.CTkFrame):
             ("duration_min", "Durată (min)", "text", None),
             ("pain_before", "VAS înainte", "text", None),
             ("pain_after", "VAS după", "text", None),
-            ("status", "Status", "choice", list(db.SESSION_STATUSES)),
+            ("status", "Status", "choice", SESSION_STATUSES),
             ("modalities", "Modalități", "text", None),
             ("exercises", "Exerciții", "text", None),
             ("notes", "Note", "text", None),
@@ -954,18 +947,16 @@ class PatientFilePanel(ctk.CTkFrame):
                 float(data["pain_before"]) if str(data["pain_before"]).strip() else 0
             )
             data["pain_after"] = float(data["pain_after"]) if str(data["pain_after"]).strip() else 0
-            db.update_session(sid, **data)
+            get_physio_service().update_session(sid, **data)
             self._load_sessions()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _load_exercises(self):
         try:
-            import db as _db
-
             for row in self.hep_tree.get_children():
                 self.hep_tree.delete(row)
-            for e in _db.list_exercises(self.patient_id):
+            for e in get_physio_service().list_exercises(self.patient_id):
                 self.hep_tree.insert(
                     "",
                     "end",
@@ -985,8 +976,6 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _add_exercise(self):
         try:
-            import db as _db
-
             if getattr(self, "patient_id", None) is None:
                 messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
                 return
@@ -995,7 +984,7 @@ class PatientFilePanel(ctk.CTkFrame):
             name = ask_string(self, "Exercițiu nou", "Nume exercițiu:")
             if not name:
                 return
-            _db.add_exercise(self.patient_id, name=name)
+            get_physio_service().add_exercise(self.patient_id, name=name)
             self._load_exercises()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -1008,9 +997,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not messagebox.askyesno(lang.t("app_name"), "Ștergeți exercițiul?"):
             return
         try:
-            import db as _db
-
-            _db.delete_exercise(int(sel[0]))
+            get_physio_service().delete_exercise(int(sel[0]))
             self._load_exercises()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -1021,7 +1008,7 @@ class PatientFilePanel(ctk.CTkFrame):
             messagebox.showinfo(lang.t("app_name"), "Selectați un exercițiu.")
             return
         eid = int(sel[0])
-        rows = [e for e in db.list_exercises(self.patient_id) if e["id"] == eid]
+        rows = [e for e in get_physio_service().list_exercises(self.patient_id) if e["id"] == eid]
         if not rows:
             return
         e = rows[0]
@@ -1042,18 +1029,16 @@ class PatientFilePanel(ctk.CTkFrame):
             data["sets"] = int(data["sets"]) if str(data["sets"]).strip() else 3
             data["reps"] = int(data["reps"]) if str(data["reps"]).strip() else 10
             data["hold_sec"] = int(data["hold_sec"]) if str(data["hold_sec"]).strip() else 0
-            db.update_exercise(eid, **data)
+            get_physio_service().update_exercise(eid, **data)
             self._load_exercises()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
 
     def _load_outcomes(self):
         try:
-            import db as _db
-
             for row in self.out_tree.get_children():
                 self.out_tree.delete(row)
-            for o in _db.list_outcomes(self.patient_id):
+            for o in get_physio_service().list_outcomes(self.patient_id):
                 self.out_tree.insert(
                     "",
                     "end",
@@ -1070,8 +1055,6 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _add_outcome(self):
         try:
-            import db as _db
-
             if getattr(self, "patient_id", None) is None:
                 messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
                 return
@@ -1088,7 +1071,9 @@ class PatientFilePanel(ctk.CTkFrame):
             if v < 0 or v > 10:
                 messagebox.showerror(lang.t("app_name"), "VAS trebuie 0-10.")
                 return
-            _db.add_outcome(self.patient_id, "VAS", v, _db._now().split(" ")[0])
+            get_physio_service().add_outcome(
+                self.patient_id, "VAS", v, datetime.datetime.now().strftime("%d.%m.%Y")
+            )
             self._load_outcomes()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -1101,9 +1086,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not messagebox.askyesno(lang.t("app_name"), "Ștergeți măsurătoarea?"):
             return
         try:
-            import db as _db
-
-            _db.delete_outcome(int(sel[0]))
+            get_physio_service().delete_outcome(int(sel[0]))
             self._load_outcomes()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -1261,11 +1244,9 @@ class PatientFilePanel(ctk.CTkFrame):
                 else ""
             )
             try:
-                pid = db.add_patient(name, loc, sex=sex, dob=dob)
-                db.update_patient(
-                    pid,
-                    name=name,
-                    localitate=loc,
+                pid, _validation = get_patient_service().create_patient(
+                    name,
+                    loc,
                     sex=sex,
                     dob=dob,
                     diagnostic=diag,
@@ -1275,7 +1256,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 )
                 self.patient_id = pid
                 self._is_new = False
-                self.patient = db.get_patient(patient_id=pid)
+                self.patient = get_patient_service().get_patient(patient_id=pid)
                 # rebuild header as read-only
                 self._build_header()
                 self._dirty = False
@@ -1325,14 +1306,14 @@ class PatientFilePanel(ctk.CTkFrame):
         try:
             if not silent:
                 self.dirty_label.configure(text="Saving...")
-            db.update_patient(
+            get_patient_service().update_patient(
                 self.patient_id,
                 diagnostic=self.diagnostic_text.get("1.0", "end-1c"),
                 objective=self.objective_text.get("1.0", "end-1c"),
                 evaluation=self.evaluation_text.get("1.0", "end-1c"),
                 observation=self.observation_text.get("1.0", "end-1c"),
             )
-            self.patient = db.get_patient(patient_id=self.patient_id)
+            self.patient = get_patient_service().get_patient(patient_id=self.patient_id)
             self._dirty = False
             if silent:
                 self.dirty_label.configure(text="Auto-saved")
@@ -1391,7 +1372,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 for ln in (content or "").split("\n"):
                     lines.append(ln)
                 lines.append("")
-            atts = db.list_attachments(self.patient_id)
+            atts = get_attachment_service().list(self.patient_id)
             if atts:
                 lines.append("Attachments")
                 lines.append("-" * 40)
@@ -1420,14 +1401,14 @@ class PatientFilePanel(ctk.CTkFrame):
         self.wait_window(dlg)
         if dlg.result:
             try:
-                db.update_patient(
+                get_patient_service().update_patient(
                     self.patient_id,
                     name=dlg.result["name"],
                     localitate=dlg.result["localitate"],
                     sex=dlg.result.get("sex", ""),
                     dob=dlg.result.get("dob", ""),
                 )
-                self.patient = db.get_patient(patient_id=self.patient_id)
+                self.patient = get_patient_service().get_patient(patient_id=self.patient_id)
                 self.name_label.configure(text=self.patient["name"])
                 self._refresh_header_info()
                 try:
@@ -1517,7 +1498,7 @@ class PatientFilePanel(ctk.CTkFrame):
         except Exception:
             log.debug_exc(logger)
         try:
-            for a in db.list_attachments(self.patient_id):
+            for a in get_attachment_service().list(self.patient_id):
                 size = a.get("size", 0)
                 size_str = (
                     (str(round(size / 1024, 1)) + " KB") if size >= 1024 else (str(size) + " B")
@@ -1536,7 +1517,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not path:
             return
         try:
-            db.add_attachment(self.patient_id, path)
+            get_attachment_service().add(self.patient_id, path)
             self._load_attachments()
             messagebox.showinfo(lang.t("app_name"), lang.t("ui_file_attached"))
         except Exception as e:
@@ -1547,7 +1528,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not sel:
             messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
             return
-        att = db.get_attachment(int(sel[0]))
+        att = get_attachment_service().get(int(sel[0]))
         if not att:
             return
         path = att.get("stored_path", "")
@@ -1569,7 +1550,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not sel:
             messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
             return
-        att = db.get_attachment(int(sel[0]))
+        att = get_attachment_service().get(int(sel[0]))
         if not att:
             return
         path = att.get("stored_path", "")
@@ -1631,7 +1612,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not messagebox.askyesno(lang.t("app_name"), "Delete this attachment?"):
             return
         try:
-            db.delete_attachment(int(sel[0]))
+            get_attachment_service().delete(int(sel[0]))
             self._load_attachments()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -1644,7 +1625,7 @@ class PatientFilePanel(ctk.CTkFrame):
         except Exception:
             log.debug_exc(logger)
         try:
-            for h in db.list_history(self.patient_id):
+            for h in get_history_service().list(self.patient_id):
                 oldv = h.get("old_value", "") or ""
                 newv = h.get("new_value", "") or ""
                 if len(oldv) > 40:
@@ -1661,7 +1642,7 @@ class PatientFilePanel(ctk.CTkFrame):
         if not messagebox.askyesno(lang.t("app_name"), "Delete all history for this patient?"):
             return
         try:
-            db.delete_history(self.patient_id)
+            get_history_service().clear(self.patient_id)
             self._load_history()
         except Exception as e:
             messagebox.showerror(lang.t("app_name"), str(e))
@@ -1687,7 +1668,7 @@ class EditPatientDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self, text=lang.t("label_localitate") + ":").grid(
             row=1, column=0, sticky="w", padx=10, pady=5
         )
-        self.entry_loc = ctk.CTkComboBox(self, values=db.get_localities())
+        self.entry_loc = ctk.CTkComboBox(self, values=get_patient_service().get_localities())
         self.entry_loc.set(patient.get("localitate", ""))
         self.entry_loc.grid(row=1, column=1, sticky="ew", padx=10, pady=5)
 

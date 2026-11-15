@@ -1,4 +1,6 @@
-from .common import ctk, db, lang, messagebox, ttk
+from services.patient_service import get_patient_service
+
+from .common import ctk, lang, messagebox, ttk
 
 
 class TrashDialog(ctk.CTkToplevel):
@@ -19,7 +21,7 @@ class TrashDialog(ctk.CTkToplevel):
         tree.column("localitate", width=120)
         tree.column("deleted_at", width=160)
         tree.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        rows = db.list_deleted()
+        rows = get_patient_service().list_deleted()
         for r in rows:
             tree.insert(
                 "",
@@ -35,7 +37,7 @@ class TrashDialog(ctk.CTkToplevel):
             if not sel:
                 return
             try:
-                db.restore_deleted(int(sel[0]))
+                get_patient_service().restore_patient(int(sel[0]))
                 tree.delete(sel[0])
             except Exception as e:
                 messagebox.showerror(lang.t("app_name"), str(e))
@@ -46,16 +48,13 @@ class TrashDialog(ctk.CTkToplevel):
                 return
             if not messagebox.askyesno(lang.t("app_name"), "Permanently delete?"):
                 return
-            conn = db._get_conn()
-            conn.execute("DELETE FROM deleted_patients WHERE id = ?", (int(sel[0]),))
-            conn.commit()
-            conn.close()
+            get_patient_service().purge_deleted([int(sel[0])])
             tree.delete(sel[0])
 
         def _restore_all():
             for iid in list(tree.get_children()):
                 try:
-                    db.restore_deleted(int(iid))
+                    get_patient_service().restore_patient(int(iid))
                     tree.delete(iid)
                 except Exception as e:
                     messagebox.showerror(lang.t("app_name"), str(e))
@@ -65,10 +64,7 @@ class TrashDialog(ctk.CTkToplevel):
                 lang.t("app_name"), "Permanently delete ALL deleted patients?"
             ):
                 return
-            conn = db._get_conn()
-            conn.execute("DELETE FROM deleted_patients")
-            conn.commit()
-            conn.close()
+            get_patient_service().empty_deleted()
             for iid in list(tree.get_children()):
                 tree.delete(iid)
 

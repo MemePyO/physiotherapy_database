@@ -75,6 +75,14 @@ class PatientService:
     def list_deleted(self):
         return db.list_deleted()
 
+    def purge_deleted(self, deleted_row_ids):
+        """Permanently remove specific trashed patients."""
+        return db.purge_deleted(deleted_row_ids)
+
+    def empty_deleted(self):
+        """Permanently remove every trashed patient."""
+        return db.empty_deleted()
+
     def get_patient_names(self):
         return db.get_patient_names()
 

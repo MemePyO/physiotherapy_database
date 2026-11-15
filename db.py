@@ -559,6 +559,32 @@ def restore_deleted(deleted_row_id: int) -> int | None:
         raise ValueError("Patient name already exists")
 
 
+def purge_deleted(deleted_row_ids) -> int:
+    """Permanently delete specific rows from the trash. Returns row count."""
+    ids = [int(i) for i in (deleted_row_ids or []) if str(i).strip() != ""]
+    if not ids:
+        return 0
+    conn = _get_conn()
+    cur = conn.cursor()
+    placeholders = ", ".join("?" for _ in ids)
+    cur.execute(f"DELETE FROM deleted_patients WHERE id IN ({placeholders})", ids)
+    count = cur.rowcount
+    conn.commit()
+    conn.close()
+    return count
+
+
+def empty_deleted() -> int:
+    """Permanently delete every row from the trash. Returns row count."""
+    conn = _get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM deleted_patients")
+    count = cur.rowcount
+    conn.commit()
+    conn.close()
+    return count
+
+
 def get_patient_names() -> list[str]:
     """Get all patient names for autocomplete."""
     conn = _get_conn()

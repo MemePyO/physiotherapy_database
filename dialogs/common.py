@@ -5,7 +5,6 @@ from tkinter import messagebox, ttk
 
 import customtkinter as ctk
 
-import db
 import lang
 import log
 import theme
@@ -20,7 +19,6 @@ __all__ = [
     "messagebox",
     "ttk",
     "ctk",
-    "db",
     "lang",
     "log",
     "theme",

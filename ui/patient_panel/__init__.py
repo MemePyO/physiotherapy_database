@@ -15,12 +15,12 @@ from error_ui import report_error
 from services.attachment_service import get_attachment_service
 from services.history_service import get_history_service
 from services.patient_service import get_patient_service
-from services.physio_service import (
-    BODY_REGIONS,
-    SESSION_STATUSES,
-    SIDES,
-    get_physio_service,
-)
+
+from .attachments_section import AttachmentsSection
+from .exercises_section import ExercisesSection
+from .outcomes_section import OutcomesSection
+from .plan_section import PlanSection
+from .sessions_section import SessionsSection
 
 logger = log.get_logger(__name__)
 
@@ -128,6 +128,13 @@ class PatientFilePanel(ctk.CTkFrame):
             if not self.patient:
                 self.destroy()
                 return
+
+        # Section controllers own one tab each; the panel stays a coordinator.
+        self.plan_section = PlanSection(self)
+        self.sessions_section = SessionsSection(self)
+        self.exercises_section = ExercisesSection(self)
+        self.outcomes_section = OutcomesSection(self)
+        self.attachments_section = AttachmentsSection(self)
 
         self._build_header()
         self._build_tabs()
@@ -396,47 +403,8 @@ class PatientFilePanel(ctk.CTkFrame):
             self._update_count(field, txt)
             self.texts[field] = txt
 
-        # Attachments tab
         self._build_physio_tabs_classic()
-
-        att_tab = self.tabview.add("Attachments")
-        att_tab.grid_columnconfigure(0, weight=1)
-        att_tab.grid_rowconfigure(0, weight=1)
-        cols = ("filename", "size", "added_at")
-        self.attach_tree = ttk.Treeview(att_tab, columns=cols, show="headings", selectmode="browse")
-        self.attach_tree.heading("filename", text="File")
-        self.attach_tree.heading("size", text="Size")
-        self.attach_tree.heading("added_at", text="Added")
-        self.attach_tree.column("filename", width=200)
-        self.attach_tree.column("size", width=70)
-        self.attach_tree.column("added_at", width=120)
-        self.attach_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
-        ab = ctk.CTkFrame(att_tab, fg_color="transparent")
-        ab.grid(row=1, column=0, sticky="ew", pady=(4, 4))
-        ctk.CTkButton(
-            ab,
-            text=lang.t("ui_attach_file"),
-            width=100,
-            fg_color=theme.ACCENT,
-            hover_color=theme.ACCENT_DARK,
-            command=self._attach_file,
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Preview", width=80, command=self._preview_attachment).pack(
-            side="left", padx=2
-        )
-        ctk.CTkButton(ab, text=lang.t("ui_open"), width=80, command=self._open_attachment).pack(
-            side="left", padx=2
-        )
-        ctk.CTkButton(
-            ab,
-            text=lang.t("ui_delete"),
-            width=80,
-            fg_color="#c0392b",
-            command=self._delete_attachment,
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text=lang.t("ui_refresh"), width=80, command=self._load_attachments).pack(
-            side="left", padx=2
-        )
+        self.attachments_section.build(self.tabview)
 
         # History tab
         hist_tab = self.tabview.add("History")
@@ -585,238 +553,54 @@ class PatientFilePanel(ctk.CTkFrame):
                 )
                 self.tabview.grid(row=2, column=0, sticky="nsew", padx=theme.PANE_PAD, pady=(0, 8))
                 self.tabview.grid_columnconfigure(0, weight=1)
-        # Treatment plan tab
-        plan_tab = self.tabview.add("Plan tratament")
-        plan_tab.grid_columnconfigure(1, weight=1)
-        fields = [
-            ("diagnosis_code", "Cod diagnostic (ICD)"),
-            ("body_region", "Regiune corporală"),
-            ("side", "Laterality"),
-            ("prescribed_sessions", "Ședințe prescrise"),
-            ("start_date", "Data început"),
-            ("end_date", "Data sfârșit"),
-        ]
-        self.plan_entries = {}
-        r = 0
-        for key, label in fields:
-            ctk.CTkLabel(
-                plan_tab, text=label + ":", font=theme.FONT_SMALL, text_color=theme.MUTED
-            ).grid(row=r, column=0, sticky="w", padx=6, pady=2)
-            if key == "body_region":
-                w = ctk.CTkOptionMenu(
-                    plan_tab,
-                    values=BODY_REGIONS,
-                    width=180,
-                )
-            elif key == "side":
-                w = ctk.CTkOptionMenu(plan_tab, values=SIDES, width=120)
-            else:
-                w = ctk.CTkEntry(plan_tab, width=180)
-            w.grid(row=r, column=1, sticky="w", padx=6, pady=2)
-            self.plan_entries[key] = w
-            r += 1
-        ctk.CTkLabel(
-            plan_tab, text="Obiective:", font=theme.FONT_SMALL, text_color=theme.MUTED
-        ).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
-        self.plan_goals = ctk.CTkTextbox(plan_tab, height=60, font=theme.FONT_BODY)
-        self.plan_goals.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
-        r += 1
-        ctk.CTkLabel(
-            plan_tab, text="Contraindicații:", font=theme.FONT_SMALL, text_color=theme.MUTED
-        ).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
-        self.plan_contra = ctk.CTkTextbox(plan_tab, height=40, font=theme.FONT_BODY)
-        self.plan_contra.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
-        r += 1
-        ctk.CTkLabel(plan_tab, text="Note:", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=r, column=0, sticky="nw", padx=6, pady=2
-        )
-        self.plan_notes = ctk.CTkTextbox(plan_tab, height=40, font=theme.FONT_BODY)
-        self.plan_notes.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
-        r += 1
-        ctk.CTkButton(
-            plan_tab, text="Salvează planul", fg_color=theme.ACCENT, command=self._save_plan
-        ).grid(row=r, column=1, sticky="w", padx=6, pady=6)
+        # Each tab owns its widgets and behaviour in a dedicated section.
+        self.plan_section.build(self.tabview)
+        self.sessions_section.build(self.tabview)
+        self.exercises_section.build(self.tabview)
+        self.outcomes_section.build(self.tabview)
 
-        # load existing
-        self._load_plan()
+    # ---- section delegation (keeps the historical panel API) ----
+    def _edit_outcome(self) -> None:
+        self.outcomes_section.edit()
 
-        # Sessions tab
-        ses_tab = self.tabview.add("Sesiuni")
-        ses_tab.grid_columnconfigure(0, weight=1)
-        ses_tab.grid_rowconfigure(0, weight=1)
-        cols = ("no", "date", "dur", "vas", "status", "modalities", "notes")
-        self.ses_tree = ttk.Treeview(ses_tab, columns=cols, show="headings", selectmode="browse")
-        for c, t, w in (
-            ("no", "Nr.", 40),
-            ("date", "Data", 90),
-            ("dur", "Min", 50),
-            ("vas", "VAS înainte→după", 110),
-            ("status", "Status", 90),
-            ("modalities", "Modalități", 120),
-            ("notes", "Note", 140),
-        ):
-            self.ses_tree.heading(c, text=t)
-            self.ses_tree.column(c, width=w)
-        self.ses_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
-        sx = ttk.Scrollbar(ses_tab, orient="horizontal", command=self.ses_tree.xview)
-        self.ses_tree.configure(xscrollcommand=sx.set)
-        sx.grid(row=1, column=0, sticky="ew")
-        sb = ctk.CTkFrame(ses_tab, fg_color="transparent")
-        sb.grid(row=2, column=0, sticky="ew", pady=4)
-        ctk.CTkButton(
-            sb, text="Adaugă sesiune", width=120, fg_color=theme.ACCENT, command=self._add_session
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(sb, text="Editează", width=90, command=self._edit_session).pack(
-            side="left", padx=2
-        )
-        ctk.CTkButton(
-            sb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_session
-        ).pack(side="left", padx=2)
-        self._load_sessions()
+    def _load_plan(self) -> None:
+        self.plan_section.load()
 
-        # HEP tab
-        hep_tab = self.tabview.add("Exerciții (HEP)")
-        hep_tab.grid_columnconfigure(0, weight=1)
-        hep_tab.grid_rowconfigure(0, weight=1)
-        hcols = ("name", "sets", "reps", "hold", "freq", "assigned", "notes")
-        self.hep_tree = ttk.Treeview(hep_tab, columns=hcols, show="headings", selectmode="browse")
-        for c, t, w in (
-            ("name", "Exercițiu", 160),
-            ("sets", "Serii", 50),
-            ("reps", "Repetări", 70),
-            ("hold", "Menținere(s)", 90),
-            ("freq", "Frecvență", 100),
-            ("assigned", "Data", 90),
-            ("notes", "Note", 140),
-        ):
-            self.hep_tree.heading(c, text=t)
-            self.hep_tree.column(c, width=w)
-        self.hep_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
-        hx = ttk.Scrollbar(hep_tab, orient="horizontal", command=self.hep_tree.xview)
-        self.hep_tree.configure(xscrollcommand=hx.set)
-        hx.grid(row=1, column=0, sticky="ew")
-        hb = ctk.CTkFrame(hep_tab, fg_color="transparent")
-        hb.grid(row=2, column=0, sticky="ew", pady=4)
-        ctk.CTkButton(
-            hb,
-            text="Adaugă exercițiu",
-            width=130,
-            fg_color=theme.ACCENT,
-            command=self._add_exercise,
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(hb, text="Editează", width=90, command=self._edit_exercise).pack(
-            side="left", padx=2
-        )
-        ctk.CTkButton(
-            hb, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_exercise
-        ).pack(side="left", padx=2)
-        self._load_exercises()
+    def _save_plan(self) -> None:
+        self.plan_section.save()
 
-        # Outcomes tab (Tests -> VAS)
-        out_tab = self.tabview.add("Tests")
-        out_tab.grid_columnconfigure(0, weight=1)
-        out_tab.grid_rowconfigure(1, weight=1)
-        ctk.CTkLabel(out_tab, text="VAS", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
-            row=0, column=0, sticky="w", padx=6, pady=(4, 2)
-        )
-        ocols = ("date", "measure", "value", "notes")
-        self.out_tree = ttk.Treeview(out_tab, columns=ocols, show="headings", selectmode="browse")
-        for c, t, w in (
-            ("date", "Data", 90),
-            ("measure", "Măsură", 80),
-            ("value", "Valoare", 70),
-            ("notes", "Note", 160),
-        ):
-            self.out_tree.heading(c, text=t)
-            self.out_tree.column(c, width=w)
-        self.out_tree.grid(row=1, column=0, sticky="nsew", pady=(2, 4))
-        ob = ctk.CTkFrame(out_tab, fg_color="transparent")
-        ob.grid(row=2, column=0, sticky="ew", pady=4)
-        ctk.CTkButton(
-            ob,
-            text="Adaugă măsurătoare",
-            width=150,
-            fg_color=theme.ACCENT,
-            command=self._add_outcome,
-        ).pack(side="left", padx=2)
-        ctk.CTkButton(ob, text="Editează", width=90, command=self._edit_outcome).pack(
-            side="left", padx=2
-        )
-        ctk.CTkButton(
-            ob, text="Șterge", width=80, fg_color="#c0392b", command=self._delete_outcome
-        ).pack(side="left", padx=2)
-        self._load_outcomes()
+    def _load_sessions(self) -> None:
+        self.sessions_section.load()
 
-    def _edit_outcome(self):
-        sel = self.out_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Selectați o măsurătoare.")
-            return
-        oid = int(sel[0])
-        rows = [o for o in get_physio_service().list_outcomes(self.patient_id) if o["id"] == oid]
-        if not rows:
-            return
-        o = rows[0]
-        fields = [
-            ("measure", "Măsură", "choice", ["VAS", "NRS"]),
-            ("value", "Valoare", "text", None),
-            ("date", "Data (DD.MM.YYYY)", "text", None),
-            ("notes", "Note", "text", None),
-        ]
-        values = {k: o.get(k, "") for k, *_ in fields}
-        data = self._show_editor("Editează măsurătoare", fields, values)
-        if not data:
-            return
-        try:
-            data["value"] = float(data["value"]) if str(data["value"]).strip() else 0
-            get_physio_service().update_outcome(oid, **data)
-            self._load_outcomes()
-        except Exception as e:
-            report_error(str(e))
+    def _add_session(self) -> None:
+        self.sessions_section.add()
 
-    def _load_plan(self):
-        try:
-            plan = get_physio_service().get_plan(self.patient_id)
-            if not plan:
-                return
-            for key, w in getattr(self, "plan_entries", {}).items():
-                val = plan.get(key)
-                if val is None:
-                    val = ""
-                if isinstance(w, ctk.CTkOptionMenu):
-                    w.set(str(val))
-                else:
-                    w.delete(0, "end")
-                    w.insert(0, str(val))
-            self.plan_goals.delete("1.0", "end")
-            self.plan_goals.insert("1.0", plan.get("goals", "") or "")
-            self.plan_contra.delete("1.0", "end")
-            self.plan_contra.insert("1.0", plan.get("contraindications", "") or "")
-            self.plan_notes.delete("1.0", "end")
-            self.plan_notes.insert("1.0", plan.get("notes", "") or "")
-        except Exception:
-            pass
+    def _delete_session(self) -> None:
+        self.sessions_section.delete()
 
-    def _save_plan(self):
-        try:
-            fields = {}
-            for key, w in getattr(self, "plan_entries", {}).items():
-                if isinstance(w, ctk.CTkOptionMenu):
-                    fields[key] = w.get()
-                else:
-                    fields[key] = w.get().strip()
-            fields["goals"] = self.plan_goals.get("1.0", "end-1c")
-            fields["contraindications"] = self.plan_contra.get("1.0", "end-1c")
-            fields["notes"] = self.plan_notes.get("1.0", "end-1c")
-            # prescribed_sessions int
-            try:
-                fields["prescribed_sessions"] = int(fields.get("prescribed_sessions") or 0)
-            except ValueError:
-                fields["prescribed_sessions"] = 0
-            get_physio_service().upsert_plan(self.patient_id, **fields)
-            messagebox.showinfo(lang.t("app_name"), "Plan salvat.")
-        except Exception as e:
-            report_error(str(e))
+    def _edit_session(self) -> None:
+        self.sessions_section.edit()
+
+    def _load_exercises(self) -> None:
+        self.exercises_section.load()
+
+    def _add_exercise(self) -> None:
+        self.exercises_section.add()
+
+    def _delete_exercise(self) -> None:
+        self.exercises_section.delete()
+
+    def _edit_exercise(self) -> None:
+        self.exercises_section.edit()
+
+    def _load_outcomes(self) -> None:
+        self.outcomes_section.load()
+
+    def _add_outcome(self) -> None:
+        self.outcomes_section.add()
+
+    def _delete_outcome(self) -> None:
+        self.outcomes_section.delete()
 
     def _show_editor(self, title, fields, values):
         """Small modal form. Returns a dict of the entered values, or None."""
@@ -861,236 +645,6 @@ class PatientFilePanel(ctk.CTkFrame):
         )
         self.wait_window(dlg)
         return result["data"]
-
-    def _load_sessions(self):
-        try:
-            for row in self.ses_tree.get_children():
-                self.ses_tree.delete(row)
-            for s in get_physio_service().list_sessions(self.patient_id):
-                vas = "{}→{}".format(s.get("pain_before", 0), s.get("pain_after", 0))
-                self.ses_tree.insert(
-                    "",
-                    "end",
-                    iid=str(s["id"]),
-                    values=(
-                        s.get("session_no", ""),
-                        s.get("date", ""),
-                        s.get("duration_min", ""),
-                        vas,
-                        s.get("status", ""),
-                        s.get("modalities", ""),
-                        s.get("notes", ""),
-                    ),
-                )
-        except Exception:
-            pass
-
-    def _add_session(self):
-        try:
-            if getattr(self, "patient_id", None) is None:
-                messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
-                return
-            from dialogs.input_dialog import ask_string
-
-            date = ask_string(self, "Sesiune nouă", "Data (DD.MM.YYYY):")
-            if not date:
-                return
-            get_physio_service().add_session(self.patient_id, date=date, status="done")
-            self._load_sessions()
-            messagebox.showinfo(lang.t("app_name"), "Sesiune adăugată.")
-        except Exception as e:
-            report_error(str(e))
-
-    def _delete_session(self):
-        sel = self.ses_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Selectați o sesiune.")
-            return
-        if not messagebox.askyesno(lang.t("app_name"), "Ștergeți sesiunea?"):
-            return
-        try:
-            get_physio_service().delete_session(int(sel[0]))
-            self._load_sessions()
-        except Exception as e:
-            report_error(str(e))
-
-    def _edit_session(self):
-        sel = self.ses_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Selectați o sesiune.")
-            return
-        sid = int(sel[0])
-        rows = [s for s in get_physio_service().list_sessions(self.patient_id) if s["id"] == sid]
-        if not rows:
-            return
-        s = rows[0]
-        fields = [
-            ("session_no", "Nr. sesiune", "text", None),
-            ("date", "Data (DD.MM.YYYY)", "text", None),
-            ("duration_min", "Durată (min)", "text", None),
-            ("pain_before", "VAS înainte", "text", None),
-            ("pain_after", "VAS după", "text", None),
-            ("status", "Status", "choice", SESSION_STATUSES),
-            ("modalities", "Modalități", "text", None),
-            ("exercises", "Exerciții", "text", None),
-            ("notes", "Note", "text", None),
-        ]
-        values = {k: s.get(k, "") for k, *_ in fields}
-        data = self._show_editor("Editează sesiune", fields, values)
-        if not data:
-            return
-        try:
-            data["session_no"] = int(data["session_no"]) if str(data["session_no"]).strip() else 1
-            data["duration_min"] = (
-                int(data["duration_min"]) if str(data["duration_min"]).strip() else 30
-            )
-            data["pain_before"] = (
-                float(data["pain_before"]) if str(data["pain_before"]).strip() else 0
-            )
-            data["pain_after"] = float(data["pain_after"]) if str(data["pain_after"]).strip() else 0
-            get_physio_service().update_session(sid, **data)
-            self._load_sessions()
-        except Exception as e:
-            report_error(str(e))
-
-    def _load_exercises(self):
-        try:
-            for row in self.hep_tree.get_children():
-                self.hep_tree.delete(row)
-            for e in get_physio_service().list_exercises(self.patient_id):
-                self.hep_tree.insert(
-                    "",
-                    "end",
-                    iid=str(e["id"]),
-                    values=(
-                        e.get("name", ""),
-                        e.get("sets", ""),
-                        e.get("reps", ""),
-                        e.get("hold_sec", ""),
-                        e.get("frequency", ""),
-                        e.get("assigned_date", ""),
-                        e.get("notes", ""),
-                    ),
-                )
-        except Exception:
-            pass
-
-    def _add_exercise(self):
-        try:
-            if getattr(self, "patient_id", None) is None:
-                messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
-                return
-            from dialogs.input_dialog import ask_string
-
-            name = ask_string(self, "Exercițiu nou", "Nume exercițiu:")
-            if not name:
-                return
-            get_physio_service().add_exercise(self.patient_id, name=name)
-            self._load_exercises()
-        except Exception as e:
-            report_error(str(e))
-
-    def _delete_exercise(self):
-        sel = self.hep_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Selectați un exercițiu.")
-            return
-        if not messagebox.askyesno(lang.t("app_name"), "Ștergeți exercițiul?"):
-            return
-        try:
-            get_physio_service().delete_exercise(int(sel[0]))
-            self._load_exercises()
-        except Exception as e:
-            report_error(str(e))
-
-    def _edit_exercise(self):
-        sel = self.hep_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Selectați un exercițiu.")
-            return
-        eid = int(sel[0])
-        rows = [e for e in get_physio_service().list_exercises(self.patient_id) if e["id"] == eid]
-        if not rows:
-            return
-        e = rows[0]
-        fields = [
-            ("name", "Nume exercițiu", "text", None),
-            ("sets", "Serii", "text", None),
-            ("reps", "Repetări", "text", None),
-            ("hold_sec", "Menținere (s)", "text", None),
-            ("frequency", "Frecvență", "text", None),
-            ("assigned_date", "Data atribuire", "text", None),
-            ("notes", "Note", "text", None),
-        ]
-        values = {k: e.get(k, "") for k, *_ in fields}
-        data = self._show_editor("Editează exercițiu", fields, values)
-        if not data:
-            return
-        try:
-            data["sets"] = int(data["sets"]) if str(data["sets"]).strip() else 3
-            data["reps"] = int(data["reps"]) if str(data["reps"]).strip() else 10
-            data["hold_sec"] = int(data["hold_sec"]) if str(data["hold_sec"]).strip() else 0
-            get_physio_service().update_exercise(eid, **data)
-            self._load_exercises()
-        except Exception as e:
-            report_error(str(e))
-
-    def _load_outcomes(self):
-        try:
-            for row in self.out_tree.get_children():
-                self.out_tree.delete(row)
-            for o in get_physio_service().list_outcomes(self.patient_id):
-                self.out_tree.insert(
-                    "",
-                    "end",
-                    iid=str(o["id"]),
-                    values=(
-                        o.get("date", ""),
-                        o.get("measure", ""),
-                        o.get("value", ""),
-                        o.get("notes", ""),
-                    ),
-                )
-        except Exception:
-            pass
-
-    def _add_outcome(self):
-        try:
-            if getattr(self, "patient_id", None) is None:
-                messagebox.showinfo(lang.t("app_name"), "Salvați mai întâi pacientul.")
-                return
-            from dialogs.input_dialog import ask_string
-
-            val = ask_string(self, "Măsurătoare nouă", "Valoare VAS (0-10):")
-            if val is None:
-                return
-            try:
-                v = float(val)
-            except ValueError:
-                report_error("Valoare invalidă.")
-                return
-            if v < 0 or v > 10:
-                report_error("VAS trebuie 0-10.")
-                return
-            get_physio_service().add_outcome(
-                self.patient_id, "VAS", v, datetime.datetime.now().strftime("%d.%m.%Y")
-            )
-            self._load_outcomes()
-        except Exception as e:
-            report_error(str(e))
-
-    def _delete_outcome(self):
-        sel = self.out_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), "Selectați o măsurătoare.")
-            return
-        if not messagebox.askyesno(lang.t("app_name"), "Ștergeți măsurătoarea?"):
-            return
-        try:
-            get_physio_service().delete_outcome(int(sel[0]))
-            self._load_outcomes()
-        except Exception as e:
-            report_error(str(e))
 
     def _toolbar_action(self, field, action):
         txt = getattr(self, field + "_text")
@@ -1492,131 +1046,23 @@ class PatientFilePanel(ctk.CTkFrame):
         self._schedule_autosave()
 
     # ---- attachments ----
-    def _load_attachments(self):
-        try:
-            for r in self.attach_tree.get_children():
-                self.attach_tree.delete(r)
-        except Exception:
-            log.debug_exc(logger)
-        try:
-            for a in get_attachment_service().list(self.patient_id):
-                size = a.get("size", 0)
-                size_str = (
-                    (str(round(size / 1024, 1)) + " KB") if size >= 1024 else (str(size) + " B")
-                )
-                self.attach_tree.insert(
-                    "",
-                    "end",
-                    iid=str(a["id"]),
-                    values=(a.get("filename", ""), size_str, a.get("added_at", "")),
-                )
-        except Exception:
-            log.debug_exc(logger)
+    def _load_attachments(self) -> None:
+        self.attachments_section.load()
 
-    def _attach_file(self):
-        path = filedialog.askopenfilename(title="Attach file", filetypes=[("All files", "*.*")])
-        if not path:
-            return
-        try:
-            get_attachment_service().add(self.patient_id, path)
-            self._load_attachments()
-            messagebox.showinfo(lang.t("app_name"), lang.t("ui_file_attached"))
-        except Exception as e:
-            report_error(str(e))
+    def _attach_file(self) -> None:
+        self.attachments_section.attach_file()
 
-    def _open_attachment(self):
-        sel = self.attach_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
-            return
-        att = get_attachment_service().get(int(sel[0]))
-        if not att:
-            return
-        path = att.get("stored_path", "")
-        if not path or not os.path.exists(path):
-            report_error(lang.t("ui_file_not_found"))
-            return
-        try:
-            if os.name == "nt":
-                os.startfile(path)
-            else:
-                import subprocess
+    def _open_attachment(self) -> None:
+        self.attachments_section.open_attachment()
 
-                subprocess.Popen(["xdg-open", path])
-        except Exception as e:
-            report_error(str(e))
+    def _preview_attachment(self) -> None:
+        self.attachments_section.preview()
 
-    def _preview_attachment(self):
-        sel = self.attach_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
-            return
-        att = get_attachment_service().get(int(sel[0]))
-        if not att:
-            return
-        path = att.get("stored_path", "")
-        if not path or not os.path.exists(path):
-            report_error(lang.t("ui_file_not_found"))
-            return
-        ext = os.path.splitext(path)[1].lower()
-        image_exts = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff"}
-        try:
-            if ext in image_exts:
-                from PIL import Image
+    def _show_preview_image(self, img, title="Preview") -> None:
+        self.attachments_section.show_preview_image(img, title)
 
-                img = Image.open(path)
-                # scale to fit
-                max_w, max_h = 900, 700
-                img.thumbnail((max_w, max_h))
-                self._show_preview_image(img, title=os.path.basename(path))
-            elif ext == ".pdf":
-                import fitz
-
-                doc = fitz.open(path)
-                if doc.page_count == 0:
-                    messagebox.showinfo(lang.t("app_name"), lang.t("ui_empty_pdf"))
-                    return
-                page = doc[0]
-                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-                from PIL import Image
-
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                img.thumbnail((900, 700))
-                self._show_preview_image(
-                    img, title=os.path.basename(path) + " (page 1/%d)" % doc.page_count
-                )
-                doc.close()
-            else:
-                # fallback to OS viewer
-                self._open_attachment()
-        except Exception as e:
-            report_error(str(e))
-
-    def _show_preview_image(self, img, title="Preview"):
-        from PIL import ImageTk
-
-        win = ctk.CTkToplevel(self)
-        win.title(title)
-        win.geometry("920x740")
-        lbl = ctk.CTkLabel(win, text="")
-        lbl.pack(expand=True, fill="both", padx=10, pady=10)
-        tk_img = ImageTk.PhotoImage(img)
-        lbl.configure(image=tk_img)
-        lbl.image = tk_img  # keep ref
-        ctk.CTkButton(win, text="Close", command=win.destroy).pack(pady=8)
-
-    def _delete_attachment(self):
-        sel = self.attach_tree.selection()
-        if not sel:
-            messagebox.showinfo(lang.t("app_name"), lang.t("ui_select_attachment"))
-            return
-        if not messagebox.askyesno(lang.t("app_name"), "Delete this attachment?"):
-            return
-        try:
-            get_attachment_service().delete(int(sel[0]))
-            self._load_attachments()
-        except Exception as e:
-            report_error(str(e))
+    def _delete_attachment(self) -> None:
+        self.attachments_section.delete()
 
     # ---- history ----
     def _load_history(self):

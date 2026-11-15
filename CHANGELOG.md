@@ -21,14 +21,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Backup now uses SQLite backup API + WAL checkpoint for consistency.
 - Backup pruning only removes app-generated `patients_*.db` (never `pre_*` safety copies).
 - Startup self-test (DB integrity, schema version, settings, assets, backup folder, disk).
+- Performance indexes for patient search/sort, sessions, appointments, outcomes, exercises and history (migration v2).
+- Service layer for physiotherapy data, appointments, attachments, history, backups and database lifecycle; UI now depends only on services.
+- Shared pytest fixtures (`tests/conftest.py`) and architecture/allowlist/backup tests.
+- CI gates: 60% coverage (`pytest-cov`), `mypy` on `db.py` + `services/`, architecture test preventing UI → `db` imports.
+- `error_ui.report_error()` as the single, non-raising error-dialog entry point.
 
 ### Removed
 - Unused `app/` package (empty aspirational structure, zero imports).
 - Unused `localization/` package and JSON catalogs (the app uses `lang.py`).
 - Duplicate `services/migration_manager.py` (superseded by `data.migrations`).
 - Duplicate `services/background_tasks.py` re-export shim (use `workers.BackgroundTask`).
+- Runtime data accidentally tracked in git (`.coverage`, `patients.db`, `backup/*.db`).
 
 ### Fixed
+- Pre-operation and pre-migration backups silently failed (`datetime.datetime.now()` on a `from datetime import datetime` import).
 - `utils._exists` missing function definition (caused AttributeError in delayed callbacks).
 - `patient_panel._now` NameError when adding VAS.
 - Exercise NOT NULL constraint failure when patient unsaved.

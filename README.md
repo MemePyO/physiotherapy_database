@@ -49,10 +49,11 @@ physiotherapy_database/
 ├── main.py              # Application entry point, views, navigation
 ├── ui/                  # UI components
 │   └── patient_panel/   # Embedded patient file panel (package)
-├── services/            # Business logic (patient, export, validation)
-├── data/                # Data access and migrations
+├── services/            # Business logic (patients, physio, backups, exports)
+├── data/                # Data access and schema migrations
 ├── dialogs/             # Dialog windows (package)
 ├── db.py                # SQLite schema, CRUD, backup
+├── error_ui.py          # Single error-dialog entry point
 ├── lang.py              # Bilingual string table (EN/RO)
 ├── theme.py             # Theme tokens (classic/medidash, light/dark)
 ├── utils.py             # Helpers (normalization, validation, PDF, etc.)
@@ -64,7 +65,7 @@ physiotherapy_database/
 ├── assets/              # Images, icons
 ├── backup/              # Database backups (auto + manual)
 ├── attachments/         # Patient file attachments
-├── tests/               # pytest test suite (71 tests)
+├── tests/               # pytest suite (120 tests, 60%+ coverage)
 └── dist/                # Built executable (PyInstaller)
 ```
 
@@ -82,6 +83,14 @@ SQLite with WAL mode. Tables:
 - `attachments` — file attachments metadata
 
 Schema version tracked via `PRAGMA user_version`. WAL checkpoint runs before every backup. Backups use SQLite's backup API for consistency.
+
+### Architecture boundaries
+
+- UI (`main.py`, `ui/`, `dialogs/`) talks to `services/`, never to `db.py`.
+- `services/` owns business operations and is the only layer that imports `db`.
+- Schema changes live in `data/migrations/` and are applied by `db.init_db()`.
+- `tests/test_architecture.py` enforces the UI → services dependency rule.
+- Dynamic `UPDATE` statements only interpolate columns from explicit allowlists in `db.py`; values are always bound parameters.
 
 ## Build Instructions
 

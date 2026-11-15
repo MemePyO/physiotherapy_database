@@ -21,7 +21,7 @@ _RECENT_LIMIT = 50
 
 # The most recent warnings/errors, newest last.  Guarded by _recent_lock
 # because Tk callbacks and background threads can log at the same time.
-_recent = collections.deque(maxlen=_RECENT_LIMIT)
+_recent: collections.deque[dict] = collections.deque(maxlen=_RECENT_LIMIT)
 _recent_lock = threading.Lock()
 
 

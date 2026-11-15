@@ -26,6 +26,14 @@ patients.db
 *.log
 crash_*.log
 
+# Test / coverage / type-check artifacts
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # Backups
 backup/*.db
 backup/*.zip

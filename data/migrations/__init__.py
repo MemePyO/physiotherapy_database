@@ -1,10 +1,11 @@
 """Migration framework for database schema versioning."""
 
 import logging
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
-MIGRATIONS = {}  # version -> (description, callable)
+MIGRATIONS: dict[int, tuple[str, Callable[[object], None]]] = {}  # version -> (desc, fn)
 
 
 def register(version, description, fn):

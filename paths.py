@@ -7,6 +7,7 @@ app works even when installed in a read-only location such as Program Files.
 
 import os
 import sys
+from typing import IO
 
 
 def _is_frozen():
@@ -68,16 +69,17 @@ class SingleInstanceManager:
     def __init__(self, name: str = "PhysioDatabase"):
         self.name = name
         self.lock_path = os.path.join(app_data_dir(), name + ".lock")
-        self._handle = None
+        self._handle: IO[str] | None = None
         self.acquired = False
 
     def acquire(self) -> bool:
         try:
             # Try exclusive create
             fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            self._handle = os.fdopen(fd, "w")
-            self._handle.write(str(os.getpid()))
-            self._handle.flush()
+            handle = os.fdopen(fd, "w")
+            self._handle = handle
+            handle.write(str(os.getpid()))
+            handle.flush()
             self.acquired = True
             return True
         except FileExistsError:

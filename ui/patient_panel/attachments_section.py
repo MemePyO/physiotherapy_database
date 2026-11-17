@@ -156,10 +156,10 @@ class AttachmentsSection(TabSection):
                 pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
                 from PIL import Image
 
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                img.thumbnail((900, 700))
+                preview = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                preview.thumbnail((900, 700))
                 self.show_preview_image(
-                    img, title=os.path.basename(path) + " (page 1/%d)" % doc.page_count
+                    preview, title=os.path.basename(path) + " (page 1/%d)" % doc.page_count
                 )
                 doc.close()
             else:

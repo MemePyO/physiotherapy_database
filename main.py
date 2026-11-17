@@ -2,6 +2,7 @@
 
 import csv
 import datetime
+import functools
 import glob
 import json
 import os
@@ -526,12 +527,11 @@ class App(ctk.CTk):
         view_menu.add_command(label="Toggle theme", command=self._toggle_theme)
         lang_submenu = tk.Menu(view_menu, tearoff=0)
         for code, label in LANG_LABELS.items():
-            lang_submenu.add_command(
-                label=label,
-                command=lambda c=code: self._on_language_change(
-                    c == "ro" and "Română" or "English"
-                ),
-            )
+
+            def _pick_language(c: str = code) -> None:
+                self._on_language_change("Română" if c == "ro" else "English")
+
+            lang_submenu.add_command(label=label, command=_pick_language)
         view_menu.add_cascade(label="Language", menu=lang_submenu)
         view_menu.add_separator()
         view_menu.add_command(label="Diagnostics", command=lambda: self._show_view("diagnostics"))
@@ -1058,10 +1058,7 @@ class App(ctk.CTk):
             search_frame,
             values=["Name", "Everything"],
             width=95,
-            command=lambda v: (
-                setattr(self, "search_scope", v.lower()),
-                self.refresh_patients_db(),
-            ),
+            command=self._on_search_scope_change,
         )
         saved_scope = getattr(self, "_search_scope_text", "everything")
         self.search_scope_menu.set("Name" if saved_scope == "name" else "Everything")
@@ -1682,7 +1679,7 @@ class App(ctk.CTk):
             cal = _cal.Calendar(firstweekday=0)
             weeks = cal.monthdayscalendar(self._cal_year, self._cal_month)
             apps = get_appointment_service().list()
-            by_day = {}
+            by_day: dict[int, list[dict[str, object]]] = {}
             for a in apps:
                 try:
                     d = (
@@ -1845,7 +1842,7 @@ class App(ctk.CTk):
                     hh, mm = int(parts[0]), int(parts[1])
             except ValueError:
                 log.debug_exc(logger)
-            if hh is None or not (0 <= hh < 24 and 0 <= mm < 60):
+            if hh is None or mm is None or not (0 <= hh < 24 and 0 <= mm < 60):
                 self._cal_err.configure(text=lang.t("ui_invalid_time"))
                 return
             try:
@@ -2483,11 +2480,16 @@ class App(ctk.CTk):
 
     def _clear_search(self):
         try:
-            if getattr(self, "search_entry", None) is not None and self.search_entry.winfo_exists():
-                self.search_entry.delete(0, "end")
+            entry = getattr(self, "search_entry", None)
+            if entry is not None and entry.winfo_exists():
+                entry.delete(0, "end")
         except Exception:
             log.debug_exc(logger)
         self._search_text = ""
+        self.refresh_patients_db()
+
+    def _on_search_scope_change(self, value: str) -> None:
+        self.search_scope = value.lower()
         self.refresh_patients_db()
 
     def _set_ui_scale(self, scale):
@@ -2705,7 +2707,7 @@ class App(ctk.CTk):
         menu = tk.Menu(self, tearoff=0)
         for key, label in self.SORT_LABELS:
             mark = " \u2713" if self.sort_by == key else ""
-            menu.add_command(label=label + mark, command=lambda k=key: self._sort_by(k))
+            menu.add_command(label=label + mark, command=functools.partial(self._sort_by, key))
         menu.add_separator()
         menu.add_command(
             label="Ascending" + (" \u2713" if self.sort_dir == "asc" else ""),
@@ -3233,7 +3235,7 @@ def main():
             pass
         return
 
-    app_holder = {"app": None}
+    app_holder: dict[str, App | None] = {"app": None}
 
     def _focus_app():
         app = app_holder.get("app")

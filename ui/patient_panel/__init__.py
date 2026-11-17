@@ -105,6 +105,7 @@ class PatientFilePanel(ctk.CTkFrame):
         self._dirty = False
         self._is_new = bool(new) or (patient_id is None)
         self._rebuilding = False
+        self._fmt_job: str | None = None
         self.header_frame = None
 
         self.grid_columnconfigure(0, weight=1)
@@ -604,7 +605,7 @@ class PatientFilePanel(ctk.CTkFrame):
 
     def _show_editor(self, title, fields, values):
         """Small modal form. Returns a dict of the entered values, or None."""
-        result = {"data": None}
+        result: dict[str, dict[str, str] | None] = {"data": None}
         dlg = ctk.CTkToplevel(self)
         dlg.title(title)
         dlg.transient(self)
@@ -993,9 +994,12 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception:
                 log.debug_exc(logger)
         try:
-            self._fmt_job = self.after(
-                250, lambda t=txt: (utils._safe_format(t), setattr(self, "_fmt_job", None))
-            )
+
+            def _format_later(t: str = txt) -> None:
+                utils._safe_format(t)
+                self._fmt_job = None
+
+            self._fmt_job = self.after(250, _format_later)
         except Exception:
             utils._apply_inline_formatting(txt)
 

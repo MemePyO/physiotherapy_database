@@ -132,11 +132,12 @@ class OutcomesSection(TabSection):
             return
         o = rows[0]
         values = {k: o.get(k, "") for k, *_ in _EDITOR_FIELDS}
-        data = self.show_editor("Editează măsurătoare", _EDITOR_FIELDS, values)
-        if not data:
+        raw = self.show_editor("Editează măsurătoare", _EDITOR_FIELDS, values)
+        if not raw:
             return
+        data: dict[str, object] = dict(raw)
         try:
-            data["value"] = float(data["value"]) if str(data["value"]).strip() else 0
+            data["value"] = float(str(data["value"])) if str(data["value"]).strip() else 0
             get_physio_service().update_outcome(oid, **data)
             self.load()
         except Exception as e:

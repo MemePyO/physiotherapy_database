@@ -11,24 +11,24 @@ import tkinter.font as _tkfont
 # ---- font family selection -------------------------------------------------
 
 
-def _has_font(name):
+def _has_font(name: str) -> bool:
     try:
         return name in _tkfont.families()
     except Exception:
         return False
 
 
-def _inter():
+def _inter() -> str:
     return (
         "Inter" if _has_font("Inter") else ("Segoe UI" if _has_font("Segoe UI") else "sans-serif")
     )
 
 
-def _mdl2():
+def _mdl2() -> str | None:
     return "Segoe MDL2 Assets" if _has_font("Segoe MDL2 Assets") else None
 
 
-def _emoji():
+def _emoji() -> str:
     return "Segoe UI Emoji" if _has_font("Segoe UI Emoji") else "Segoe UI"
 
 
@@ -209,18 +209,69 @@ PALETTES = {
     },
 }
 
+# ---- active palette attributes --------------------------------------------
+# ``_apply`` installs these names dynamically via ``globals().update``.  The
+# declarations below give static type checkers the shape of that dynamic
+# palette without changing runtime behaviour.
+
+BG: str
+PANEL: str
+BORDER: str
+TEXT: str
+MUTED: str
+CARD_META: str
+ACCENT: str
+ACCENT_DARK: str
+ACCENT_LIGHT: str
+SELECTED: str
+DANGER: str
+SEC_DIAG: str
+SEC_OBJ: str
+SEC_EVAL: str
+SEC_OBS: str
+SIDEBAR_BG: str
+SIDEBAR_ACTIVE: str
+FONT_TITLE: tuple[str, int, str]
+FONT_SUB: tuple[str, int]
+FONT_BODY: tuple[str, int]
+FONT_BOLD: tuple[str, int, str]
+FONT_SMALL: tuple[str, int]
+FONT_SECTION: tuple[str, int, str]
+ICON_FONT: tuple[str, int]
+ICON_FONT_SMALL: tuple[str, int]
+SIDEBAR_W: int
+AVATAR_SIZE: int
+CARD_RADIUS: int
+PANEL_RADIUS: int
+PADDING: int
+RAIL_W: int
+TOPBAR_H: int
+LIST_W: int
+PANE_PAD: int
+BTN_RADIUS: int
+TOPBAR_BG: str
+RAIL_BG: str
+INPUT_BG: str
+HEAD_DIAG: str
+HEAD_OBJ: str
+HEAD_EVAL: str
+HEAD_OBS: str
+HEAD_TEXT_DARK: bool
+RIGHT_BG: str
+ICON_STYLE: str
+
 _base = "medidash"
 _appearance = "Light"
 _active = "medidash"
 
 
-def _resolve_name():
+def _resolve_name() -> str:
     if _base == "medidash" and _appearance == "Dark" and "medidash-dark" in PALETTES:
         return "medidash-dark"
     return _base
 
 
-def set_theme(name):
+def set_theme(name: str) -> None:
     global _base, _active
     if name not in ("classic", "medidash"):
         name = "medidash"
@@ -229,30 +280,30 @@ def set_theme(name):
     _apply(PALETTES[_active])
 
 
-def set_appearance(mode):
+def set_appearance(mode: str) -> None:
     global _appearance, _active
     _appearance = "Dark" if str(mode).lower().startswith("d") else "Light"
     _active = _resolve_name()
     _apply(PALETTES[_active])
 
 
-def base():
+def base() -> str:
     return _base
 
 
-def appearance():
+def appearance() -> str:
     return _appearance
 
 
-def active():
+def active() -> str:
     return _active
 
 
-def layout():
+def layout() -> str:
     return "stacked" if _active.startswith("medidash") else "tabs"
 
 
-def _apply(palette):
+def _apply(palette: dict[str, object]) -> None:
     globals().update(palette)
 
 

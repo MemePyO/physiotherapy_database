@@ -130,13 +130,14 @@ class ExercisesSection(TabSection):
             return
         e = rows[0]
         values = {k: e.get(k, "") for k, *_ in _EDITOR_FIELDS}
-        data = self.show_editor("Editează exercițiu", _EDITOR_FIELDS, values)
-        if not data:
+        raw = self.show_editor("Editează exercițiu", _EDITOR_FIELDS, values)
+        if not raw:
             return
+        data: dict[str, object] = dict(raw)
         try:
-            data["sets"] = int(data["sets"]) if str(data["sets"]).strip() else 3
-            data["reps"] = int(data["reps"]) if str(data["reps"]).strip() else 10
-            data["hold_sec"] = int(data["hold_sec"]) if str(data["hold_sec"]).strip() else 0
+            data["sets"] = int(str(data["sets"])) if str(data["sets"]).strip() else 3
+            data["reps"] = int(str(data["reps"])) if str(data["reps"]).strip() else 10
+            data["hold_sec"] = int(str(data["hold_sec"])) if str(data["hold_sec"]).strip() else 0
             get_physio_service().update_exercise(eid, **data)
             self.load()
         except Exception as e:

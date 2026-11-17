@@ -5,15 +5,24 @@ window instead of a separate top-level window, so it can never be left behind
 on the desktop when the pointer moves away quickly.
 """
 
+import tkinter as tk
+import typing as t
+
 import customtkinter as ctk
 
 import theme
 
-# Currently visible tooltip: {"label": widget | None, "job": (window, id) | None}
-_state = {"label": None, "job": None}
+
+class _TooltipState(t.TypedDict):
+    label: ctk.CTkLabel | None
+    job: tuple[tk.Misc, str] | None
 
 
-def hide_tooltip():
+# Currently visible tooltip and its auto-hide timer.
+_state: _TooltipState = {"label": None, "job": None}
+
+
+def hide_tooltip() -> None:
     """Remove the visible tooltip and cancel its auto-hide timer, if any."""
     job = _state.get("job")
     if job is not None:
@@ -34,7 +43,7 @@ def hide_tooltip():
         _state["label"] = None
 
 
-def attach_tooltip(widget, text, delay=0):
+def attach_tooltip(widget: tk.Misc, text: str, delay: int = 0) -> None:
     """Show `text` in a small tooltip while the pointer hovers `widget`."""
 
     def _show(event=None):

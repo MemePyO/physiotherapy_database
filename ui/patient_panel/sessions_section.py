@@ -130,18 +130,23 @@ class SessionsSection(TabSection):
             return
         s = rows[0]
         values = {k: s.get(k, "") for k, *_ in _EDITOR_FIELDS}
-        data = self.show_editor("Editează sesiune", _EDITOR_FIELDS, values)
-        if not data:
+        raw = self.show_editor("Editează sesiune", _EDITOR_FIELDS, values)
+        if not raw:
             return
+        data: dict[str, object] = dict(raw)
         try:
-            data["session_no"] = int(data["session_no"]) if str(data["session_no"]).strip() else 1
+            data["session_no"] = (
+                int(str(data["session_no"])) if str(data["session_no"]).strip() else 1
+            )
             data["duration_min"] = (
-                int(data["duration_min"]) if str(data["duration_min"]).strip() else 30
+                int(str(data["duration_min"])) if str(data["duration_min"]).strip() else 30
             )
             data["pain_before"] = (
-                float(data["pain_before"]) if str(data["pain_before"]).strip() else 0
+                float(str(data["pain_before"])) if str(data["pain_before"]).strip() else 0
             )
-            data["pain_after"] = float(data["pain_after"]) if str(data["pain_after"]).strip() else 0
+            data["pain_after"] = (
+                float(str(data["pain_after"])) if str(data["pain_after"]).strip() else 0
+            )
             get_physio_service().update_session(sid, **data)
             self.load()
         except Exception as e:

@@ -12,43 +12,30 @@ def _panel(patient_app):
     return app.patient_panels[pid], pid
 
 
-# --- structure -------------------------------------------------------------
-
-
-def test_panel_owns_one_controller_per_section(patient_app):
+def test_panel_section_controllers_and_shared_patient(patient_app):
     from ui.patient_panel.attachments_section import AttachmentsSection
     from ui.patient_panel.exercises_section import ExercisesSection
     from ui.patient_panel.outcomes_section import OutcomesSection
     from ui.patient_panel.plan_section import PlanSection
     from ui.patient_panel.sessions_section import SessionsSection
 
-    panel, _pid = _panel(patient_app)
-    assert isinstance(panel.plan_section, PlanSection)
-    assert isinstance(panel.sessions_section, SessionsSection)
-    assert isinstance(panel.exercises_section, ExercisesSection)
-    assert isinstance(panel.outcomes_section, OutcomesSection)
-    assert isinstance(panel.attachments_section, AttachmentsSection)
+    panel, pid = _panel(patient_app)
+    expected = (
+        (panel.plan_section, PlanSection),
+        (panel.sessions_section, SessionsSection),
+        (panel.exercises_section, ExercisesSection),
+        (panel.outcomes_section, OutcomesSection),
+        (panel.attachments_section, AttachmentsSection),
+    )
+    for section, kind in expected:
+        assert isinstance(section, kind)
+        assert section.patient_id == pid
     # historical widget attributes survive the extraction for compatibility
     for attr in ("plan_entries", "ses_tree", "hep_tree", "out_tree", "attach_tree"):
         assert hasattr(panel, attr)
 
 
-def test_sections_share_the_panel_patient_id(patient_app):
-    panel, pid = _panel(patient_app)
-    for section in (
-        panel.plan_section,
-        panel.sessions_section,
-        panel.exercises_section,
-        panel.outcomes_section,
-        panel.attachments_section,
-    ):
-        assert section.patient_id == pid
-
-
-# --- plan ------------------------------------------------------------------
-
-
-def test_plan_save_and_reload_roundtrip(patient_app):
+def test_plan_section_roundtrip_and_invalid_count(patient_app):
     panel, pid = _panel(patient_app)
     panel.plan_entries["diagnosis_code"].delete(0, "end")
     panel.plan_entries["diagnosis_code"].insert(0, "M54.5")
@@ -69,19 +56,14 @@ def test_plan_save_and_reload_roundtrip(patient_app):
     panel.plan_section.load()
     assert panel.plan_entries["diagnosis_code"].get() == "M54.5"
 
-
-def test_plan_invalid_session_count_defaults_to_zero(patient_app):
-    panel, pid = _panel(patient_app)
+    # invalid session counts fall back to zero instead of failing the save
     panel.plan_entries["prescribed_sessions"].delete(0, "end")
     panel.plan_entries["prescribed_sessions"].insert(0, "not-a-number")
     panel._save_plan()
     assert get_physio_service().get_plan(pid)["prescribed_sessions"] == 0
 
 
-# --- sessions --------------------------------------------------------------
-
-
-def test_session_add_edit_delete_flow(patient_app, monkeypatch):
+def test_sessions_section_flow_and_unsaved_warning(patient_app, monkeypatch):
     from dialogs import input_dialog
 
     panel, pid = _panel(patient_app)
@@ -118,22 +100,18 @@ def test_session_add_edit_delete_flow(patient_app, monkeypatch):
     panel._delete_session()
     assert get_physio_service().list_sessions(pid) == []
 
-
-def test_session_add_without_patient_warns(patient_app, monkeypatch):
-    app, _pid = patient_app
+    # an unsaved panel cannot create domain records
+    app = patient_app[0]
     app._open_patient_by_id(None)
     app.update()
-    panel = app.patient_panels[None]
+    new_panel = app.patient_panels[None]
     called = []
-    monkeypatch.setattr(panel.sessions_section, "info", lambda msg: called.append(msg))
-    panel._add_session()
+    monkeypatch.setattr(new_panel.sessions_section, "info", lambda msg: called.append(msg))
+    new_panel._add_session()
     assert called
 
 
-# --- exercises -------------------------------------------------------------
-
-
-def test_exercise_add_edit_delete_flow(patient_app, monkeypatch):
+def test_exercises_section_flow_and_defaults(patient_app, monkeypatch):
     from dialogs import input_dialog
 
     panel, pid = _panel(patient_app)
@@ -164,18 +142,7 @@ def test_exercise_add_edit_delete_flow(patient_app, monkeypatch):
     assert updated["sets"] == 4
     assert updated["hold_sec"] == 5
 
-    panel.hep_tree.selection_set(str(eid))
-    panel._delete_exercise()
-    assert get_physio_service().list_exercises(pid) == []
-
-
-def test_exercise_defaults_for_blank_numbers(patient_app, monkeypatch):
-    from dialogs import input_dialog
-
-    panel, pid = _panel(patient_app)
-    monkeypatch.setattr(input_dialog, "ask_string", lambda *a, **k: "Plank")
-    panel._add_exercise()
-    eid = get_physio_service().list_exercises(pid)[0]["id"]
+    # blank numeric fields use the documented defaults
     monkeypatch.setattr(
         panel,
         "_show_editor",
@@ -191,14 +158,15 @@ def test_exercise_defaults_for_blank_numbers(patient_app, monkeypatch):
     )
     panel.hep_tree.selection_set(str(eid))
     panel._edit_exercise()
-    updated = get_physio_service().list_exercises(pid)[0]
-    assert (updated["sets"], updated["reps"], updated["hold_sec"]) == (3, 10, 0)
+    defaults = [e for e in get_physio_service().list_exercises(pid) if e["id"] == eid][0]
+    assert (defaults["sets"], defaults["reps"], defaults["hold_sec"]) == (3, 10, 0)
+
+    panel.hep_tree.selection_set(str(eid))
+    panel._delete_exercise()
+    assert get_physio_service().list_exercises(pid) == []
 
 
-# --- outcomes --------------------------------------------------------------
-
-
-def test_outcome_add_rejects_invalid_values(patient_app, monkeypatch):
+def test_outcomes_section_validation_and_flow(patient_app, monkeypatch):
     from dialogs import input_dialog
 
     panel, pid = _panel(patient_app)
@@ -216,11 +184,6 @@ def test_outcome_add_rejects_invalid_values(patient_app, monkeypatch):
     assert errors[-1] == "VAS trebuie 0-10."
     assert get_physio_service().list_outcomes(pid) == []
 
-
-def test_outcome_add_edit_delete_flow(patient_app, monkeypatch):
-    from dialogs import input_dialog
-
-    panel, pid = _panel(patient_app)
     monkeypatch.setattr(input_dialog, "ask_string", lambda *a, **k: "7")
     panel._add_outcome()
     outcomes = get_physio_service().list_outcomes(pid)
@@ -248,16 +211,13 @@ def test_outcome_add_edit_delete_flow(patient_app, monkeypatch):
     assert get_physio_service().list_outcomes(pid) == []
 
 
-# --- attachments -----------------------------------------------------------
-
-
-def test_attachment_attach_list_and_delete(patient_app, monkeypatch, tmp_path):
+def test_attachments_section_flow(patient_app, monkeypatch, tmp_path):
+    from services.attachment_service import get_attachment_service
     from ui.patient_panel import attachments_section
 
     panel, pid = _panel(patient_app)
     sample = tmp_path / "note.txt"
     sample.write_text("hello", encoding="utf-8")
-
     monkeypatch.setattr(attachments_section.filedialog, "askopenfilename", lambda **kw: str(sample))
     panel._attach_file()
     children = panel.attach_tree.get_children()
@@ -267,38 +227,24 @@ def test_attachment_attach_list_and_delete(patient_app, monkeypatch, tmp_path):
     panel._delete_attachment()
     assert panel.attach_tree.get_children() == ()
 
-
-def test_attachment_preview_falls_back_to_os_viewer(patient_app, monkeypatch, tmp_path):
-    from services.attachment_service import get_attachment_service
-
-    panel, pid = _panel(patient_app)
+    # non-image attachments fall back to the OS viewer
     sample = tmp_path / "raw.dat"
     sample.write_text("data", encoding="utf-8")
     get_attachment_service().add(pid, str(sample))
     panel._load_attachments()
     child = panel.attach_tree.get_children()[0]
     panel.attach_tree.selection_set(child)
-
     opened = []
     monkeypatch.setattr(panel.attachments_section, "open_attachment", lambda: opened.append(True))
     panel._preview_attachment()
     assert opened == [True]
 
-
-def test_attachment_missing_file_reports_error(patient_app, monkeypatch, tmp_path):
-    from services.attachment_service import get_attachment_service
-    from ui.patient_panel import attachments_section
-
-    panel, pid = _panel(patient_app)
-    sample = tmp_path / "gone.txt"
-    sample.write_text("x", encoding="utf-8")
-    get_attachment_service().add(pid, str(sample))
+    # a missing stored file is reported instead of crashing
+    del panel.attachments_section.open_attachment
     record = get_attachment_service().list(pid)[0]
     os.remove(record["stored_path"])
     panel._load_attachments()
-    child = panel.attach_tree.get_children()[0]
-    panel.attach_tree.selection_set(child)
-
+    panel.attach_tree.selection_set(panel.attach_tree.get_children()[0])
     errors = []
     monkeypatch.setattr(attachments_section, "report_error", lambda msg: errors.append(str(msg)))
     panel._open_attachment()

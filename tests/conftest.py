@@ -14,6 +14,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import db  # noqa: E402
 
 
+def pytest_configure(config):
+    """Stabilise repeated root-window creation on Windows.
+
+    CustomTkinter's title-bar colour code calls ``Tk.update()`` from inside
+    ``CTk.__init__``.  Creating and destroying many roots in one pytest process
+    (one per UI test) can crash Tcl/Tk with an access violation.  Title-bar
+    colouring is purely cosmetic, so tests disable that one hook.
+    """
+    import customtkinter as ctk
+
+    ctk.CTk._deactivate_windows_window_header_manipulation = True
+
+
 @pytest.fixture
 def fresh_db(monkeypatch):
     """Point ``db`` at a fresh temporary database and initialise the schema."""

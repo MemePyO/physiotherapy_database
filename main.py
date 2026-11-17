@@ -1622,7 +1622,8 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             inner, text="Choose format:", font=theme.FONT_BOLD, text_color=theme.TEXT
         ).pack(anchor="w", pady=(0, 6))
-        fmt = tk.StringVar(value="excel")
+        self._saveas_fmt = tk.StringVar(master=self, value="excel")
+        fmt = self._saveas_fmt
         for val, lbl in [
             ("excel", "Excel (.xlsx)"),
             ("csv", "CSV / Access"),
@@ -1782,7 +1783,7 @@ class App(ctk.CTk):
             log.debug_exc(logger)
         self._cal_patients = patients
         names = sorted(patients.keys())
-        self._cal_pat_var = ctk.StringVar(value=(names[0] if names else "\u2014"))
+        self._cal_pat_var = ctk.StringVar(master=self, value=(names[0] if names else "\u2014"))
         ctk.CTkOptionMenu(
             form, values=names if names else ["\u2014"], variable=self._cal_pat_var, width=170
         ).grid(row=1, column=1, columnspan=3, sticky="w", padx=8, pady=2)
@@ -1790,14 +1791,14 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             form, text=lang.t("ui_time"), font=theme.FONT_SMALL, text_color=theme.MUTED
         ).grid(row=2, column=0, sticky="w", padx=8)
-        self._cal_time_var = ctk.StringVar(value="09:00")
+        self._cal_time_var = ctk.StringVar(master=self, value="09:00")
         ctk.CTkEntry(form, textvariable=self._cal_time_var, width=80, justify="center").grid(
             row=2, column=1, sticky="w", padx=8, pady=2
         )
         ctk.CTkLabel(
             form, text=lang.t("ui_duration_min"), font=theme.FONT_SMALL, text_color=theme.MUTED
         ).grid(row=2, column=2, sticky="e")
-        self._cal_dur_var = ctk.StringVar(value="30")
+        self._cal_dur_var = ctk.StringVar(master=self, value="30")
         ctk.CTkEntry(form, textvariable=self._cal_dur_var, width=60, justify="center").grid(
             row=2, column=3, sticky="w", padx=(2, 8), pady=2
         )
@@ -1805,7 +1806,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(
             form, text=lang.t("ui_status") + ":", font=theme.FONT_SMALL, text_color=theme.MUTED
         ).grid(row=3, column=0, sticky="w", padx=8)
-        self._cal_status_var = ctk.StringVar(value="scheduled")
+        self._cal_status_var = ctk.StringVar(master=self, value="scheduled")
         ctk.CTkOptionMenu(
             form, values=list(SESSION_STATUSES), variable=self._cal_status_var, width=140
         ).grid(row=3, column=1, columnspan=3, sticky="w", padx=8, pady=2)
@@ -1981,7 +1982,7 @@ class App(ctk.CTk):
                     text_color=theme.MUTED,
                     width=60,
                 ).grid(row=0, column=2, padx=2)
-                st_var = ctk.StringVar(value=a.get("status", "scheduled"))
+                st_var = ctk.StringVar(master=self, value=a.get("status", "scheduled"))
 
                 def _set_status(v, aid=a["id"]):
                     get_appointment_service().update(aid, status=v)

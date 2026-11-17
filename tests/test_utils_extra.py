@@ -35,3 +35,64 @@ def test_apply_inline_formatting_tags():
 
 def test_norm_still_works():
     assert _norm("Ștefan") == "stefan"
+
+
+def test_initials_variants():
+    import utils
+
+    assert utils._initials("") == "?"
+    assert utils._initials("Ana") == "AN"
+    assert utils._initials("Ana Maria Pop") == "AP"
+
+
+def test_validate_dob_variants():
+    import utils
+
+    assert utils._validate_dob("") is True
+    assert utils._validate_dob("  ") is True
+    assert utils._validate_dob("12.05.1990") is True
+    assert utils._validate_dob("1990-05-12") is False
+
+
+def test_rtf_escape_and_pdf_generation():
+    import utils
+
+    assert utils._rtf_escape(r"a\b{c}") == r"a\\b\{c\}"
+    data = utils._make_simple_pdf("Patient (1)\nline two")
+    assert data.startswith(b"%PDF-1.4")
+    assert data.endswith(b"%%EOF\n")
+
+
+def test_safe_widget_helpers_handle_destroyed_widgets():
+    import utils
+
+    root = tk.Tk()
+    root.withdraw()
+    widget = ctk.CTkButton(root, text="x")
+    assert utils._exists(widget) is True
+    utils._safe_after(widget, 0, lambda: None)
+    utils._safe_format(widget)
+    utils._safe_configure(widget, text="y")
+    widget.destroy()
+    assert utils._exists(widget) is False
+    # all helpers must be no-ops after destruction rather than raising
+    utils._safe_destroy(widget)
+    utils._safe_configure(widget, text="z")
+    utils._safe_format(widget)
+    assert utils._safe_after(widget, 0, lambda: None) is None
+    root.destroy()
+
+
+def test_patch_scrollable_tolerates_missing_canvas():
+    import utils
+
+    class _Frame:
+        def __init__(self):
+            self.handler = None
+
+        def bind(self, sequence, handler):
+            self.handler = handler
+
+    frame = _Frame()
+    utils._patch_scrollable(frame)
+    frame.handler()  # no _parent_canvas -> returns quietly

@@ -14,7 +14,7 @@ class SaveAsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Choose format:", font=ctk.CTkFont(weight="bold")).grid(
             row=0, column=0, padx=10, pady=(10, 5), sticky="w"
         )
-        self.fmt = tk.StringVar(value="excel")
+        self.fmt = tk.StringVar(master=self, value="excel")
         for i, (val, lbl) in enumerate(
             [
                 ("excel", "Excel (.xlsx)"),

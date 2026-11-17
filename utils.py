@@ -145,6 +145,8 @@ def _safe_after(widget, ms, callback):
             pass
 
     try:
+        if not _exists(widget):
+            return None
         return widget.after(ms, _wrapped)
     except Exception:
         return None

@@ -25,7 +25,12 @@ def set_version(conn, version):
 
 
 def run_migrations(conn, target_version=None):
-    """Run all pending migrations up to target_version."""
+    """Run all pending migrations up to target_version.
+
+    Each migration runs inside its own transaction when the caller has not
+    already opened one.  A failed migration is rolled back, so the schema
+    version is never stamped past a change that did not complete.
+    """
     current = get_current_version(conn)
     if target_version is None:
         target_version = max(MIGRATIONS.keys()) if MIGRATIONS else current
@@ -36,14 +41,19 @@ def run_migrations(conn, target_version=None):
         if v > target_version:
             break
         desc, fn = MIGRATIONS[v]
+        owns_transaction = not conn.in_transaction
+        if owns_transaction:
+            conn.execute("BEGIN")
         try:
             logger.info("Applying migration %d: %s", v, desc)
             fn(conn)
             set_version(conn, v)
-            applied.append(v)
         except Exception as e:
+            if owns_transaction:
+                conn.rollback()
             logger.error("Migration %d failed: %s", v, e)
             raise
+        applied.append(v)
     return applied
 
 

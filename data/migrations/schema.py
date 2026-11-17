@@ -62,11 +62,14 @@ INDEX_STATEMENTS = [
 
 
 def create_indexes(conn):
-    """Create all performance indexes (idempotent)."""
+    """Create all performance indexes (idempotent).
+
+    The migration runner wraps this in a transaction and commits the schema
+    version stamp, so the function deliberately does not commit on its own.
+    """
     cur = conn.cursor()
     for _name, statement in INDEX_STATEMENTS:
         cur.execute(statement)
-    conn.commit()
 
 
 register(2, "add performance indexes", create_indexes)

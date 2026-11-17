@@ -65,7 +65,7 @@ physiotherapy_database/
 ├── assets/              # Images, icons
 ├── backup/              # Database backups (auto + manual)
 ├── attachments/         # Patient file attachments
-├── tests/               # pytest suite (120 tests, 60%+ coverage)
+├── tests/               # pytest suite (158 tests, 70%+ coverage)
 └── dist/                # Built executable (PyInstaller)
 ```
 
@@ -90,6 +90,8 @@ Schema version tracked via `PRAGMA user_version`. WAL checkpoint runs before eve
 - `services/` owns business operations and is the only layer that imports `db`.
 - Schema changes live in `data/migrations/` and are applied by `db.init_db()`.
 - `tests/test_architecture.py` enforces the UI → services dependency rule.
+- `tests/test_migrations.py` verifies upgrade paths, rollback safety and future migrations through reusable helpers in `tests/migration_helpers.py`.
+- mypy covers `db.py`, `services/`, `main.py`, `ui/`, `dialogs/` and `scripts/`.
 - Dynamic `UPDATE` statements only interpolate columns from explicit allowlists in `db.py`; values are always bound parameters.
 
 ## Build Instructions
@@ -98,11 +100,19 @@ Schema version tracked via `PRAGMA user_version`. WAL checkpoint runs before eve
 # Install PyInstaller
 pip install pyinstaller
 
-# Build (Windows)
-build.bat
+# Build (Windows) from the committed spec
+pyinstaller --noconfirm --clean PhysioDatabase.spec
+
+# Validate that the packaged application starts
+python scripts/verify_release.py --exe dist/PhysioDatabase.exe
 ```
 
 Output: `dist\PhysioDatabase.exe` (single-file, windowed).
+
+`scripts/verify_release.py` launches the executable with `--self-test`, which
+initialises the database, runs the same health checks as the Diagnostics view,
+verifies bundled imports, and writes a JSON report. CI fails when the packaged
+app cannot complete that startup validation.
 
 ## Troubleshooting
 

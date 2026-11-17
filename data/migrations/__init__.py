@@ -29,7 +29,9 @@ def run_migrations(conn, target_version=None):
 
     Each migration runs inside its own transaction when the caller has not
     already opened one.  A failed migration is rolled back, so the schema
-    version is never stamped past a change that did not complete.
+    version is never stamped past a change that did not complete.  Migration
+    callables must not commit the connection themselves; the runner commits
+    after the version stamp is written.
     """
     current = get_current_version(conn)
     if target_version is None:

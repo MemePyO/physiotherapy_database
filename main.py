@@ -4,6 +4,7 @@ import csv
 import datetime
 import functools
 import glob
+import importlib
 import json
 import os
 import shutil
@@ -311,6 +312,86 @@ def save_language(code):
     data = load_settings()
     data["language"] = code
     save_settings(data)
+
+
+def run_startup_checks() -> list[tuple[str, bool, str]]:
+    """Validate the environment, database and bundled resources.
+
+    Shared by the in-app Diagnostics view and the ``--self-test`` release
+    smoke test, so both exercise exactly the same checks without creating a
+    Tk window.
+    """
+    results: list[tuple[str, bool, str]] = []
+    # database integrity
+    try:
+        ok = get_database_service().check_integrity()
+        results.append(("Database integrity", ok, "OK" if ok else "FAILED"))
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("Database integrity", False, str(e)))
+    # schema version
+    try:
+        v = get_database_service().schema_version()
+        ok = v >= get_database_service().expected_schema_version
+        results.append(
+            (
+                "Schema version",
+                ok,
+                (
+                    "v%d" % v
+                    if ok
+                    else "v%d (expected %d)" % (v, get_database_service().expected_schema_version)
+                ),
+            )
+        )
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("Schema version", False, str(e)))
+    # schema / counts
+    try:
+        n = len(get_patient_service().list_patients())
+        results.append(("Patients loaded", True, str(n)))
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("Patients loaded", False, str(e)))
+    # settings parse
+    try:
+        s = load_settings()
+        results.append(
+            ("Settings", isinstance(s, dict), "OK" if isinstance(s, dict) else "invalid")
+        )
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("Settings", False, str(e)))
+    # assets
+    try:
+        logo = os.path.join(_asset_dir(), "assets", "logo.png")
+        ok = os.path.exists(logo)
+        results.append(("App assets", ok, "OK" if ok else "missing logo.png"))
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("App assets", False, str(e)))
+    # backup folder writable
+    try:
+        folder = os.path.join(_data_dir(), "backup")
+        os.makedirs(folder, exist_ok=True)
+        test_path = os.path.join(folder, ".write_test")
+        with open(test_path, "w") as fh:
+            fh.write("ok")
+        os.remove(test_path)
+        results.append(("Backup folder", True, "writable"))
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("Backup folder", False, str(e)))
+    # free disk
+    try:
+        free_gb = shutil.disk_usage(_data_dir()).free / (1024.0**3)
+        ok = free_gb >= 0.1
+        results.append(("Free disk", ok, f"{free_gb:.1f} GB"))
+    except Exception as e:
+        log.debug_exc(logger)
+        results.append(("Free disk", False, str(e)))
+    return results
 
 
 class App(ctk.CTk):
@@ -1436,78 +1517,7 @@ class App(ctk.CTk):
 
     def _run_startup_checks(self):
         """Run once at launch; results are shown in the Diagnostics view."""
-        results = []
-        # database integrity
-        try:
-            ok = get_database_service().check_integrity()
-            results.append(("Database integrity", ok, "OK" if ok else "FAILED"))
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("Database integrity", False, str(e)))
-        # schema version
-        try:
-            v = get_database_service().schema_version()
-            ok = v >= get_database_service().expected_schema_version
-            results.append(
-                (
-                    "Schema version",
-                    ok,
-                    (
-                        "v%d" % v
-                        if ok
-                        else "v%d (expected %d)"
-                        % (v, get_database_service().expected_schema_version)
-                    ),
-                )
-            )
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("Schema version", False, str(e)))
-        # schema / counts
-        try:
-            n = len(get_patient_service().list_patients())
-            results.append(("Patients loaded", True, str(n)))
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("Patients loaded", False, str(e)))
-        # settings parse
-        try:
-            s = load_settings()
-            results.append(
-                ("Settings", isinstance(s, dict), "OK" if isinstance(s, dict) else "invalid")
-            )
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("Settings", False, str(e)))
-        # assets
-        try:
-            logo = os.path.join(_asset_dir(), "assets", "logo.png")
-            ok = os.path.exists(logo)
-            results.append(("App assets", ok, "OK" if ok else "missing logo.png"))
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("App assets", False, str(e)))
-        # backup folder writable
-        try:
-            folder = os.path.join(_data_dir(), "backup")
-            os.makedirs(folder, exist_ok=True)
-            test_path = os.path.join(folder, ".write_test")
-            with open(test_path, "w") as fh:
-                fh.write("ok")
-            os.remove(test_path)
-            results.append(("Backup folder", True, "writable"))
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("Backup folder", False, str(e)))
-        # free disk
-        try:
-            free_gb = shutil.disk_usage(_data_dir()).free / (1024.0**3)
-            ok = free_gb >= 0.1
-            results.append(("Free disk", ok, f"{free_gb:.1f} GB"))
-        except Exception as e:
-            log.debug_exc(logger)
-            results.append(("Free disk", False, str(e)))
-        return results
+        return run_startup_checks()
 
     def _build_startup_card(self, parent):
         card = ctk.CTkFrame(
@@ -3286,5 +3296,70 @@ def main():
         pass
 
 
+_SELF_TEST_IMPORTS = ("customtkinter", "PIL", "fitz", "openpyxl", "darkdetect")
+
+
+def run_self_test(argv: list[str] | None = None) -> int:
+    """Headless startup validation used by release smoke tests.
+
+    Initialises the database, runs the diagnostics checks and verifies that
+    optional bundled dependencies can be imported.  A JSON report is written
+    so a windowed executable can communicate results without a console.
+    """
+    args = list(sys.argv if argv is None else argv)
+    report_path = os.path.join(_data_dir(), "self_test.json")
+    if "--self-test-report" in args:
+        index = args.index("--self-test-report")
+        if index + 1 < len(args):
+            report_path = args[index + 1]
+
+    checks: list[tuple[str, bool, str]] = []
+    try:
+        get_database_service().init()
+        checks.append(("Database init", True, get_database_service().path()))
+    except Exception as e:
+        log.debug_exc(logger)
+        checks.append(("Database init", False, str(e)))
+
+    checks.extend(run_startup_checks())
+
+    for module in _SELF_TEST_IMPORTS:
+        try:
+            importlib.import_module(module)
+            checks.append((f"Import {module}", True, "OK"))
+        except Exception as e:
+            log.debug_exc(logger)
+            checks.append((f"Import {module}", False, str(e)))
+
+    ok = all(passed for _name, passed, _detail in checks)
+    payload = {
+        "ok": ok,
+        "version": __version__,
+        "frozen": bool(getattr(sys, "frozen", False)),
+        "executable": sys.executable,
+        "data_dir": _data_dir(),
+        "checks": [
+            {"name": name, "ok": passed, "detail": detail} for name, passed, detail in checks
+        ],
+    }
+    try:
+        with open(report_path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+    except Exception:
+        log.debug_exc(logger)
+    logger.info("self-test %s: %s", "passed" if ok else "FAILED", report_path)
+    if not ok:
+        for name, passed, detail in checks:
+            if not passed:
+                logger.error("self-test check failed: %s - %s", name, detail)
+    try:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    except Exception:
+        pass
+    return 0 if ok else 1
+
+
 if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        raise SystemExit(run_self_test(sys.argv))
     main()

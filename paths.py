@@ -15,7 +15,17 @@ def _is_frozen():
 
 
 def app_data_dir() -> str:
-    """Return the per-user writable data directory, creating it if needed."""
+    """Return the per-user writable data directory, creating it if needed.
+
+    ``PHYSIO_DATA_DIR`` overrides the location.  The override is used by
+    portable installs, release smoke tests and CI so they never touch the real
+    user profile.
+    """
+    override = os.environ.get("PHYSIO_DATA_DIR")
+    if override:
+        path = os.path.abspath(override)
+        os.makedirs(path, exist_ok=True)
+        return path
     if os.name == "nt":
         base = os.environ.get("APPDATA") or os.path.expanduser("~")
     elif sys.platform == "darwin":

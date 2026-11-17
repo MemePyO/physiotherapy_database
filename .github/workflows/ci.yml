@@ -34,3 +34,15 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests/ --cov=. --cov-report=term-missing --cov-fail-under=70
+
+      - name: Source startup self-test
+        shell: pwsh
+        run: |
+          $env:PHYSIO_DATA_DIR = Join-Path $env:RUNNER_TEMP "physio-source-self-test"
+          python main.py --self-test --self-test-report (Join-Path $env:RUNNER_TEMP "source-self-test.json")
+
+      - name: Build executable
+        run: pyinstaller --noconfirm --clean PhysioDatabase.spec
+
+      - name: Verify packaged startup
+        run: python scripts/verify_release.py --exe dist/PhysioDatabase.exe

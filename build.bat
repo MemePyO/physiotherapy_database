@@ -1,21 +1,15 @@
 @echo off
-REM Build a single-file Windows executable for Patient Database Dashboard.
+REM Build and validate the single-file Windows executable for Patient Database.
 REM Run from the project directory.
 
 set PYTHON=C:\Users\Admin\AppData\Local\Python\pythoncore-3.14-64\python.exe
-set APP=PatientDatabase
-set ENTRY=main.py
+set APP=PhysioDatabase
 
-"%PYTHON%" -m PyInstaller --noconfirm --clean --onefile --windowed ^
-  --name %APP% ^
-  --add-data "assets;assets" ^
-  --add-data "version.py;." ^
-  --hidden-import customtkinter ^
-  --hidden-import PIL ^
-  --hidden-import fitz ^
-  --hidden-import openpyxl ^
-  --hidden-import darkdetect ^
-  %ENTRY%
+"%PYTHON%" -m PyInstaller --noconfirm --clean PhysioDatabase.spec
+if errorlevel 1 exit /b 1
+
+"%PYTHON%" scripts\verify_release.py --exe dist\%APP%.exe
+if errorlevel 1 exit /b 1
 
 echo.
-echo Build finished. Output: dist\%APP%.exe
+echo Build finished and validated. Output: dist\%APP%.exe

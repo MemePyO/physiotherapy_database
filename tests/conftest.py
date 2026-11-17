@@ -4,6 +4,7 @@ Centralises the temporary-database setup and the dialog stubs that were
 previously duplicated in every test module.
 """
 
+import gc
 import os
 import sys
 
@@ -82,9 +83,14 @@ def app(fresh_db, silent_dialogs, monkeypatch):
     instance.update()
     yield instance
     try:
+        instance.update_idletasks()
+    except Exception:
+        pass
+    try:
         instance.destroy()
     except Exception:
         pass
+    gc.collect()
 
 
 @pytest.fixture

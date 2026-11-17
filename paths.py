@@ -73,6 +73,38 @@ def migrate_legacy_data(legacy_dir: str) -> None:
         pass
 
 
+def _pid_alive(pid: int) -> bool:
+    """Return whether *pid* is a live process.
+
+    Windows cannot use ``os.kill(pid, 0)`` for this check: signal 0 maps to
+    ``CTRL_C_EVENT`` on that platform and may interrupt the current console
+    process group.  Use the Win32 process API instead.
+    """
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+
+        process_query_limited_information = 0x1000
+        still_active = 259
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return False
+            return code.value == still_active
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 class SingleInstanceManager:
     """Best-effort single-instance lock using a lock file."""
 
@@ -94,20 +126,23 @@ class SingleInstanceManager:
             return True
         except FileExistsError:
             # Check if the owning process is still alive
+            pid = None
             try:
                 with open(self.lock_path) as fh:
                     pid = int(fh.read().strip())
-                # On Windows, os.kill(pid, 0) works for signaling
-                os.kill(pid, 0)
-                # process alive -> not acquired
-                return False
-            except (ValueError, OSError, ProcessLookupError):
-                # stale lock -> remove and retry
-                try:
-                    os.remove(self.lock_path)
-                except OSError:
-                    pass
-                return self.acquire()
+            except (ValueError, OSError):
+                pid = None
+            try:
+                if pid is not None and _pid_alive(pid):
+                    return False
+            except Exception:
+                pass
+            # stale lock -> remove and retry
+            try:
+                os.remove(self.lock_path)
+            except OSError:
+                pass
+            return self.acquire()
         except Exception:
             return True  # fail open
 

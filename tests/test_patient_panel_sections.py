@@ -235,12 +235,12 @@ def test_attachments_section_flow(patient_app, monkeypatch, tmp_path):
     child = panel.attach_tree.get_children()[0]
     panel.attach_tree.selection_set(child)
     opened = []
-    monkeypatch.setattr(panel.attachments_section, "open_attachment", lambda: opened.append(True))
-    panel._preview_attachment()
+    with monkeypatch.context() as patch:
+        patch.setattr(panel.attachments_section, "open_attachment", lambda: opened.append(True))
+        panel._preview_attachment()
     assert opened == [True]
 
     # a missing stored file is reported instead of crashing
-    del panel.attachments_section.open_attachment
     record = get_attachment_service().list(pid)[0]
     os.remove(record["stored_path"])
     panel._load_attachments()

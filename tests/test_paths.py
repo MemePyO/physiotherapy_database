@@ -111,3 +111,8 @@ def test_single_instance_fails_open(monkeypatch, tmp_path):
     monkeypatch.setattr(paths.os, "open", _boom)
     manager = paths.SingleInstanceManager("BrokenLock")
     assert manager.acquire() is True
+
+
+def test_pid_alive_checks_current_and_missing_process():
+    assert paths._pid_alive(os.getpid()) is True
+    assert paths._pid_alive(999999) is False

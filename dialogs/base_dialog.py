@@ -4,6 +4,7 @@ import customtkinter as ctk
 
 import lang
 import theme
+from ui import ttk_style
 
 
 class BaseDialog(ctk.CTkToplevel):
@@ -11,6 +12,7 @@ class BaseDialog(ctk.CTkToplevel):
 
     def __init__(self, master, title, width=400, height=200):
         super().__init__(master)
+        ttk_style.apply(self)
         self.title(title)
         self.geometry("%dx%d" % (width, height))
         self.transient(master)

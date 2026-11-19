@@ -27,6 +27,7 @@ from services.backup_service import get_backup_service
 from services.database_service import get_database_service
 from services.patient_service import get_patient_service
 from services.physio_service import SESSION_STATUSES
+from ui import ttk_style
 from version import __version__
 from workers import BackgroundTask
 
@@ -427,6 +428,7 @@ class App(ctk.CTk):
         except Exception:
             self.geometry("1200x800")
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
+        ttk_style.apply(self)
 
         # Initialize database
         get_database_service().init()
@@ -2611,6 +2613,7 @@ class App(ctk.CTk):
         self._header = None
         self._sidebar = None
         self._content = None
+        ttk_style.apply(self)
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=0)

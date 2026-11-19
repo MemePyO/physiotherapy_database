@@ -265,6 +265,9 @@ TOPBAR_H: int
 LIST_W: int
 PANE_PAD: int
 BTN_RADIUS: int
+# Shared ttk row height (not palette-specific: readability is the same in
+# every theme).
+TABLE_ROW_H: int = 26
 TOPBAR_BG: str
 RAIL_BG: str
 INPUT_BG: str

@@ -1,5 +1,6 @@
 from error_ui import report_error
 from services.patient_service import get_patient_service
+from ui import ttk_style
 
 from .common import ctk, lang, messagebox, theme, ttk
 
@@ -7,6 +8,7 @@ from .common import ctk, lang, messagebox, theme, ttk
 class TrashDialog(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
+        ttk_style.apply(self)
         self.title(lang.t("dlg_trash_title"))
         self.geometry("520x360")
         self.transient(master)

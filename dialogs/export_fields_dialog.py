@@ -6,7 +6,7 @@ class ExportFieldsDialog(ctk.CTkToplevel):
 
     def __init__(self, master, field_specs, initial=None):
         super().__init__(master)
-        self.title("Export fields")
+        self.title(lang.t("dlg_export_fields"))
         self.geometry("460x420")
         self.resizable(True, True)
         self.transient(master)
@@ -47,8 +47,12 @@ class ExportFieldsDialog(ctk.CTkToplevel):
 
         bf = ctk.CTkFrame(self, fg_color="transparent")
         bf.grid(row=2, column=0, columnspan=3, sticky="e", padx=8, pady=8)
-        ctk.CTkButton(bf, text="OK", width=80, command=self._ok).pack(side="left", padx=2)
-        ctk.CTkButton(bf, text="Cancel", width=80, command=self.destroy).pack(side="left", padx=2)
+        ctk.CTkButton(bf, text=lang.t("btn_ok"), width=80, command=self._ok).pack(
+            side="left", padx=2
+        )
+        ctk.CTkButton(bf, text=lang.t("btn_cancel"), width=80, command=self.destroy).pack(
+            side="left", padx=2
+        )
 
     def _label(self, key):
         for k, h in self.field_specs:

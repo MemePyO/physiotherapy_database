@@ -34,12 +34,14 @@ class AddPatientDialog(ctk.CTkToplevel):
         self.entry_loc = ctk.CTkComboBox(scroll, values=get_patient_service().get_localities())
         self.entry_loc.grid(row=3, column=0, sticky="ew", pady=(0, 8))
 
-        ctk.CTkLabel(scroll, text="Sex:").grid(row=4, column=0, sticky="w", pady=(0, 2))
+        ctk.CTkLabel(scroll, text=lang.t("ui_sex") + ":").grid(
+            row=4, column=0, sticky="w", pady=(0, 2)
+        )
         self.entry_sex = ctk.CTkComboBox(scroll, values=["NA", "M", "F"])
         self.entry_sex.set("NA")
         self.entry_sex.grid(row=5, column=0, sticky="ew", pady=(0, 8))
 
-        ctk.CTkLabel(scroll, text="Date of birth (DD.MM.YYYY):").grid(
+        ctk.CTkLabel(scroll, text=lang.t("ui_dob_full")).grid(
             row=6, column=0, sticky="w", pady=(0, 2)
         )
         self.entry_dob = ctk.CTkEntry(scroll)
@@ -80,7 +82,7 @@ class AddPatientDialog(ctk.CTkToplevel):
             report_error(lang.t("err_patient_name_required"))
             return
         if not _validate_dob(self.entry_dob.get()):
-            report_error("Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)")
+            report_error(lang.t("err_dob_format"))
             return
         sex = self.entry_sex.get().strip()
         if sex == "NA":

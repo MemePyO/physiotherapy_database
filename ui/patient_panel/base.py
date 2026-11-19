@@ -12,6 +12,8 @@ import typing as t
 
 import customtkinter as ctk
 
+import lang
+
 if t.TYPE_CHECKING:
     from . import PatientFilePanel
 
@@ -63,7 +65,7 @@ class PanelSection:
     def require_patient(self) -> bool:
         """Return ``False`` (after informing the user) for an unsaved record."""
         if self.patient_id is None:
-            self.info("Salvați mai întâi pacientul.")
+            self.info(lang.t("ui_save_patient_first"))
             return False
         return True
 

@@ -4,7 +4,7 @@ from .common import LANG_LABELS, ctk, lang, theme
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
-        self.title("Settings")
+        self.title(lang.t("ui_settings"))
         self.geometry("420x460")
         self.resizable(False, False)
         self.transient(master)

@@ -1,26 +1,26 @@
-from .common import ctk, tk
+from .common import ctk, lang, tk
 
 
 class SaveAsDialog(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
-        self.title("Save as")
+        self.title(lang.t("ui_save_as"))
         self.geometry("300x260")
         self.resizable(False, False)
         self.transient(master)
         self.grab_set()
         self.result = None
         self.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(self, text="Choose format:", font=ctk.CTkFont(weight="bold")).grid(
+        ctk.CTkLabel(self, text=lang.t("ui_choose_format"), font=ctk.CTkFont(weight="bold")).grid(
             row=0, column=0, padx=10, pady=(10, 5), sticky="w"
         )
         self.fmt = tk.StringVar(master=self, value="excel")
         for i, (val, lbl) in enumerate(
             [
-                ("excel", "Excel (.xlsx)"),
-                ("csv", "CSV / Access"),
-                ("pdf", "PDF"),
-                ("word", "Word (.doc)"),
+                ("excel", lang.t("ui_export_excel")),
+                ("csv", lang.t("ui_export_csv")),
+                ("pdf", lang.t("ui_export_pdf")),
+                ("word", lang.t("ui_export_word")),
             ]
         ):
             ctk.CTkRadioButton(self, text=lbl, variable=self.fmt, value=val).grid(
@@ -28,8 +28,12 @@ class SaveAsDialog(ctk.CTkToplevel):
             )
         btns = ctk.CTkFrame(self, fg_color="transparent")
         btns.grid(row=6, column=0, sticky="e", padx=10, pady=10)
-        ctk.CTkButton(btns, text="OK", width=80, command=self._ok).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Cancel", width=80, command=self.destroy).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("btn_ok"), width=80, command=self._ok).pack(
+            side="left", padx=2
+        )
+        ctk.CTkButton(btns, text=lang.t("btn_cancel"), width=80, command=self.destroy).pack(
+            side="left", padx=2
+        )
 
     def _ok(self):
         self.result = self.fmt.get()

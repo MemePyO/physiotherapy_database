@@ -14,12 +14,12 @@ from services.physio_service import BODY_REGIONS, SIDES, get_physio_service
 from .base import TabSection
 
 _PLAN_FIELDS = (
-    ("diagnosis_code", "Cod diagnostic (ICD)"),
-    ("body_region", "Regiune corporală"),
-    ("side", "Laterality"),
-    ("prescribed_sessions", "Ședințe prescrise"),
-    ("start_date", "Data început"),
-    ("end_date", "Data sfârșit"),
+    ("diagnosis_code", "plan_diagnosis_code"),
+    ("body_region", "plan_body_region"),
+    ("side", "plan_side"),
+    ("prescribed_sessions", "plan_prescribed_sessions"),
+    ("start_date", "plan_start_date"),
+    ("end_date", "plan_end_date"),
 )
 
 
@@ -28,13 +28,16 @@ class PlanSection(TabSection):
 
     def build(self, tabview: ctk.CTkTabview) -> None:
         panel = self.panel
-        plan_tab = tabview.add("Plan tratament")
+        plan_tab = tabview.add(lang.t("tab_plan"))
         plan_tab.grid_columnconfigure(1, weight=1)
         panel.plan_entries = {}
         r = 0
-        for key, label in _PLAN_FIELDS:
+        for key, label_key in _PLAN_FIELDS:
             ctk.CTkLabel(
-                plan_tab, text=label + ":", font=theme.FONT_SMALL, text_color=theme.MUTED
+                plan_tab,
+                text=lang.t(label_key) + ":",
+                font=theme.FONT_SMALL,
+                text_color=theme.MUTED,
             ).grid(row=r, column=0, sticky="w", padx=6, pady=2)
             w: ctk.CTkBaseClass
             if key == "body_region":
@@ -47,25 +50,31 @@ class PlanSection(TabSection):
             panel.plan_entries[key] = w
             r += 1
         ctk.CTkLabel(
-            plan_tab, text="Obiective:", font=theme.FONT_SMALL, text_color=theme.MUTED
+            plan_tab,
+            text=lang.t("plan_goals"),
+            font=theme.FONT_SMALL,
+            text_color=theme.MUTED,
         ).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
         panel.plan_goals = ctk.CTkTextbox(plan_tab, height=60, font=theme.FONT_BODY)
         panel.plan_goals.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
         r += 1
         ctk.CTkLabel(
-            plan_tab, text="Contraindicații:", font=theme.FONT_SMALL, text_color=theme.MUTED
+            plan_tab,
+            text=lang.t("plan_contraindications"),
+            font=theme.FONT_SMALL,
+            text_color=theme.MUTED,
         ).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
         panel.plan_contra = ctk.CTkTextbox(plan_tab, height=40, font=theme.FONT_BODY)
         panel.plan_contra.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
         r += 1
-        ctk.CTkLabel(plan_tab, text="Note:", font=theme.FONT_SMALL, text_color=theme.MUTED).grid(
-            row=r, column=0, sticky="nw", padx=6, pady=2
-        )
+        ctk.CTkLabel(
+            plan_tab, text=lang.t("plan_notes"), font=theme.FONT_SMALL, text_color=theme.MUTED
+        ).grid(row=r, column=0, sticky="nw", padx=6, pady=2)
         panel.plan_notes = ctk.CTkTextbox(plan_tab, height=40, font=theme.FONT_BODY)
         panel.plan_notes.grid(row=r, column=1, sticky="ew", padx=6, pady=2)
         r += 1
         ctk.CTkButton(
-            plan_tab, text="Salvează planul", fg_color=theme.ACCENT, command=self.save
+            plan_tab, text=lang.t("plan_save"), fg_color=theme.ACCENT, command=self.save
         ).grid(row=r, column=1, sticky="w", padx=6, pady=6)
 
         self.load()
@@ -112,7 +121,7 @@ class PlanSection(TabSection):
             except ValueError:
                 fields["prescribed_sessions"] = 0
             get_physio_service().upsert_plan(panel.patient_id, **fields)
-            messagebox.showinfo(lang.t("app_name"), "Plan salvat.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("plan_saved"))
         except Exception as e:
             report_error(str(e))
 

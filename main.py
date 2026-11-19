@@ -434,7 +434,7 @@ class App(ctk.CTk):
             if not get_database_service().check_integrity():
                 if messagebox.askyesno(
                     lang.t("app_name"),
-                    "Database integrity check failed. Restore from latest backup?",
+                    lang.t("ui_restore_prompt"),
                 ):
                     # find latest backup by modification time (not name)
                     folder = os.path.join(_data_dir(), "backup")
@@ -451,7 +451,8 @@ class App(ctk.CTk):
                             # ensure schema tables exist even if the backup predates a migration
                             get_database_service().init()
                             messagebox.showinfo(
-                                lang.t("app_name"), "Restored from " + os.path.basename(latest)
+                                lang.t("app_name"),
+                                lang.t("msg_restored_from", name=os.path.basename(latest)),
                             )
                         except Exception as e:
                             report_error(str(e))
@@ -588,24 +589,26 @@ class App(ctk.CTk):
     def _build_menubar(self):
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Save as...", command=self._save_as)
+        file_menu.add_command(label=lang.t("menu_save_as"), command=self._save_as)
         file_menu.add_separator()
-        file_menu.add_command(label="Backup now", command=self._backup_now)
-        file_menu.add_command(label="Restore backup...", command=self._restore_backup)
+        file_menu.add_command(label=lang.t("ui_backup_now"), command=self._backup_now)
+        file_menu.add_command(label=lang.t("ui_restore_backup"), command=self._restore_backup)
         file_menu.add_separator()
-        file_menu.add_command(label="Import...", command=self._import_data)
+        file_menu.add_command(label=lang.t("ui_import"), command=self._import_data)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self._on_app_close)
-        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label=lang.t("menu_exit"), command=self._on_app_close)
+        menubar.add_cascade(label=lang.t("menu_file"), menu=file_menu)
         edit_menu = tk.Menu(menubar, tearoff=0)
-        edit_menu.add_command(label="Add patient", command=self._add_patient_db)
-        edit_menu.add_command(label="Open patient file", command=self._open_patient_file)
-        edit_menu.add_command(label="Delete patient", command=self._delete_patient_db)
+        edit_menu.add_command(label=lang.t("menu_add_patient"), command=self._add_patient_db)
+        edit_menu.add_command(
+            label=lang.t("menu_open_patient_file"), command=self._open_patient_file
+        )
+        edit_menu.add_command(label=lang.t("menu_delete_patient"), command=self._delete_patient_db)
         edit_menu.add_separator()
-        edit_menu.add_command(label="Trash (deleted)", command=self._show_trash)
-        menubar.add_cascade(label="Edit", menu=edit_menu)
+        edit_menu.add_command(label=lang.t("ui_trash"), command=self._show_trash)
+        menubar.add_cascade(label=lang.t("menu_edit"), menu=edit_menu)
         view_menu = tk.Menu(menubar, tearoff=0)
-        view_menu.add_command(label="Toggle theme", command=self._toggle_theme)
+        view_menu.add_command(label=lang.t("menu_toggle_theme"), command=self._toggle_theme)
         lang_submenu = tk.Menu(view_menu, tearoff=0)
         for code, label in LANG_LABELS.items():
 
@@ -613,35 +616,26 @@ class App(ctk.CTk):
                 self._on_language_change("Română" if c == "ro" else "English")
 
             lang_submenu.add_command(label=label, command=_pick_language)
-        view_menu.add_cascade(label="Language", menu=lang_submenu)
+        view_menu.add_cascade(label=lang.t("menu_language"), menu=lang_submenu)
         view_menu.add_separator()
-        view_menu.add_command(label="Diagnostics", command=lambda: self._show_view("diagnostics"))
-        menubar.add_cascade(label="View", menu=view_menu)
-        help_menu = tk.Menu(menubar, tearoff=0)
-        help_menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
-        help_menu.add_command(
-            label="About",
-            command=lambda: messagebox.showinfo(
-                lang.t("app_name"),
-                "Patient Database\nVersion " + __version__ + "\nSQLite-backed patient records.",
-            ),
+        view_menu.add_command(
+            label=lang.t("ui_diagnostics"), command=lambda: self._show_view("diagnostics")
         )
-        menubar.add_cascade(label="Help", menu=help_menu)
+        menubar.add_cascade(label=lang.t("menu_view"), menu=view_menu)
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label=lang.t("menu_shortcuts"), command=self._show_shortcuts)
+        help_menu.add_command(label=lang.t("ui_about"), command=self._show_about)
+        menubar.add_cascade(label=lang.t("menu_help"), menu=help_menu)
         self.config(menu=menubar)
 
-    def _show_shortcuts(self):
-        text = (
-            "Ctrl+N   New patient\n"
-            "Ctrl+F   Focus search\n"
-            "Ctrl+S   Save current patient file\n"
-            "Ctrl+P   Print / PDF current patient\n"
-            "Ctrl+Z   Undo last delete\n"
-            "\n"
-            "\u2191 / \u2193    Previous / next patient\n"
-            "Enter    Open selected patient\n"
-            "Esc      Back to search"
+    def _show_about(self):
+        messagebox.showinfo(
+            lang.t("app_name"),
+            lang.t("about_text", app=lang.t("app_name"), version=__version__),
         )
-        messagebox.showinfo("Keyboard shortcuts", text)
+
+    def _show_shortcuts(self):
+        messagebox.showinfo(lang.t("ui_keyboard_shortcuts"), lang.t("ui_shortcuts_body"))
 
     def _on_language_change(self, choice):
         code = "ro" if choice == "Română" else "en"
@@ -674,7 +668,7 @@ class App(ctk.CTk):
         ctk.CTkButton(
             right, text="\u2630", width=40, font=theme.ICON_FONT_SMALL, command=self._toggle_sidebar
         ).pack(side="left", padx=2)
-        ctk.CTkButton(right, text="Theme", width=70, command=self._toggle_theme).pack(
+        ctk.CTkButton(right, text=lang.t("ui_theme"), width=70, command=self._toggle_theme).pack(
             side="left", padx=2
         )
         self.lang_menu = ctk.CTkOptionMenu(
@@ -791,25 +785,49 @@ class App(ctk.CTk):
             (
                 "patients",
                 "\U0001f4cb",
-                "Patients",
+                lang.t("tip_patients"),
                 lambda: self._show_view("patients"),
                 theme.ICON_FONT,
             ),
-            ("new", "\u2795", "New", lambda: self._open_patient_by_id(None), theme.ICON_FONT),
-            ("saveas", "\U0001f4be", "Save as", lambda: self._show_view("saveas"), theme.ICON_FONT),
-            ("backup", "\U0001f5c4", "Backup", lambda: self._show_view("backup"), theme.ICON_FONT),
-            ("trash", "\U0001f5d1", "Trash", lambda: self._show_view("trash"), theme.ICON_FONT),
+            (
+                "new",
+                "\u2795",
+                lang.t("tip_new_patient"),
+                lambda: self._open_patient_by_id(None),
+                theme.ICON_FONT,
+            ),
+            (
+                "saveas",
+                "\U0001f4be",
+                lang.t("tip_save_as"),
+                lambda: self._show_view("saveas"),
+                theme.ICON_FONT,
+            ),
+            (
+                "backup",
+                "\U0001f5c4",
+                lang.t("tip_backup"),
+                lambda: self._show_view("backup"),
+                theme.ICON_FONT,
+            ),
+            (
+                "trash",
+                "\U0001f5d1",
+                lang.t("tip_trash"),
+                lambda: self._show_view("trash"),
+                theme.ICON_FONT,
+            ),
             (
                 "calendar",
                 "\U0001f4c5",
-                "Calendar",
+                lang.t("tip_calendar"),
                 lambda: self._show_view("calendar"),
                 theme.ICON_FONT,
             ),
             (
                 "settings",
                 "\u2699",
-                "Settings",
+                lang.t("tip_settings"),
                 lambda: self._show_view("settings"),
                 theme.ICON_FONT,
             ),
@@ -844,12 +862,17 @@ class App(ctk.CTk):
 
         self._nav_buttons = {}
         items = [
-            ("patients", "\ue716", "Patients", lambda: self._show_view("patients")),
-            ("new", "\ue710", "New patient", lambda: self._open_patient_by_id(None)),
-            ("saveas", "\ue8a5", "Save as", lambda: self._show_view("saveas")),
-            ("backup", "\ue753", "Backup", lambda: self._show_view("backup")),
-            ("trash", "\ue74d", "Trash", lambda: self._show_view("trash")),
-            ("calendar", "\ue787", "Calendar", lambda: self._show_view("calendar")),
+            ("patients", "\ue716", lang.t("tip_patients"), lambda: self._show_view("patients")),
+            (
+                "new",
+                "\ue710",
+                lang.t("tip_new_patient"),
+                lambda: self._open_patient_by_id(None),
+            ),
+            ("saveas", "\ue8a5", lang.t("tip_save_as"), lambda: self._show_view("saveas")),
+            ("backup", "\ue753", lang.t("tip_backup"), lambda: self._show_view("backup")),
+            ("trash", "\ue74d", lang.t("tip_trash"), lambda: self._show_view("trash")),
+            ("calendar", "\ue787", lang.t("tip_calendar"), lambda: self._show_view("calendar")),
         ]
         for key, glyph, tip, cmd in items:
             btn = ctk.CTkButton(
@@ -882,14 +905,14 @@ class App(ctk.CTk):
         )
         btn.pack(side="bottom", pady=16, padx=12)
         self._nav_buttons["settings"] = btn
-        attach_tooltip(btn, "Settings")
+        attach_tooltip(btn, lang.t("tip_settings"))
         self._set_nav_active("patients")
 
     def _set_nav_active(self, key):
         if theme.active().startswith("medidash"):
             for k, b in getattr(self, "_nav_buttons", {}).items():
                 if k == key:
-                    b.configure(fg_color=theme.ACCENT, text_color="#ffffff")
+                    b.configure(fg_color=theme.ACCENT, text_color=theme.ON_ACCENT)
                 else:
                     b.configure(fg_color="transparent", text_color=theme.MUTED)
             return
@@ -1063,14 +1086,14 @@ class App(ctk.CTk):
         self._current_view = view
         self._maybe_check_integrity()
         titles = {
-            "patients": "Patient Overview",
-            "trash": "Trash (deleted)",
-            "settings": "Settings",
-            "saveas": "Save as",
-            "backup": "Backup / Restore",
-            "new": "New patient",
-            "calendar": "Calendar",
-            "diagnostics": "Diagnostics",
+            "patients": lang.t("ui_patient_overview"),
+            "trash": lang.t("ui_trash"),
+            "settings": lang.t("ui_settings"),
+            "saveas": lang.t("ui_save_as"),
+            "backup": lang.t("view_backup_restore"),
+            "new": lang.t("ui_new_patient"),
+            "calendar": lang.t("ui_calendar"),
+            "diagnostics": lang.t("ui_diagnostics"),
         }
         self.overview_title.configure(text=titles.get(view, view))
         if view == "patients":
@@ -1106,10 +1129,10 @@ class App(ctk.CTk):
                 top, text="\u21c5", width=30, command=self._show_sort_menu
             )
             self.sort_btn.grid(row=0, column=1, padx=(6, 2))
-            attach_tooltip(self.sort_btn, "Sort patients")
+            attach_tooltip(self.sort_btn, lang.t("tip_sort"))
             clear_btn = ctk.CTkButton(top, text="\u00d7", width=26, command=self._clear_search)
             clear_btn.grid(row=0, column=2, padx=(2, 0))
-            attach_tooltip(clear_btn, "Clear search")
+            attach_tooltip(clear_btn, lang.t("tip_clear_search"))
             self.search_entry = None
 
             self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
@@ -1137,12 +1160,16 @@ class App(ctk.CTk):
         search_frame.grid_columnconfigure(1, weight=1)
         self.search_scope_menu = ctk.CTkOptionMenu(
             search_frame,
-            values=["Name", "Everything"],
+            values=[lang.t("search_scope_name"), lang.t("search_scope_everything")],
             width=95,
             command=self._on_search_scope_change,
         )
         saved_scope = getattr(self, "_search_scope_text", "everything")
-        self.search_scope_menu.set("Name" if saved_scope == "name" else "Everything")
+        self.search_scope_menu.set(
+            lang.t("search_scope_name")
+            if saved_scope == "name"
+            else lang.t("search_scope_everything")
+        )
         self.search_scope_menu.pack(side="left", padx=(0, 6))
         self.search_scope = saved_scope
         self.search_entry = ctk.CTkEntry(
@@ -1165,7 +1192,7 @@ class App(ctk.CTk):
             search_frame, text="\u21c5", width=30, command=self._show_sort_menu
         )
         self.sort_btn.pack(side="left", padx=(2, 0))
-        attach_tooltip(self.sort_btn, "Sort patients")
+        attach_tooltip(self.sort_btn, lang.t("tip_sort"))
 
         self.count_label = ctk.CTkLabel(
             f, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
@@ -1261,14 +1288,14 @@ class App(ctk.CTk):
 
         def _purge():
             sel = tree.selection()
-            if not sel or not messagebox.askyesno(lang.t("app_name"), "Permanently delete?"):
+            if not sel or not messagebox.askyesno(lang.t("app_name"), lang.t("confirm_purge")):
                 return
             get_backup_service().pre_operation("purge")
             get_patient_service().purge_deleted([int(sel[0])])
             tree.delete(sel[0])
 
         def _empty():
-            if not messagebox.askyesno(lang.t("app_name"), "Empty trash?"):
+            if not messagebox.askyesno(lang.t("app_name"), lang.t("confirm_empty_trash")):
                 return
             get_backup_service().pre_operation("purge")
             get_patient_service().empty_deleted()
@@ -1282,10 +1309,14 @@ class App(ctk.CTk):
             side="left", padx=2
         )
         ctk.CTkButton(
-            btns, text=lang.t("ui_purge"), width=70, fg_color="#c0392b", command=_purge
+            btns, text=lang.t("ui_purge"), width=70, fg_color=theme.DANGER, command=_purge
         ).pack(side="left", padx=2)
         ctk.CTkButton(
-            btns, text=lang.t("ui_empty_trash"), width=70, fg_color="#c0392b", command=_empty
+            btns,
+            text=lang.t("ui_empty_trash"),
+            width=70,
+            fg_color=theme.DANGER,
+            command=_empty,
         ).pack(side="left", padx=2)
 
     def _view_settings(self):
@@ -1322,10 +1353,10 @@ class App(ctk.CTk):
         tf = ctk.CTkFrame(scroll, fg_color="transparent")
         tf.pack(anchor="w", pady=(0, 10))
         ctk.CTkButton(
-            tf, text="Light", width=90, command=lambda: self._apply_appearance("Light")
+            tf, text=lang.t("ui_light"), width=90, command=lambda: self._apply_appearance("Light")
         ).pack(side="left", padx=2)
         ctk.CTkButton(
-            tf, text="Dark", width=90, command=lambda: self._apply_appearance("Dark")
+            tf, text=lang.t("ui_dark"), width=90, command=lambda: self._apply_appearance("Dark")
         ).pack(side="left", padx=2)
         ctk.CTkLabel(
             scroll, text=lang.t("ui_interface_theme"), font=theme.FONT_BOLD, text_color=theme.TEXT
@@ -1334,13 +1365,13 @@ class App(ctk.CTk):
         itf.pack(anchor="w", pady=(0, 10))
         ctk.CTkButton(
             itf,
-            text="Classic",
+            text=lang.t("ui_theme_classic"),
             width=90,
             command=lambda: self.after(50, lambda: self._apply_ui_theme("classic")),
         ).pack(side="left", padx=2)
         ctk.CTkButton(
             itf,
-            text="MediDashboard",
+            text=lang.t("ui_theme_medidash"),
             width=120,
             command=lambda: self.after(50, lambda: self._apply_ui_theme("medidash")),
         ).pack(side="left", padx=2)
@@ -1349,13 +1380,13 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=(8, 2))
         df = ctk.CTkFrame(scroll, fg_color="transparent")
         df.pack(anchor="w", pady=(0, 10))
-        ctk.CTkButton(df, text="Backup now", width=110, command=self._backup_now).pack(
+        ctk.CTkButton(df, text=lang.t("ui_backup_now"), width=110, command=self._backup_now).pack(
             side="left", padx=2
         )
-        ctk.CTkButton(df, text="Restore...", width=110, command=self._restore_backup).pack(
-            side="left", padx=2
-        )
-        ctk.CTkButton(df, text="Import...", width=110, command=self._import_data).pack(
+        ctk.CTkButton(
+            df, text=lang.t("ui_restore_backup"), width=110, command=self._restore_backup
+        ).pack(side="left", padx=2)
+        ctk.CTkButton(df, text=lang.t("ui_import"), width=110, command=self._import_data).pack(
             side="left", padx=2
         )
         ctk.CTkButton(
@@ -1436,7 +1467,7 @@ class App(ctk.CTk):
             side="left", padx=6
         )
 
-        message = entry["message"].strip() or "(no message)"
+        message = entry["message"].strip() or lang.t("ui_no_message")
         if len(message) > 160:
             message = message[:157] + "..."
         ctk.CTkLabel(
@@ -1508,7 +1539,7 @@ class App(ctk.CTk):
                 logger.warning("periodic integrity check failed")
                 try:
                     if self.winfo_exists():
-                        self._show_status_banner("Database integrity check failed")
+                        self._show_status_banner(lang.t("ui_integrity_failed"))
                 except Exception:
                     log.debug_exc(logger)
         except Exception:
@@ -1528,14 +1559,27 @@ class App(ctk.CTk):
             border_color=getattr(theme, "BORDER", theme.MUTED),
         )
         card.pack(fill="x", pady=(10, 4))
-        ctk.CTkLabel(card, text="Startup checks", font=theme.FONT_BOLD, text_color=theme.TEXT).pack(
-            anchor="w", padx=8, pady=(8, 4)
-        )
+        ctk.CTkLabel(
+            card, text=lang.t("ui_startup_checks"), font=theme.FONT_BOLD, text_color=theme.TEXT
+        ).pack(anchor="w", padx=8, pady=(8, 4))
+        check_names = {
+            "Database integrity": lang.t("check_db_integrity"),
+            "Schema version": lang.t("check_schema_version"),
+            "Patients loaded": lang.t("check_patients_loaded"),
+            "Settings": lang.t("check_settings"),
+            "App assets": lang.t("check_assets"),
+            "Backup folder": lang.t("check_backup_folder"),
+            "Free disk": lang.t("check_disk_free"),
+        }
         for name, ok, detail in getattr(self, "_startup_checks", []):
             row = ctk.CTkFrame(card, fg_color="transparent")
             row.pack(fill="x", padx=8, pady=1)
             ctk.CTkLabel(
-                row, text=name, font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
+                row,
+                text=check_names.get(name, name),
+                font=theme.FONT_SMALL,
+                text_color=theme.MUTED,
+                anchor="w",
             ).pack(side="left")
             colour = theme.ACCENT if ok else theme.DANGER
             ctk.CTkLabel(
@@ -1543,7 +1587,11 @@ class App(ctk.CTk):
             ).pack(side="right")
         if not getattr(self, "_startup_checks", None):
             ctk.CTkLabel(
-                card, text="not run", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
+                card,
+                text=lang.t("ui_not_run"),
+                font=theme.FONT_SMALL,
+                text_color=theme.MUTED,
+                anchor="w",
             ).pack(fill="x", padx=8, pady=(0, 8))
 
     def _health_rows(self):
@@ -1627,15 +1675,15 @@ class App(ctk.CTk):
         inner = ctk.CTkFrame(f, fg_color="transparent")
         inner.grid(row=0, column=0, sticky="nsew")
         ctk.CTkLabel(
-            inner, text="Choose format:", font=theme.FONT_BOLD, text_color=theme.TEXT
+            inner, text=lang.t("ui_choose_format"), font=theme.FONT_BOLD, text_color=theme.TEXT
         ).pack(anchor="w", pady=(0, 6))
         self._saveas_fmt = tk.StringVar(master=self, value="excel")
         fmt = self._saveas_fmt
         for val, lbl in [
-            ("excel", "Excel (.xlsx)"),
-            ("csv", "CSV / Access"),
-            ("pdf", "PDF"),
-            ("word", "Word (.doc)"),
+            ("excel", lang.t("ui_export_excel")),
+            ("csv", lang.t("ui_export_csv")),
+            ("pdf", lang.t("ui_export_pdf")),
+            ("word", lang.t("ui_export_word")),
         ]:
             ctk.CTkRadioButton(inner, text=lbl, variable=fmt, value=val).pack(anchor="w", pady=2)
 
@@ -1650,20 +1698,20 @@ class App(ctk.CTk):
             elif v == "word":
                 self._export_word()
 
-        ctk.CTkButton(inner, text="Export", width=120, fg_color=theme.ACCENT, command=_go).pack(
-            anchor="w", pady=(10, 0)
-        )
+        ctk.CTkButton(
+            inner, text=lang.t("ui_export"), width=120, fg_color=theme.ACCENT, command=_go
+        ).pack(anchor="w", pady=(10, 0))
 
     def _view_backup(self):
         f = self.overview_content
         f.grid_rowconfigure(0, weight=1)
         inner = ctk.CTkFrame(f, fg_color="transparent")
         inner.grid(row=0, column=0, sticky="nsew")
-        ctk.CTkButton(inner, text="Backup now", width=140, command=self._backup_now).pack(
-            anchor="w", pady=4
-        )
         ctk.CTkButton(
-            inner, text="Restore backup...", width=140, command=self._restore_backup
+            inner, text=lang.t("ui_backup_now"), width=140, command=self._backup_now
+        ).pack(anchor="w", pady=4)
+        ctk.CTkButton(
+            inner, text=lang.t("ui_restore_backup"), width=140, command=self._restore_backup
         ).pack(anchor="w", pady=4)
 
     def _view_calendar(self):
@@ -1680,9 +1728,12 @@ class App(ctk.CTk):
                 w.destroy()
             import calendar as _cal
 
-            title_lbl.configure(text="%s %d" % (_cal.month_name[self._cal_month], self._cal_year))
+            title_lbl.configure(
+                text="%s %d" % (lang.t("cal_month_%d" % self._cal_month), self._cal_year)
+            )
             # weekday headers
-            for i, wd in enumerate(["L", "Ma", "Mi", "J", "V", "S", "D"]):
+            for i in range(7):
+                wd = lang.t("cal_weekday_%d" % (i + 1))
                 ctk.CTkLabel(grid, text=wd, font=theme.FONT_BOLD, text_color=theme.MUTED).grid(
                     row=0, column=i, padx=2, pady=2
                 )
@@ -1740,7 +1791,6 @@ class App(ctk.CTk):
         title_lbl = ctk.CTkLabel(nav, text="", font=theme.FONT_TITLE, text_color=theme.TEXT)
         title_lbl.pack(side="left", padx=12)
         ctk.CTkButton(nav, text="\u2192", width=36, command=_next).pack(side="left", padx=2)
-
         grid = ctk.CTkFrame(f, fg_color="transparent")
         grid.grid(row=1, column=0, sticky="nsew", pady=4)
         _render()
@@ -1831,7 +1881,7 @@ class App(ctk.CTk):
             command=self._cal_add_appointment,
         ).grid(row=5, column=0, columnspan=4, sticky="ew", padx=8, pady=(6, 2))
         self._cal_err = ctk.CTkLabel(
-            form, text="", font=theme.FONT_SMALL, text_color="#c0392b", anchor="w"
+            form, text="", font=theme.FONT_SMALL, text_color=theme.DANGER, anchor="w"
         )
         self._cal_err.grid(row=6, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 8))
 
@@ -1984,7 +2034,7 @@ class App(ctk.CTk):
                 ).grid(row=0, column=1, sticky="w", padx=2)
                 ctk.CTkLabel(
                     card,
-                    text="%d min" % (a.get("duration_min") or 0),
+                    text=lang.t("ui_minutes", n=a.get("duration_min") or 0),
                     font=theme.FONT_SMALL,
                     text_color=theme.MUTED,
                     width=60,
@@ -2006,7 +2056,7 @@ class App(ctk.CTk):
 
                 def _del(btn, aid=a["id"]):
                     if btn.cget("text") != "\u2713":
-                        btn.configure(text="\u2713", fg_color="#c0392b")
+                        btn.configure(text="\u2713", fg_color=theme.DANGER)
                         return
                     get_appointment_service().delete(aid)
                     _render_list()
@@ -2020,7 +2070,7 @@ class App(ctk.CTk):
                     border_width=1,
                     border_color=getattr(theme, "BORDER", theme.MUTED),
                     text_color=theme.MUTED,
-                    hover_color="#c0392b",
+                    hover_color=theme.DANGER_HOVER,
                 )
                 # wire two-step confirm without popups: first click arms the button
                 del_btn.configure(command=lambda b=del_btn: _del(b))
@@ -2161,7 +2211,7 @@ class App(ctk.CTk):
             height=theme.AVATAR_SIZE,
             corner_radius=theme.AVATAR_SIZE // 2,
             fg_color=theme.ACCENT,
-            text_color="white",
+            text_color=theme.ON_ACCENT,
             font=ctk.CTkFont(size=12, weight="bold"),
         )
         av.grid(row=0, column=0, rowspan=3, padx=8, pady=1)
@@ -2182,7 +2232,8 @@ class App(ctk.CTk):
 
         preview = ctk.CTkLabel(
             card,
-            text=(first_line[:50] + ("..." if len(first_line) > 50 else "")) or "No diagnostic",
+            text=(first_line[:50] + ("..." if len(first_line) > 50 else ""))
+            or lang.t("ui_no_diagnostic"),
             font=theme.FONT_SMALL,
             text_color=theme.CARD_META,
             anchor="w",
@@ -2242,9 +2293,11 @@ class App(ctk.CTk):
         if event is None:
             return
         menu = tk.Menu(self, tearoff=0)
-        menu.add_command(label="Edit patient", command=lambda: self._edit_patient_by_id(pid))
-        menu.add_command(label="Delete", command=lambda: self._delete_by_id(pid))
-        menu.add_command(label="Copy name", command=lambda: self._copy_name_by_id(pid))
+        menu.add_command(
+            label=lang.t("btn_edit_patient"), command=lambda: self._edit_patient_by_id(pid)
+        )
+        menu.add_command(label=lang.t("ui_delete"), command=lambda: self._delete_by_id(pid))
+        menu.add_command(label=lang.t("ui_copy_name"), command=lambda: self._copy_name_by_id(pid))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -2257,7 +2310,7 @@ class App(ctk.CTk):
 
     def _delete_by_id(self, pid):
         try:
-            if messagebox.askyesno(lang.t("app_name"), "Delete this patient and all their data?"):
+            if messagebox.askyesno(lang.t("app_name"), lang.t("confirm_delete_current")):
                 page = self.patient_panels.pop(pid, None)
                 if page is not None:
                     try:
@@ -2292,7 +2345,7 @@ class App(ctk.CTk):
                 self.overview_content,
                 text=text,
                 fg_color=theme.ACCENT,
-                text_color="white",
+                text_color=theme.ON_ACCENT,
                 corner_radius=6,
                 font=theme.FONT_SMALL,
                 padx=10,
@@ -2319,7 +2372,7 @@ class App(ctk.CTk):
                 + " \u00b7 "
                 + lang.t("ui_ctrl_z_undo"),
                 fg_color=theme.DANGER,
-                text_color="white",
+                text_color=theme.ON_ACCENT,
                 corner_radius=6,
                 font=theme.FONT_SMALL,
                 padx=10,
@@ -2434,7 +2487,7 @@ class App(ctk.CTk):
         # warn before discarding an unsaved new patient
         for pid, panel in list(getattr(self, "patient_panels", {}).items()):
             if getattr(panel, "_is_new", False) and getattr(panel, "_dirty", False):
-                if not messagebox.askyesno(lang.t("app_name"), "Discard unsaved new patient?"):
+                if not messagebox.askyesno(lang.t("app_name"), lang.t("confirm_discard_new")):
                     return
         if patient_id is None:
             self._save_open_files()
@@ -2477,8 +2530,8 @@ class App(ctk.CTk):
 
             term = ask_string(
                 self,
-                "Search patients",
-                "Search patients:",
+                lang.t("search_title"),
+                lang.t("search_prompt"),
                 initialvalue=getattr(self, "_search_text", ""),
             )
         except Exception:
@@ -2499,7 +2552,7 @@ class App(ctk.CTk):
         self.refresh_patients_db()
 
     def _on_search_scope_change(self, value: str) -> None:
-        self.search_scope = value.lower()
+        self.search_scope = "name" if value == lang.t("search_scope_name") else "everything"
         self.refresh_patients_db()
 
     def _set_ui_scale(self, scale):
@@ -2584,22 +2637,20 @@ class App(ctk.CTk):
 
     def _show_account_menu(self):
         menu = tk.Menu(self, tearoff=0)
-        menu.add_command(label="Language: " + lang.get_language().upper())
-        menu.add_command(label="Toggle light/dark", command=self._toggle_theme)
+        menu.add_command(label=lang.t("account_language", code=lang.get_language().upper()))
+        menu.add_command(label=lang.t("account_toggle_theme"), command=self._toggle_theme)
         menu.add_separator()
-        menu.add_command(label="Theme: Classic", command=lambda: self._apply_ui_theme("classic"))
         menu.add_command(
-            label="Theme: MediDashboard", command=lambda: self._apply_ui_theme("medidash")
+            label=lang.t("account_theme", name=lang.t("ui_theme_classic")),
+            command=lambda: self._apply_ui_theme("classic"),
+        )
+        menu.add_command(
+            label=lang.t("account_theme", name=lang.t("ui_theme_medidash")),
+            command=lambda: self._apply_ui_theme("medidash"),
         )
         menu.add_separator()
-        menu.add_command(label="Keyboard shortcuts", command=self._show_shortcuts)
-        menu.add_command(
-            label="About",
-            command=lambda: messagebox.showinfo(
-                lang.t("app_name"),
-                "Patient Database\nVersion " + __version__ + "\nSQLite-backed patient records.",
-            ),
-        )
+        menu.add_command(label=lang.t("menu_shortcuts"), command=self._show_shortcuts)
+        menu.add_command(label=lang.t("ui_about"), command=self._show_about)
         try:
             btn = getattr(self, "_account_btn", None)
             x = (
@@ -2652,17 +2703,19 @@ class App(ctk.CTk):
         try:
 
             path = filedialog.asksaveasfilename(
-                defaultextension=".csv", filetypes=[("CSV", "*.csv")], title="Export CSV"
+                defaultextension=".csv",
+                filetypes=[("CSV", "*.csv")],
+                title=lang.t("dlg_export_csv"),
             )
             if not path:
                 return
 
             pdlg = ctk.CTkToplevel(self)
-            pdlg.title("Export")
+            pdlg.title(lang.t("ui_export_title"))
             pdlg.transient(self)
             pdlg.grab_set()
             plbl = ctk.CTkLabel(
-                pdlg, text="Exporting...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                pdlg, text=lang.t("ui_exporting"), font=theme.FONT_SMALL, text_color=theme.TEXT
             )
             plbl.pack(padx=24, pady=(20, 8))
             pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
@@ -2702,29 +2755,30 @@ class App(ctk.CTk):
             log.debug_exc(logger)
         self.refresh_patients_db()
 
-    SORT_LABELS = [
-        ("name", "Name"),
-        ("updated", "Last modified"),
-        ("localitate", "Locality"),
-        ("created", "Created"),
-    ]
+    def _sort_labels(self):
+        return [
+            ("name", lang.t("sort_name")),
+            ("updated", lang.t("sort_updated")),
+            ("localitate", lang.t("sort_localitate")),
+            ("created", lang.t("sort_created")),
+        ]
 
     def _sort_label(self):
-        label = dict(self.SORT_LABELS).get(self.sort_by, "Name")
+        label = dict(self._sort_labels()).get(self.sort_by, lang.t("sort_name"))
         return label + (" \u2191" if self.sort_dir == "asc" else " \u2193")
 
     def _show_sort_menu(self):
         menu = tk.Menu(self, tearoff=0)
-        for key, label in self.SORT_LABELS:
+        for key, label in self._sort_labels():
             mark = " \u2713" if self.sort_by == key else ""
             menu.add_command(label=label + mark, command=functools.partial(self._sort_by, key))
         menu.add_separator()
         menu.add_command(
-            label="Ascending" + (" \u2713" if self.sort_dir == "asc" else ""),
+            label=lang.t("sort_ascending") + (" \u2713" if self.sort_dir == "asc" else ""),
             command=lambda: self._set_sort_dir("asc"),
         )
         menu.add_command(
-            label="Descending" + (" \u2713" if self.sort_dir == "desc" else ""),
+            label=lang.t("sort_descending") + (" \u2713" if self.sort_dir == "desc" else ""),
             command=lambda: self._set_sort_dir("desc"),
         )
         try:
@@ -2757,11 +2811,11 @@ class App(ctk.CTk):
         if event is None:
             return
         menu = tk.Menu(self, tearoff=0)
-        menu.add_command(label="Open", command=self._open_patient_file)
-        menu.add_command(label="Edit patient", command=self._edit_current_patient)
-        menu.add_command(label="Copy name", command=self._copy_current_name)
+        menu.add_command(label=lang.t("ui_open"), command=self._open_patient_file)
+        menu.add_command(label=lang.t("btn_edit_patient"), command=self._edit_current_patient)
+        menu.add_command(label=lang.t("ui_copy_name"), command=self._copy_current_name)
         menu.add_separator()
-        menu.add_command(label="Delete", command=self._delete_patient_db)
+        menu.add_command(label=lang.t("ui_delete"), command=self._delete_patient_db)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -2825,18 +2879,20 @@ class App(ctk.CTk):
             save_settings(settings)
 
             path = filedialog.asksaveasfilename(
-                defaultextension=".xlsx", filetypes=[("Excel", "*.xlsx")], title="Save as Excel"
+                defaultextension=".xlsx",
+                filetypes=[(lang.t("ui_excel_file"), "*.xlsx")],
+                title=lang.t("dlg_export_excel"),
             )
             if not path:
                 return
 
             # progress dialog
             pdlg = ctk.CTkToplevel(self)
-            pdlg.title("Export")
+            pdlg.title(lang.t("ui_export_title"))
             pdlg.transient(self)
             pdlg.grab_set()
             plbl = ctk.CTkLabel(
-                pdlg, text="Exporting...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                pdlg, text=lang.t("ui_exporting"), font=theme.FONT_SMALL, text_color=theme.TEXT
             )
             plbl.pack(padx=24, pady=(20, 8))
             pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
@@ -2861,7 +2917,7 @@ class App(ctk.CTk):
                 for i, p in enumerate(patients, 1):
                     ws.append([_field_value(p, k, i) for k in chosen])
                     if i % 50 == 0:
-                        progress("Exporting %d/%d..." % (i, total))
+                        progress(lang.t("ui_export_progress", i=i, total=total))
                 for row in ws.iter_rows(min_row=2):
                     for cell in row:
                         cell.alignment = Alignment(vertical="top", wrap_text=True)
@@ -2894,17 +2950,19 @@ class App(ctk.CTk):
         try:
 
             path = filedialog.asksaveasfilename(
-                defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], title="Save as PDF"
+                defaultextension=".pdf",
+                filetypes=[("PDF", "*.pdf")],
+                title=lang.t("dlg_export_pdf"),
             )
             if not path:
                 return
 
             pdlg = ctk.CTkToplevel(self)
-            pdlg.title("Export")
+            pdlg.title(lang.t("ui_export_title"))
             pdlg.transient(self)
             pdlg.grab_set()
             plbl = ctk.CTkLabel(
-                pdlg, text="Exporting...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                pdlg, text=lang.t("ui_exporting"), font=theme.FONT_SMALL, text_color=theme.TEXT
             )
             plbl.pack(padx=24, pady=(20, 8))
             pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
@@ -2933,17 +2991,19 @@ class App(ctk.CTk):
         try:
 
             path = filedialog.asksaveasfilename(
-                defaultextension=".doc", filetypes=[("Word", "*.doc")], title="Save as Word"
+                defaultextension=".doc",
+                filetypes=[(lang.t("ui_word_file"), "*.doc")],
+                title=lang.t("dlg_export_word"),
             )
             if not path:
                 return
 
             pdlg = ctk.CTkToplevel(self)
-            pdlg.title("Export")
+            pdlg.title(lang.t("ui_export_title"))
             pdlg.transient(self)
             pdlg.grab_set()
             plbl = ctk.CTkLabel(
-                pdlg, text="Exporting...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                pdlg, text=lang.t("ui_exporting"), font=theme.FONT_SMALL, text_color=theme.TEXT
             )
             plbl.pack(padx=24, pady=(20, 8))
             pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
@@ -2975,11 +3035,11 @@ class App(ctk.CTk):
         dest = os.path.join(folder, "patients_" + stamp + ".db")
 
         dlg = ctk.CTkToplevel(self)
-        dlg.title("Backup")
+        dlg.title(lang.t("ui_backup"))
         dlg.transient(self)
         dlg.grab_set()
         lbl = ctk.CTkLabel(
-            dlg, text="Creating backup...", font=theme.FONT_SMALL, text_color=theme.TEXT
+            dlg, text=lang.t("ui_creating_backup"), font=theme.FONT_SMALL, text_color=theme.TEXT
         )
         lbl.pack(padx=24, pady=(20, 8))
         prog = ctk.CTkProgressBar(dlg, mode="indeterminate")
@@ -2987,7 +3047,7 @@ class App(ctk.CTk):
         prog.start()
 
         def work(progress):
-            progress("Checkpointing database...")
+            progress(lang.t("ui_checkpointing"))
             ok = get_backup_service().backup_to(dest)
             info = get_backup_service().verify(dest)[1] if ok else None
             try:
@@ -3009,11 +3069,11 @@ class App(ctk.CTk):
             if ok:
                 messagebox.showinfo(
                     lang.t("app_name"),
-                    "Backup created and verified (" + str(info) + " patients):\\n" + dest,
+                    lang.t("ui_backup_created", n=info, path=dest),
                 )
             else:
                 messagebox.showwarning(
-                    lang.t("app_name"), "Backup created but verification failed."
+                    lang.t("app_name"), lang.t("ui_backup_warn", info=lang.t("ui_failed"))
                 )
 
         def on_error(e):
@@ -3032,11 +3092,11 @@ class App(ctk.CTk):
         try:
             folder = os.path.join(_data_dir(), "backup")
             if not os.path.isdir(folder):
-                messagebox.showinfo(lang.t("app_name"), "No backups found.")
+                messagebox.showinfo(lang.t("app_name"), lang.t("msg_no_backups"))
                 return
             files = sorted([f for f in os.listdir(folder) if f.endswith(".db")], reverse=True)
             if not files:
-                messagebox.showinfo(lang.t("app_name"), "No backups found.")
+                messagebox.showinfo(lang.t("app_name"), lang.t("msg_no_backups"))
                 return
             dlg = RestoreBackupDialog(self, folder, files)
             self.wait_window(dlg)
@@ -3044,14 +3104,14 @@ class App(ctk.CTk):
                 src = os.path.join(folder, dlg.result)
                 ok, info = get_backup_service().verify(src)
                 if not ok:
-                    report_error("Backup verification failed: " + str(info))
+                    report_error(lang.t("msg_backup_verify_failed", info=str(info)))
                     return
                 pdlg = ctk.CTkToplevel(self)
-                pdlg.title("Restore")
+                pdlg.title(lang.t("ui_restore_title"))
                 pdlg.transient(self)
                 pdlg.grab_set()
                 plbl = ctk.CTkLabel(
-                    pdlg, text="Restoring...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                    pdlg, text=lang.t("ui_restoring"), font=theme.FONT_SMALL, text_color=theme.TEXT
                 )
                 plbl.pack(padx=24, pady=(20, 8))
                 pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
@@ -3072,7 +3132,7 @@ class App(ctk.CTk):
                     pbar.stop()
                     pdlg.destroy()
                     self.refresh_patients_db()
-                    messagebox.showinfo(lang.t("app_name"), "Restore complete.")
+                    messagebox.showinfo(lang.t("app_name"), lang.t("msg_restore_complete"))
 
                 def on_error(e):
                     pbar.stop()
@@ -3088,18 +3148,22 @@ class App(ctk.CTk):
             get_backup_service().pre_operation("import")
 
             path = filedialog.askopenfilename(
-                title="Import (CSV/Excel)",
-                filetypes=[("CSV", "*.csv"), ("Excel", "*.xlsx"), ("All", "*.*")],
+                title=lang.t("dlg_import_title"),
+                filetypes=[
+                    ("CSV", "*.csv"),
+                    (lang.t("ui_excel_file"), "*.xlsx"),
+                    (lang.t("ui_all_files"), "*.*"),
+                ],
             )
             if not path:
                 return
 
             pdlg = ctk.CTkToplevel(self)
-            pdlg.title("Import")
+            pdlg.title(lang.t("ui_import_title"))
             pdlg.transient(self)
             pdlg.grab_set()
             plbl = ctk.CTkLabel(
-                pdlg, text="Importing...", font=theme.FONT_SMALL, text_color=theme.TEXT
+                pdlg, text=lang.t("ui_importing"), font=theme.FONT_SMALL, text_color=theme.TEXT
             )
             plbl.pack(padx=24, pady=(20, 8))
             pbar = ctk.CTkProgressBar(pdlg, mode="indeterminate")
@@ -3153,7 +3217,7 @@ class App(ctk.CTk):
                 pbar.stop()
                 pdlg.destroy()
                 self.refresh_patients_db()
-                messagebox.showinfo(lang.t("app_name"), "Imported " + str(count) + " patients.")
+                messagebox.showinfo(lang.t("app_name"), lang.t("ui_imported", n=count))
 
             def on_error(e):
                 pbar.stop()
@@ -3188,9 +3252,7 @@ class App(ctk.CTk):
             try:
                 existing = get_patient_service().get_patient(name=dlg.result["name"])
                 if existing:
-                    if messagebox.askyesno(
-                        lang.t("app_name"), "Patient already exists. Open their file?"
-                    ):
+                    if messagebox.askyesno(lang.t("app_name"), lang.t("confirm_patient_exists")):
                         pid = existing["id"]
                         self._open_patient_by_id(pid)
                         return
@@ -3240,7 +3302,7 @@ def main():
         except Exception:
             pass
         try:
-            messagebox.showinfo("Patient Database", "The application is already running.")
+            messagebox.showinfo(lang.t("app_name"), lang.t("msg_already_running"))
         except Exception:
             pass
         return

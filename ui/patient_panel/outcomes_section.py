@@ -7,25 +7,30 @@ from tkinter import ttk
 
 import customtkinter as ctk
 
+import lang
 import theme
 from error_ui import report_error
 from services.physio_service import get_physio_service
 
-from .base import TabSection
+from .base import EditorField, TabSection
 
 _COLUMNS = (
-    ("date", "Data", 90),
-    ("measure", "Măsură", 80),
-    ("value", "Valoare", 70),
-    ("notes", "Note", 160),
+    ("date", "out_col_date", 90),
+    ("measure", "out_col_measure", 80),
+    ("value", "out_col_value", 70),
+    ("notes", "out_col_notes", 160),
 )
 
 _EDITOR_FIELDS = (
-    ("measure", "Măsură", "choice", ["VAS", "NRS"]),
-    ("value", "Valoare", "text", None),
-    ("date", "Data (DD.MM.YYYY)", "text", None),
-    ("notes", "Note", "text", None),
+    ("measure", "out_measure", "choice", ["VAS", "NRS"]),
+    ("value", "out_value", "text", None),
+    ("date", "out_date", "text", None),
+    ("notes", "out_col_notes", "text", None),
 )
+
+
+def _editor_fields() -> tuple[EditorField, ...]:
+    return tuple((key, lang.t(label), kind, opts) for key, label, kind, opts in _EDITOR_FIELDS)
 
 
 class OutcomesSection(TabSection):
@@ -33,7 +38,7 @@ class OutcomesSection(TabSection):
 
     def build(self, tabview: ctk.CTkTabview) -> None:
         panel = self.panel
-        out_tab = tabview.add("Tests")
+        out_tab = tabview.add(lang.t("tab_outcomes"))
         out_tab.grid_columnconfigure(0, weight=1)
         out_tab.grid_rowconfigure(1, weight=1)
         ctk.CTkLabel(out_tab, text="VAS", font=theme.FONT_BOLD, text_color=theme.TEXT).grid(
@@ -42,23 +47,29 @@ class OutcomesSection(TabSection):
         panel.out_tree = ttk.Treeview(
             out_tab, columns=[c for c, _, _ in _COLUMNS], show="headings", selectmode="browse"
         )
-        for c, t, w in _COLUMNS:
-            panel.out_tree.heading(c, text=t)
+        for c, title_key, w in _COLUMNS:
+            panel.out_tree.heading(c, text=lang.t(title_key))
             panel.out_tree.column(c, width=w)
         panel.out_tree.grid(row=1, column=0, sticky="nsew", pady=(2, 4))
         ob = ctk.CTkFrame(out_tab, fg_color="transparent")
         ob.grid(row=2, column=0, sticky="ew", pady=4)
         ctk.CTkButton(
             ob,
-            text="Adaugă măsurătoare",
+            text=lang.t("out_add"),
             width=150,
             fg_color=theme.ACCENT,
             command=self.add,
         ).pack(side="left", padx=2)
-        ctk.CTkButton(ob, text="Editează", width=90, command=self.edit).pack(side="left", padx=2)
-        ctk.CTkButton(ob, text="Șterge", width=80, fg_color="#c0392b", command=self.delete).pack(
+        ctk.CTkButton(ob, text=lang.t("out_edit"), width=90, command=self.edit).pack(
             side="left", padx=2
         )
+        ctk.CTkButton(
+            ob,
+            text=lang.t("ui_delete"),
+            width=80,
+            fg_color=theme.DANGER,
+            command=self.delete,
+        ).pack(side="left", padx=2)
         self.load()
 
     def load(self) -> None:
@@ -88,16 +99,16 @@ class OutcomesSection(TabSection):
                 return
             from dialogs.input_dialog import ask_string
 
-            val = ask_string(panel, "Măsurătoare nouă", "Valoare VAS (0-10):")
+            val = ask_string(panel, lang.t("out_new_title"), lang.t("out_new_prompt"))
             if val is None:
                 return
             try:
                 v = float(val)
             except ValueError:
-                report_error("Valoare invalidă.")
+                report_error(lang.t("err_invalid_value"))
                 return
             if v < 0 or v > 10:
-                report_error("VAS trebuie 0-10.")
+                report_error(lang.t("err_vas_range"))
                 return
             get_physio_service().add_outcome(
                 panel.patient_id, "VAS", v, datetime.datetime.now().strftime("%d.%m.%Y")
@@ -110,9 +121,9 @@ class OutcomesSection(TabSection):
         panel = self.panel
         sel = panel.out_tree.selection()
         if not sel:
-            self.info("Selectați o măsurătoare.")
+            self.info(lang.t("out_select"))
             return
-        if not self.confirm("Ștergeți măsurătoarea?"):
+        if not self.confirm(lang.t("out_confirm_delete")):
             return
         try:
             get_physio_service().delete_outcome(int(sel[0]))
@@ -124,7 +135,7 @@ class OutcomesSection(TabSection):
         panel = self.panel
         sel = panel.out_tree.selection()
         if not sel:
-            self.info("Selectați o măsurătoare.")
+            self.info(lang.t("out_select"))
             return
         oid = int(sel[0])
         rows = [o for o in get_physio_service().list_outcomes(panel.patient_id) if o["id"] == oid]
@@ -132,7 +143,7 @@ class OutcomesSection(TabSection):
             return
         o = rows[0]
         values = {k: o.get(k, "") for k, *_ in _EDITOR_FIELDS}
-        raw = self.show_editor("Editează măsurătoare", _EDITOR_FIELDS, values)
+        raw = self.show_editor(lang.t("out_edit_title"), _editor_fields(), values)
         if not raw:
             return
         data: dict[str, object] = dict(raw)

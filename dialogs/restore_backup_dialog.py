@@ -1,10 +1,10 @@
-from .common import ctk, tk
+from .common import ctk, lang, tk
 
 
 class RestoreBackupDialog(ctk.CTkToplevel):
     def __init__(self, master, folder, files):
         super().__init__(master)
-        self.title("Restore backup")
+        self.title(lang.t("dlg_restore_backup"))
         self.geometry("420x320")
         self.transient(master)
         self.grab_set()
@@ -25,5 +25,9 @@ class RestoreBackupDialog(ctk.CTkToplevel):
             self.result = lb.get(sel[0])
             self.destroy()
 
-        ctk.CTkButton(btns, text="Restore", width=80, command=_ok).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Cancel", width=80, command=self.destroy).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("ui_restore"), width=80, command=_ok).pack(
+            side="left", padx=2
+        )
+        ctk.CTkButton(btns, text=lang.t("btn_cancel"), width=80, command=self.destroy).pack(
+            side="left", padx=2
+        )

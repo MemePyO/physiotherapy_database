@@ -2,19 +2,26 @@
 
 import customtkinter as ctk
 
+import lang
+import theme
+
 from .base_dialog import BaseDialog
 
 
 class CTkConfirmationDialog(BaseDialog):
-    def __init__(self, master, title, message, ok_text="Yes", cancel_text="No"):
+    def __init__(self, master, title, message, ok_text=None, cancel_text=None):
         super().__init__(master, title, width=360, height=150)
         self._result = False
+        if ok_text is None:
+            ok_text = lang.t("btn_yes")
+        if cancel_text is None:
+            cancel_text = lang.t("btn_no")
 
         ctk.CTkLabel(
             self,
             text=message,
             font=("Segoe UI", 11),
-            text_color="#333",
+            text_color=theme.TEXT,
             anchor="w",
             wraplength=320,
             justify="left",
@@ -26,8 +33,8 @@ class CTkConfirmationDialog(BaseDialog):
             btns,
             text=cancel_text,
             width=90,
-            fg_color="#6b7280",
-            hover_color="#4b5563",
+            fg_color=theme.MUTED_BTN,
+            hover_color=theme.MUTED_BTN_HOVER,
             command=self._no,
         ).pack(side="right", padx=(4, 0))
         ctk.CTkButton(btns, text=ok_text, width=90, command=self._yes).pack(side="right")
@@ -48,6 +55,6 @@ class CTkConfirmationDialog(BaseDialog):
         return self._result
 
 
-def ask_yes_no(master, title, message, ok_text="Yes", cancel_text="No"):
+def ask_yes_no(master, title, message, ok_text=None, cancel_text=None):
     dlg = CTkConfirmationDialog(master, title, message, ok_text=ok_text, cancel_text=cancel_text)
     return dlg.get_result()

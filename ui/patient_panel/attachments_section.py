@@ -18,7 +18,11 @@ from .base import TabSection
 
 logger = log.get_logger(__name__)
 
-_COLUMNS = (("filename", "File", 200), ("size", "Size", 70), ("added_at", "Added", 120))
+_COLUMNS = (
+    ("filename", "att_col_file", 200),
+    ("size", "att_col_size", 70),
+    ("added_at", "att_col_added", 120),
+)
 
 
 class AttachmentsSection(TabSection):
@@ -26,7 +30,7 @@ class AttachmentsSection(TabSection):
 
     def build(self, tabview: ctk.CTkTabview) -> None:
         panel = self.panel
-        att_tab = tabview.add("Attachments")
+        att_tab = tabview.add(lang.t("tab_attachments"))
         att_tab.grid_columnconfigure(0, weight=1)
         att_tab.grid_rowconfigure(0, weight=1)
         panel.attach_tree = ttk.Treeview(
@@ -35,8 +39,8 @@ class AttachmentsSection(TabSection):
             show="headings",
             selectmode="browse",
         )
-        for c, title, width in _COLUMNS:
-            panel.attach_tree.heading(c, text=title)
+        for c, title_key, width in _COLUMNS:
+            panel.attach_tree.heading(c, text=lang.t(title_key))
             panel.attach_tree.column(c, width=width)
         panel.attach_tree.grid(row=0, column=0, sticky="nsew", pady=(4, 4))
         ab = ctk.CTkFrame(att_tab, fg_color="transparent")
@@ -49,7 +53,9 @@ class AttachmentsSection(TabSection):
             hover_color=theme.ACCENT_DARK,
             command=self.attach_file,
         ).pack(side="left", padx=2)
-        ctk.CTkButton(ab, text="Preview", width=80, command=self.preview).pack(side="left", padx=2)
+        ctk.CTkButton(ab, text=lang.t("ui_preview"), width=80, command=self.preview).pack(
+            side="left", padx=2
+        )
         ctk.CTkButton(ab, text=lang.t("ui_open"), width=80, command=self.open_attachment).pack(
             side="left", padx=2
         )
@@ -57,7 +63,7 @@ class AttachmentsSection(TabSection):
             ab,
             text=lang.t("ui_delete"),
             width=80,
-            fg_color="#c0392b",
+            fg_color=theme.DANGER,
             command=self.delete,
         ).pack(side="left", padx=2)
         ctk.CTkButton(ab, text=lang.t("ui_refresh"), width=80, command=self.load).pack(
@@ -91,7 +97,10 @@ class AttachmentsSection(TabSection):
 
     def attach_file(self) -> None:
         panel = self.panel
-        path = filedialog.askopenfilename(title="Attach file", filetypes=[("All files", "*.*")])
+        path = filedialog.askopenfilename(
+            title=lang.t("att_attach_title"),
+            filetypes=[(lang.t("ui_all_files"), "*.*")],
+        )
         if not path:
             return
         try:
@@ -159,7 +168,12 @@ class AttachmentsSection(TabSection):
                 preview = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
                 preview.thumbnail((900, 700))
                 self.show_preview_image(
-                    preview, title=os.path.basename(path) + " (page 1/%d)" % doc.page_count
+                    preview,
+                    title=lang.t(
+                        "ui_preview_page",
+                        name=os.path.basename(path),
+                        n=doc.page_count,
+                    ),
                 )
                 doc.close()
             else:
@@ -168,18 +182,18 @@ class AttachmentsSection(TabSection):
         except Exception as e:
             report_error(str(e))
 
-    def show_preview_image(self, img: Any, title: str = "Preview") -> None:
+    def show_preview_image(self, img: Any, title: str | None = None) -> None:
         from PIL import ImageTk
 
         win = ctk.CTkToplevel(self.panel)
-        win.title(title)
+        win.title(title or lang.t("ui_preview"))
         win.geometry("920x740")
         lbl = ctk.CTkLabel(win, text="")
         lbl.pack(expand=True, fill="both", padx=10, pady=10)
         tk_img = ImageTk.PhotoImage(img)
         lbl.configure(image=tk_img)
         lbl.image = tk_img  # keep ref
-        ctk.CTkButton(win, text="Close", command=win.destroy).pack(pady=8)
+        ctk.CTkButton(win, text=lang.t("ui_close"), command=win.destroy).pack(pady=8)
 
     def delete(self) -> None:
         panel = self.panel
@@ -187,7 +201,7 @@ class AttachmentsSection(TabSection):
         if not sel:
             self.info(lang.t("ui_select_attachment"))
             return
-        if not self.confirm("Delete this attachment?"):
+        if not self.confirm(lang.t("att_confirm_delete")):
             return
         try:
             get_attachment_service().delete(int(sel[0]))

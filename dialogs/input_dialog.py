@@ -2,6 +2,9 @@
 
 import customtkinter as ctk
 
+import lang
+import theme
+
 from .base_dialog import BaseDialog
 
 
@@ -13,16 +16,16 @@ class CTkInputDialog(BaseDialog):
         self._result = None
         self._validate = validate
 
-        ctk.CTkLabel(self, text=prompt, font=("Segoe UI", 11), text_color="#333", anchor="w").pack(
-            padx=16, pady=(16, 4), fill="x"
-        )
+        ctk.CTkLabel(
+            self, text=prompt, font=("Segoe UI", 11), text_color=theme.TEXT, anchor="w"
+        ).pack(padx=16, pady=(16, 4), fill="x")
         self.entry = ctk.CTkEntry(self, width=320)
         self.entry.pack(padx=16, pady=(0, 8))
         self.entry.insert(0, initialvalue or "")
         self.entry.focus_set()
 
         self.err_label = ctk.CTkLabel(
-            self, text="", text_color="#c0392b", font=("Segoe UI", 10), anchor="w"
+            self, text="", text_color=theme.DANGER, font=("Segoe UI", 10), anchor="w"
         )
         self.err_label.pack(padx=16, fill="x")
 
@@ -30,13 +33,13 @@ class CTkInputDialog(BaseDialog):
         btns.pack(side="bottom", fill="x", padx=12, pady=12)
         ctk.CTkButton(
             btns,
-            text="Cancel",
+            text=lang.t("btn_cancel"),
             width=90,
-            fg_color="#6b7280",
-            hover_color="#4b5563",
+            fg_color=theme.MUTED_BTN,
+            hover_color=theme.MUTED_BTN_HOVER,
             command=self._cancel,
         ).pack(side="right", padx=(4, 0))
-        ctk.CTkButton(btns, text="OK", width=90, command=self._ok).pack(side="right")
+        ctk.CTkButton(btns, text=lang.t("btn_ok"), width=90, command=self._ok).pack(side="right")
 
         self.bind("<Return>", lambda e: self._ok())
         self.bind("<Escape>", lambda e: self._cancel())

@@ -164,7 +164,7 @@ class PatientFilePanel(ctk.CTkFrame):
             height=theme.AVATAR_SIZE,
             corner_radius=theme.AVATAR_SIZE // 2,
             fg_color=theme.ACCENT,
-            text_color="white",
+            text_color=theme.ON_ACCENT,
             font=ctk.CTkFont(size=14, weight="bold"),
         )
         av.grid(row=0, column=0, rowspan=4, padx=(0, 12))
@@ -173,7 +173,7 @@ class PatientFilePanel(ctk.CTkFrame):
             # inline editable header
             self.name_entry = ctk.CTkEntry(
                 frame,
-                placeholder_text="Patient name (required)",
+                placeholder_text=lang.t("ui_patient_name_required_ph"),
                 font=ctk.CTkFont(size=16, weight="bold"),
             )
             self.name_entry.grid(row=0, column=1, sticky="ew", pady=(0, 2))
@@ -181,22 +181,28 @@ class PatientFilePanel(ctk.CTkFrame):
 
             row = ctk.CTkFrame(frame, fg_color="transparent")
             row.grid(row=1, column=1, sticky="ew", pady=(0, 2))
-            ctk.CTkLabel(row, text="Code:", font=theme.FONT_SMALL, text_color=theme.MUTED).pack(
-                side="left"
-            )
+            ctk.CTkLabel(
+                row,
+                text=lang.t("ui_code") + ":",
+                font=theme.FONT_SMALL,
+                text_color=theme.MUTED,
+            ).pack(side="left")
             self.code_label = ctk.CTkLabel(
                 row, text="auto", font=theme.FONT_SMALL, text_color=theme.MUTED
             )
             self.code_label.pack(side="left", padx=(4, 12))
             ctk.CTkLabel(
-                row, text="DOB (DD.MM.YYYY):", font=theme.FONT_SMALL, text_color=theme.MUTED
+                row, text=lang.t("ui_dob_full"), font=theme.FONT_SMALL, text_color=theme.MUTED
             ).pack(side="left")
-            self.dob_entry = ctk.CTkEntry(row, width=110, placeholder_text="DD.MM.YYYY")
+            self.dob_entry = ctk.CTkEntry(row, width=110, placeholder_text=lang.t("ui_ddmmyyyy"))
             self.dob_entry.pack(side="left", padx=(4, 12))
             self.dob_entry.insert(0, self.patient.get("dob", "") or "")
-            ctk.CTkLabel(row, text="Sex:", font=theme.FONT_SMALL, text_color=theme.MUTED).pack(
-                side="left"
-            )
+            ctk.CTkLabel(
+                row,
+                text=lang.t("ui_sex") + ":",
+                font=theme.FONT_SMALL,
+                text_color=theme.MUTED,
+            ).pack(side="left")
             self.sex_menu = ctk.CTkOptionMenu(row, values=["", "M", "F"], width=70)
             self.sex_menu.pack(side="left", padx=(4, 12))
             self.sex_menu.set(self.patient.get("sex", "") or "")
@@ -204,18 +210,25 @@ class PatientFilePanel(ctk.CTkFrame):
             loc_row = ctk.CTkFrame(frame, fg_color="transparent")
             loc_row.grid(row=2, column=1, sticky="ew", pady=(0, 2))
             ctk.CTkLabel(
-                loc_row, text="Locality:", font=theme.FONT_SMALL, text_color=theme.MUTED
+                loc_row,
+                text=lang.t("ui_locality") + ":",
+                font=theme.FONT_SMALL,
+                text_color=theme.MUTED,
             ).pack(side="left")
-            self.loc_entry = ctk.CTkEntry(loc_row, placeholder_text="Locality")
+            self.loc_entry = ctk.CTkEntry(loc_row, placeholder_text=lang.t("ui_locality"))
             self.loc_entry.pack(side="left", fill="x", expand=True, padx=(4, 0))
             self.loc_entry.insert(0, self.patient.get("localitate", "") or "")
 
             diag = self.patient.get("diagnostic", "") or ""
             first_line = diag.split(chr(10))[0].strip() if diag else ""
-            main_diag = utils._strip_inline_formatting(first_line) if first_line else "NA"
+            main_diag = (
+                utils._strip_inline_formatting(first_line)
+                if first_line
+                else lang.t("ui_not_applicable")
+            )
             diag_lbl = ctk.CTkLabel(
                 frame,
-                text="Diagnostic: " + main_diag,
+                text=lang.t("ui_section_diagnostic") + ": " + main_diag,
                 font=theme.FONT_BOLD,
                 text_color=theme.ACCENT,
             )
@@ -236,8 +249,8 @@ class PatientFilePanel(ctk.CTkFrame):
                 btns,
                 text=lang.t("ui_cancel"),
                 width=70,
-                fg_color="#6b7280",
-                hover_color="#4b5563",
+                fg_color=theme.MUTED_BTN,
+                hover_color=theme.MUTED_BTN_HOVER,
                 command=self._cancel_new,
             ).pack(side="top", padx=2, pady=2)
             return
@@ -252,27 +265,34 @@ class PatientFilePanel(ctk.CTkFrame):
         name_lbl.grid(row=0, column=1, sticky="w")
         self.name_label = name_lbl
 
-        dob = self.patient.get("dob", "") or "NA"
-        sex = self.patient.get("sex", "") or "NA"
-        loc = self.patient.get("localitate", "") or "NA"
-        code = self.patient.get("patient_code", "") or "NA"
-        info_text = f"Code: {code}   |   DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}"
+        na = lang.t("ui_not_applicable")
+        dob = self.patient.get("dob", "") or na
+        sex = self.patient.get("sex", "") or na
+        loc = self.patient.get("localitate", "") or na
+        code = self.patient.get("patient_code", "") or na
+        info_text = (
+            f"{lang.t('ui_code')}: {code}   |   {lang.t('ui_dob')}: {dob}"
+            f"   |   {lang.t('ui_sex')}: {sex}   |   {lang.t('ui_locality')}: {loc}"
+        )
         info_lbl = ctk.CTkLabel(frame, text=info_text, font=theme.FONT_SUB, text_color=theme.MUTED)
         info_lbl.grid(row=1, column=1, sticky="w")
         self.info_label = info_lbl
 
         diag = self.patient.get("diagnostic", "") or ""
         first_line = diag.split(chr(10))[0].strip() if diag else ""
-        main_diag = utils._strip_inline_formatting(first_line) if first_line else "NA"
+        main_diag = utils._strip_inline_formatting(first_line) if first_line else na
         diag_lbl = ctk.CTkLabel(
-            frame, text="Diagnostic: " + main_diag, font=theme.FONT_BOLD, text_color=theme.ACCENT
+            frame,
+            text=lang.t("ui_section_diagnostic") + ": " + main_diag,
+            font=theme.FONT_BOLD,
+            text_color=theme.ACCENT,
         )
         diag_lbl.grid(row=2, column=1, sticky="w")
         self.diag_header_label = diag_lbl
 
         self.modified_label = ctk.CTkLabel(
             frame,
-            text=lang.t("ui_last_modified") + " " + (self.patient.get("updated_at") or "NA"),
+            text=lang.t("ui_last_modified") + " " + (self.patient.get("updated_at") or na),
             font=theme.FONT_SMALL,
             text_color=theme.MUTED,
         )
@@ -297,26 +317,38 @@ class PatientFilePanel(ctk.CTkFrame):
                 if txt is not None:
                     val = txt.get("1.0", "end-1c").split(chr(10))[0].strip()
                     self.diag_header_label.configure(
-                        text="Diagnostic: " + (utils._strip_inline_formatting(val) if val else "NA")
+                        text=lang.t("ui_section_diagnostic")
+                        + ": "
+                        + (
+                            utils._strip_inline_formatting(val)
+                            if val
+                            else lang.t("ui_not_applicable")
+                        )
                     )
             except Exception:
                 log.debug_exc(logger)
             return
-        code = self.patient.get("patient_code", "") or "NA"
-        dob = self.patient.get("dob", "") or "NA"
-        sex = self.patient.get("sex", "") or "NA"
-        loc = self.patient.get("localitate", "") or "NA"
+        na = lang.t("ui_not_applicable")
+        code = self.patient.get("patient_code", "") or na
+        dob = self.patient.get("dob", "") or na
+        sex = self.patient.get("sex", "") or na
+        loc = self.patient.get("localitate", "") or na
         try:
             self.info_label.configure(
-                text=f"Code: {code}   |   DOB: {dob}   |   Sex: {sex}   |   Locality: {loc}"
+                text=(
+                    f"{lang.t('ui_code')}: {code}   |   {lang.t('ui_dob')}: {dob}"
+                    f"   |   {lang.t('ui_sex')}: {sex}   |   {lang.t('ui_locality')}: {loc}"
+                )
             )
         except Exception:
             log.debug_exc(logger)
         diag = self.patient.get("diagnostic", "") or ""
         first_line = diag.split(chr(10))[0].strip() if diag else ""
-        main_diag = utils._strip_inline_formatting(first_line) if first_line else "NA"
+        main_diag = utils._strip_inline_formatting(first_line) if first_line else na
         try:
-            self.diag_header_label.configure(text="Diagnostic: " + main_diag)
+            self.diag_header_label.configure(
+                text=lang.t("ui_section_diagnostic") + ": " + main_diag
+            )
         except Exception:
             log.debug_exc(logger)
 
@@ -349,10 +381,10 @@ class PatientFilePanel(ctk.CTkFrame):
             tb = ctk.CTkFrame(tab, fg_color="transparent")
             tb.grid(row=0, column=0, sticky="ew", pady=(4, 4))
             tooltips = {
-                "bold": "Bold: wrap the selection in ** **",
-                "italic": "Italic: wrap the selection in * *",
-                "bullet": "Insert a bullet (\u2022) at the start of the current line",
-                "number": "Insert a numbered item (1.) at the start of the current line",
+                "bold": lang.t("tip_bold"),
+                "italic": lang.t("tip_italic"),
+                "bullet": lang.t("tip_bullet"),
+                "number": lang.t("tip_number"),
             }
             for label, cmd_prefix in [
                 ("B", "bold"),
@@ -408,15 +440,15 @@ class PatientFilePanel(ctk.CTkFrame):
         self.attachments_section.build(self.tabview)
 
         # History tab
-        hist_tab = self.tabview.add("History")
+        hist_tab = self.tabview.add(lang.t("tab_history"))
         hist_tab.grid_columnconfigure(0, weight=1)
         hist_tab.grid_rowconfigure(0, weight=1)
         hcols = ("changed_at", "field", "old_value", "new_value")
         self.hist_tree = ttk.Treeview(hist_tab, columns=hcols, show="headings", selectmode="browse")
-        self.hist_tree.heading("changed_at", text="When")
-        self.hist_tree.heading("field", text="Field")
-        self.hist_tree.heading("old_value", text="Old")
-        self.hist_tree.heading("new_value", text="New")
+        self.hist_tree.heading("changed_at", text=lang.t("hist_col_when"))
+        self.hist_tree.heading("field", text=lang.t("hist_col_field"))
+        self.hist_tree.heading("old_value", text=lang.t("hist_col_old"))
+        self.hist_tree.heading("new_value", text=lang.t("hist_col_new"))
         self.hist_tree.column("changed_at", width=120)
         self.hist_tree.column("field", width=90)
         self.hist_tree.column("old_value", width=160)
@@ -431,8 +463,8 @@ class PatientFilePanel(ctk.CTkFrame):
             hb,
             text=lang.t("ui_clear_history"),
             width=100,
-            fg_color="#c0392b",
-            hover_color="#a93226",
+            fg_color=theme.DANGER,
+            hover_color=theme.DANGER_HOVER,
             command=self._clear_history,
         ).pack(side="left", padx=2)
 
@@ -455,10 +487,10 @@ class PatientFilePanel(ctk.CTkFrame):
         self.texts = {}
         self.count_labels = {}
         tooltips = {
-            "bold": "Bold: wrap the selection in ** **",
-            "italic": "Italic: wrap the selection in * *",
-            "bullet": "Insert a bullet (\u2022) at the start of the current line",
-            "number": "Insert a numbered item (1.) at the start of the current line",
+            "bold": lang.t("tip_bold"),
+            "italic": lang.t("tip_italic"),
+            "bullet": lang.t("tip_bullet"),
+            "number": lang.t("tip_number"),
         }
         self._sections_tabview = ctk.CTkTabview(
             self.sections_frame,
@@ -638,10 +670,10 @@ class PatientFilePanel(ctk.CTkFrame):
             result["data"] = data
             dlg.destroy()
 
-        ctk.CTkButton(dlg, text="Salvează", fg_color=theme.ACCENT, command=_save).grid(
+        ctk.CTkButton(dlg, text=lang.t("ui_save"), fg_color=theme.ACCENT, command=_save).grid(
             row=row, column=0, padx=8, pady=8
         )
-        ctk.CTkButton(dlg, text="Anulează", command=dlg.destroy).grid(
+        ctk.CTkButton(dlg, text=lang.t("ui_cancel"), command=dlg.destroy).grid(
             row=row, column=1, padx=8, pady=8
         )
         self.wait_window(dlg)
@@ -698,7 +730,9 @@ class PatientFilePanel(ctk.CTkFrame):
             lines = content.count("\n") + (1 if content.strip() else 0)
             if content == "":
                 lines = 0
-            self.count_labels[field].configure(text=f"{chars} ch \u00b7 {lines} ln")
+            self.count_labels[field].configure(
+                text=lang.t("ui_count_format", chars=chars, lines=lines)
+            )
         except Exception:
             log.debug_exc(logger)
 
@@ -757,7 +791,7 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception:
                 name = ""
             if not name:
-                report_error("Patient name is required.")
+                report_error(lang.t("ui_name_required"))
                 return
             dob = ""
             try:
@@ -765,7 +799,7 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception:
                 dob = ""
             if dob and not _validate_dob(dob):
-                report_error("Invalid date (use DD.MM.YYYY).")
+                report_error(lang.t("ui_invalid_date"))
                 return
             sex = ""
             try:
@@ -817,7 +851,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._build_header()
                 self._dirty = False
                 if not silent:
-                    self.dirty_label.configure(text="Saved")
+                    self.dirty_label.configure(text=lang.t("ui_saved"))
                     self.after(
                         2000,
                         lambda: (
@@ -828,7 +862,7 @@ class PatientFilePanel(ctk.CTkFrame):
                     )
                     messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
                 else:
-                    self.dirty_label.configure(text="Saved")
+                    self.dirty_label.configure(text=lang.t("ui_saved"))
                     self.after(
                         2000,
                         lambda: (
@@ -861,7 +895,7 @@ class PatientFilePanel(ctk.CTkFrame):
 
         try:
             if not silent:
-                self.dirty_label.configure(text="Saving...")
+                self.dirty_label.configure(text=lang.t("ui_saving"))
             get_patient_service().update_patient(
                 self.patient_id,
                 diagnostic=self.diagnostic_text.get("1.0", "end-1c"),
@@ -872,13 +906,13 @@ class PatientFilePanel(ctk.CTkFrame):
             self.patient = get_patient_service().get_patient(patient_id=self.patient_id)
             self._dirty = False
             if silent:
-                self.dirty_label.configure(text="Auto-saved")
+                self.dirty_label.configure(text=lang.t("ui_auto_saved"))
                 self.after(
                     2000,
                     lambda: self.dirty_label.configure(text="") if utils._exists(self) else None,
                 )
             else:
-                self.dirty_label.configure(text="Saved")
+                self.dirty_label.configure(text=lang.t("ui_saved"))
                 self.after(
                     2000,
                     lambda: self.dirty_label.configure(text="") if utils._exists(self) else None,
@@ -886,7 +920,9 @@ class PatientFilePanel(ctk.CTkFrame):
             self._refresh_header_info()
             try:
                 self.modified_label.configure(
-                    text=lang.t("ui_last_modified") + " " + (self.patient.get("updated_at") or "NA")
+                    text=lang.t("ui_last_modified")
+                    + " "
+                    + (self.patient.get("updated_at") or lang.t("ui_not_applicable"))
                 )
             except Exception:
                 log.debug_exc(logger)
@@ -900,26 +936,29 @@ class PatientFilePanel(ctk.CTkFrame):
     def _print_pdf(self):
         try:
             path = filedialog.asksaveasfilename(
-                defaultextension=".pdf", filetypes=[("PDF", "*.pdf")], title="Save patient PDF"
+                defaultextension=".pdf",
+                filetypes=[("PDF", "*.pdf")],
+                title=lang.t("dlg_save_patient_pdf"),
             )
             if not path:
                 return
             p = self.patient
+            na = lang.t("ui_not_applicable")
             lines = []
-            lines.append("Patient File")
+            lines.append(lang.t("ui_patient_file"))
             lines.append("=" * 60)
-            lines.append("Name: " + str(p.get("name", "")))
-            lines.append("Code: " + str(p.get("patient_code", "") or "NA"))
-            lines.append("DOB: " + str(p.get("dob", "") or "NA"))
-            lines.append("Sex: " + str(p.get("sex", "") or "NA"))
-            lines.append("Locality: " + str(p.get("localitate", "") or "NA"))
-            lines.append("Last modified: " + str(p.get("updated_at", "") or "NA"))
+            lines.append(lang.t("ui_name") + ": " + str(p.get("name", "")))
+            lines.append(lang.t("ui_code") + ": " + str(p.get("patient_code", "") or na))
+            lines.append(lang.t("ui_dob") + ": " + str(p.get("dob", "") or na))
+            lines.append(lang.t("ui_sex") + ": " + str(p.get("sex", "") or na))
+            lines.append(lang.t("ui_locality") + ": " + str(p.get("localitate", "") or na))
+            lines.append(lang.t("ui_last_modified") + " " + str(p.get("updated_at", "") or na))
             lines.append("")
             for fld, title in [
-                ("diagnostic", "Diagnostic"),
-                ("objective", "Obiectiv"),
-                ("evaluation", "Evaluare"),
-                ("observation", "Observa\u021bie"),
+                ("diagnostic", lang.t("ui_section_diagnostic")),
+                ("objective", lang.t("ui_section_objective")),
+                ("evaluation", lang.t("ui_section_evaluation")),
+                ("observation", lang.t("ui_section_observation")),
             ]:
                 lines.append(title)
                 lines.append("-" * 40)
@@ -930,11 +969,15 @@ class PatientFilePanel(ctk.CTkFrame):
                 lines.append("")
             atts = get_attachment_service().list(self.patient_id)
             if atts:
-                lines.append("Attachments")
+                lines.append(lang.t("tab_attachments"))
                 lines.append("-" * 40)
                 for a in atts:
                     lines.append(
-                        "- " + str(a.get("filename", "")) + " (" + str(a.get("size", 0)) + " bytes)"
+                        "- "
+                        + str(a.get("filename", ""))
+                        + " ("
+                        + lang.t("ui_bytes", n=a.get("size", 0))
+                        + ")"
                     )
                 lines.append("")
             text = "\n".join(lines)
@@ -946,7 +989,7 @@ class PatientFilePanel(ctk.CTkFrame):
                     os.startfile(path, "print")
             except Exception:
                 log.debug_exc(logger)
-            messagebox.showinfo(lang.t("app_name"), "PDF saved:\n" + path)
+            messagebox.showinfo(lang.t("app_name"), lang.t("msg_pdf_saved", path=path))
         except Exception as e:
             report_error(str(e))
 
@@ -969,7 +1012,9 @@ class PatientFilePanel(ctk.CTkFrame):
                 self._refresh_header_info()
                 try:
                     self.modified_label.configure(
-                        text="Last modified: " + (self.patient.get("updated_at") or "NA")
+                        text=lang.t("ui_last_modified")
+                        + " "
+                        + (self.patient.get("updated_at") or lang.t("ui_not_applicable"))
                     )
                 except Exception:
                     log.debug_exc(logger)
@@ -981,10 +1026,10 @@ class PatientFilePanel(ctk.CTkFrame):
     def mark_dirty(self):
         if getattr(self, "_is_new", False):
             self._dirty = True
-            self.dirty_label.configure(text="Unsaved changes *")
+            self.dirty_label.configure(text=lang.t("ui_unsaved"))
             return
         self._dirty = True
-        self.dirty_label.configure(text="Unsaved changes *")
+        self.dirty_label.configure(text=lang.t("ui_unsaved"))
 
     def _schedule_format(self, txt):
         job = getattr(self, "_fmt_job", None)
@@ -1043,7 +1088,7 @@ class PatientFilePanel(ctk.CTkFrame):
             if getattr(self, "_is_new", False):
                 return
             if self._dirty and self.winfo_exists():
-                self.dirty_label.configure(text="Saving...")
+                self.dirty_label.configure(text=lang.t("ui_saving"))
                 self._save_all(silent=True)
         except Exception:
             log.debug_exc(logger)
@@ -1062,7 +1107,7 @@ class PatientFilePanel(ctk.CTkFrame):
     def _preview_attachment(self) -> None:
         self.attachments_section.preview()
 
-    def _show_preview_image(self, img, title="Preview") -> None:
+    def _show_preview_image(self, img, title=None) -> None:
         self.attachments_section.show_preview_image(img, title)
 
     def _delete_attachment(self) -> None:
@@ -1090,7 +1135,7 @@ class PatientFilePanel(ctk.CTkFrame):
             log.debug_exc(logger)
 
     def _clear_history(self):
-        if not messagebox.askyesno(lang.t("app_name"), "Delete all history for this patient?"):
+        if not messagebox.askyesno(lang.t("app_name"), lang.t("confirm_clear_history")):
             return
         try:
             get_history_service().clear(self.patient_id)
@@ -1123,12 +1168,14 @@ class EditPatientDialog(ctk.CTkToplevel):
         self.entry_loc.set(patient.get("localitate", ""))
         self.entry_loc.grid(row=1, column=1, sticky="ew", padx=10, pady=5)
 
-        ctk.CTkLabel(self, text="Sex:").grid(row=2, column=0, sticky="w", padx=10, pady=5)
+        ctk.CTkLabel(self, text=lang.t("ui_sex") + ":").grid(
+            row=2, column=0, sticky="w", padx=10, pady=5
+        )
         self.entry_sex = ctk.CTkComboBox(self, values=["NA", "M", "F"])
         self.entry_sex.set(patient.get("sex", "") or "NA")
         self.entry_sex.grid(row=2, column=1, sticky="ew", padx=10, pady=5)
 
-        ctk.CTkLabel(self, text="Date of birth (DD.MM.YYYY):").grid(
+        ctk.CTkLabel(self, text=lang.t("ui_dob_full")).grid(
             row=3, column=0, sticky="w", padx=10, pady=5
         )
         self.entry_dob = ctk.CTkEntry(self)
@@ -1151,7 +1198,7 @@ class EditPatientDialog(ctk.CTkToplevel):
             report_error(lang.t("err_patient_name_required"))
             return
         if not _validate_dob(self.entry_dob.get()):
-            report_error("Date of birth must be DD.MM.YYYY (e.g. 12.05.1990)")
+            report_error(lang.t("err_dob_format"))
             return
         sex = self.entry_sex.get().strip()
         if sex == "NA":

@@ -2,6 +2,9 @@
 
 import customtkinter as ctk
 
+import lang
+import theme
+
 
 class BaseDialog(ctk.CTkToplevel):
     """Common scaffolding for modal themed dialogs."""
@@ -22,9 +25,11 @@ class BaseDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-    def _add_buttons(
-        self, ok_text="OK", cancel_text="Cancel", ok_command=None, cancel_command=None
-    ):
+    def _add_buttons(self, ok_text=None, cancel_text=None, ok_command=None, cancel_command=None):
+        if ok_text is None:
+            ok_text = lang.t("btn_ok")
+        if cancel_text is None:
+            cancel_text = lang.t("btn_cancel")
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
         btn_frame.pack(side="bottom", fill="x", padx=12, pady=12)
         if cancel_text:
@@ -32,8 +37,8 @@ class BaseDialog(ctk.CTkToplevel):
                 btn_frame,
                 text=cancel_text,
                 width=90,
-                fg_color="#6b7280",
-                hover_color="#4b5563",
+                fg_color=theme.MUTED_BTN,
+                hover_color=theme.MUTED_BTN_HOVER,
                 command=cancel_command or self.destroy,
             ).pack(side="right", padx=(4, 0))
         if ok_text:
@@ -44,6 +49,4 @@ class BaseDialog(ctk.CTkToplevel):
 
 
 def theme_color():
-    import theme
-
     return theme.ACCENT

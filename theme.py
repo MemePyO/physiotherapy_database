@@ -78,6 +78,10 @@ PALETTES = {
         "ACCENT_LIGHT": "#e8f1fa",
         "SELECTED": "#dce9f7",
         "DANGER": "#c0392b",
+        "DANGER_HOVER": "#a93226",
+        "MUTED_BTN": "#6b7280",
+        "MUTED_BTN_HOVER": "#4b5563",
+        "ON_ACCENT": "#ffffff",
         "SEC_DIAG": "#2f6fb0",
         "SEC_OBJ": "#4a90c2",
         "SEC_EVAL": "#8fb8d8",
@@ -125,6 +129,10 @@ PALETTES = {
         "ACCENT_LIGHT": "#dceafe",
         "SELECTED": "#dceafe",
         "DANGER": "#c0392b",
+        "DANGER_HOVER": "#a93226",
+        "MUTED_BTN": "#6b7280",
+        "MUTED_BTN_HOVER": "#4b5563",
+        "ON_ACCENT": "#ffffff",
         "SEC_DIAG": "#3b82f6",
         "SEC_OBJ": "#a9d2f0",
         "SEC_EVAL": "#98a2b3",
@@ -172,6 +180,10 @@ PALETTES = {
         "ACCENT_LIGHT": "#1e3a8a",
         "SELECTED": "#1e3a5f",
         "DANGER": "#ef4444",
+        "DANGER_HOVER": "#dc2626",
+        "MUTED_BTN": "#4b5563",
+        "MUTED_BTN_HOVER": "#374151",
+        "ON_ACCENT": "#ffffff",
         "SEC_DIAG": "#2563eb",
         "SEC_OBJ": "#3b82f6",
         "SEC_EVAL": "#6b7280",
@@ -225,6 +237,10 @@ ACCENT_DARK: str
 ACCENT_LIGHT: str
 SELECTED: str
 DANGER: str
+DANGER_HOVER: str
+MUTED_BTN: str
+MUTED_BTN_HOVER: str
+ON_ACCENT: str
 SEC_DIAG: str
 SEC_OBJ: str
 SEC_EVAL: str

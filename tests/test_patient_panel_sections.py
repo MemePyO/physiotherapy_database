@@ -2,6 +2,7 @@
 
 import os
 
+import lang
 from services.physio_service import get_physio_service
 
 
@@ -177,11 +178,11 @@ def test_outcomes_section_validation_and_flow(patient_app, monkeypatch):
 
     monkeypatch.setattr(input_dialog, "ask_string", lambda *a, **k: "nope")
     panel._add_outcome()
-    assert errors == ["Valoare invalidă."]
+    assert errors == [lang.t("err_invalid_value")]
 
     monkeypatch.setattr(input_dialog, "ask_string", lambda *a, **k: "11")
     panel._add_outcome()
-    assert errors[-1] == "VAS trebuie 0-10."
+    assert errors[-1] == lang.t("err_vas_range")
     assert get_physio_service().list_outcomes(pid) == []
 
     monkeypatch.setattr(input_dialog, "ask_string", lambda *a, **k: "7")

@@ -1,13 +1,13 @@
 from error_ui import report_error
 from services.patient_service import get_patient_service
 
-from .common import ctk, lang, messagebox, ttk
+from .common import ctk, lang, messagebox, theme, ttk
 
 
 class TrashDialog(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
-        self.title("Deleted patients (trash)")
+        self.title(lang.t("dlg_trash_title"))
         self.geometry("520x360")
         self.transient(master)
         self.grab_set()
@@ -15,9 +15,9 @@ class TrashDialog(ctk.CTkToplevel):
         self.grid_rowconfigure(0, weight=1)
         cols = ("name", "localitate", "deleted_at")
         tree = ttk.Treeview(self, columns=cols, show="headings", selectmode="browse")
-        tree.heading("name", text="Name")
-        tree.heading("localitate", text="Locality")
-        tree.heading("deleted_at", text="Deleted at")
+        tree.heading("name", text=lang.t("ui_name"))
+        tree.heading("localitate", text=lang.t("ui_locality"))
+        tree.heading("deleted_at", text=lang.t("ui_deleted_at"))
         tree.column("name", width=200)
         tree.column("localitate", width=120)
         tree.column("deleted_at", width=160)
@@ -47,7 +47,7 @@ class TrashDialog(ctk.CTkToplevel):
             sel = tree.selection()
             if not sel:
                 return
-            if not messagebox.askyesno(lang.t("app_name"), "Permanently delete?"):
+            if not messagebox.askyesno(lang.t("app_name"), lang.t("confirm_purge")):
                 return
             get_patient_service().purge_deleted([int(sel[0])])
             tree.delete(sel[0])
@@ -61,22 +61,32 @@ class TrashDialog(ctk.CTkToplevel):
                     report_error(str(e))
 
         def _empty_trash():
-            if not messagebox.askyesno(
-                lang.t("app_name"), "Permanently delete ALL deleted patients?"
-            ):
+            if not messagebox.askyesno(lang.t("app_name"), lang.t("confirm_purge_all")):
                 return
             get_patient_service().empty_deleted()
             for iid in list(tree.get_children()):
                 tree.delete(iid)
 
-        ctk.CTkButton(btns, text="Restore", width=80, command=_restore).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Restore all", width=90, command=_restore_all).pack(
+        ctk.CTkButton(btns, text=lang.t("ui_restore"), width=80, command=_restore).pack(
             side="left", padx=2
         )
-        ctk.CTkButton(btns, text="Purge", width=70, fg_color="#c0392b", command=_purge).pack(
+        ctk.CTkButton(btns, text=lang.t("ui_restore_all"), width=90, command=_restore_all).pack(
             side="left", padx=2
         )
         ctk.CTkButton(
-            btns, text="Empty trash", width=90, fg_color="#c0392b", command=_empty_trash
+            btns,
+            text=lang.t("ui_purge"),
+            width=70,
+            fg_color=theme.DANGER,
+            command=_purge,
         ).pack(side="left", padx=2)
-        ctk.CTkButton(btns, text="Close", width=70, command=self.destroy).pack(side="left", padx=2)
+        ctk.CTkButton(
+            btns,
+            text=lang.t("ui_empty_trash"),
+            width=90,
+            fg_color=theme.DANGER,
+            command=_empty_trash,
+        ).pack(side="left", padx=2)
+        ctk.CTkButton(btns, text=lang.t("ui_close"), width=70, command=self.destroy).pack(
+            side="left", padx=2
+        )

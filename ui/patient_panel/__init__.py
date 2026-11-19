@@ -98,10 +98,11 @@ def _make_simple_pdf(text):
 
 
 class PatientFilePanel(ctk.CTkFrame):
-    def __init__(self, master, patient_id, on_close=None, new=False):
+    def __init__(self, master, patient_id, on_close=None, new=False, on_status=None):
         super().__init__(master, fg_color=theme.PANEL, corner_radius=theme.PANEL_RADIUS)
         self.patient_id = None if new else patient_id
         self.on_close_callback = on_close
+        self.on_status = on_status
         self._dirty = False
         self._is_new = bool(new) or (patient_id is None)
         self._rebuilding = False
@@ -834,6 +835,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 else ""
             )
             try:
+                self._notify_status("saving")
                 pid, _validation = get_patient_service().create_patient(
                     name,
                     loc,
@@ -889,11 +891,14 @@ class PatientFilePanel(ctk.CTkFrame):
                         app._set_selected_card(pid)
                 except Exception:
                     log.debug_exc(logger)
+                self._notify_status("saved")
             except Exception as e:
+                self._notify_status("unsaved")
                 report_error(str(e))
             return
 
         try:
+            self._notify_status("saving")
             if not silent:
                 self.dirty_label.configure(text=lang.t("ui_saving"))
             get_patient_service().update_patient(
@@ -926,11 +931,13 @@ class PatientFilePanel(ctk.CTkFrame):
                 )
             except Exception:
                 log.debug_exc(logger)
+            self._notify_status("saved")
             if self.on_close_callback:
                 self.on_close_callback()
             if not silent:
                 messagebox.showinfo(lang.t("app_name"), lang.t("msg_saved"))
         except Exception as e:
+            self._notify_status("unsaved")
             report_error(str(e))
 
     def _print_pdf(self):
@@ -1023,13 +1030,25 @@ class PatientFilePanel(ctk.CTkFrame):
             except Exception as e:
                 report_error(str(e))
 
+    def _notify_status(self, state: str) -> None:
+        """Tell the app shell about a save-state change; never raises."""
+        cb = getattr(self, "on_status", None)
+        if cb is None:
+            return
+        try:
+            cb(self.patient_id, state)
+        except Exception:
+            log.debug_exc(logger)
+
     def mark_dirty(self):
         if getattr(self, "_is_new", False):
             self._dirty = True
             self.dirty_label.configure(text=lang.t("ui_unsaved"))
+            self._notify_status("unsaved")
             return
         self._dirty = True
         self.dirty_label.configure(text=lang.t("ui_unsaved"))
+        self._notify_status("unsaved")
 
     def _schedule_format(self, txt):
         job = getattr(self, "_fmt_job", None)
@@ -1064,6 +1083,7 @@ class PatientFilePanel(ctk.CTkFrame):
             return False
 
     def _cancel_new(self):
+        self._notify_status("")
         try:
             app = self.winfo_toplevel()
             if hasattr(app, "_show_placeholder"):
@@ -1089,6 +1109,7 @@ class PatientFilePanel(ctk.CTkFrame):
                 return
             if self._dirty and self.winfo_exists():
                 self.dirty_label.configure(text=lang.t("ui_saving"))
+                self._notify_status("saving")
                 self._save_all(silent=True)
         except Exception:
             log.debug_exc(logger)

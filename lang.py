@@ -924,6 +924,7 @@ STRINGS = {
     "ui_unsaved": {"en": "Unsaved changes *", "ro": "Modificări nesalvate *"},
     "ui_last_saved": {"en": "Saved {time}", "ro": "Salvat {time}"},
     "ui_no_patient": {"en": "No patient open", "ro": "Niciun pacient deschis"},
+    "ui_patient_label": {"en": "Patient: {name}", "ro": "Pacient: {name}"},
     "ui_no_diagnostic": {"en": "No diagnostic", "ro": "Fără diagnostic"},
     "ui_patients_count": {"en": "{n} patients", "ro": "{n} pacienți"},
     # ---- patient file sections ----

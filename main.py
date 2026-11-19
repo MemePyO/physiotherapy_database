@@ -499,6 +499,12 @@ class App(ctk.CTk):
         # Content: overview (left) + file (right)
         self._build_content()
 
+        # Presentation-only status strip
+        self._status_state = ""
+        self._status_saved_at = ""
+        self._patient_total = 0
+        self._build_status_bar()
+
         self.refresh_patients_db()
         self._auto_backup()
         self._sidebar_visible = True
@@ -543,6 +549,77 @@ class App(ctk.CTk):
         try:
             if os.path.exists(ico):
                 self.iconbitmap(ico)
+        except Exception:
+            log.debug_exc(logger)
+
+    def _build_status_bar(self) -> None:
+        """Build the thin footer that mirrors the patient-file save state."""
+        bar = ctk.CTkFrame(
+            self,
+            fg_color=theme.TOPBAR_BG,
+            height=24,
+            corner_radius=0,
+            border_width=1,
+            border_color=theme.BORDER,
+        )
+        bar.grid(row=2, column=0, columnspan=2, sticky="ew")
+        bar.grid_propagate(False)
+        bar.grid_columnconfigure(1, weight=1)
+        self._status_patient_lbl = ctk.CTkLabel(
+            bar, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
+        )
+        self._status_patient_lbl.grid(row=0, column=0, sticky="w", padx=12)
+        self._status_state_lbl = ctk.CTkLabel(
+            bar, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
+        )
+        self._status_state_lbl.grid(row=0, column=1, sticky="w", padx=12)
+        self._status_count_lbl = ctk.CTkLabel(
+            bar, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="e"
+        )
+        self._status_count_lbl.grid(row=0, column=2, sticky="e", padx=12)
+        self._status_bar = bar
+        self._update_status_bar()
+
+    def _on_patient_status(self, patient_id, state) -> None:
+        """Callback passed to patient panels; presentation only, never raises."""
+        try:
+            self._status_state = state if isinstance(state, str) else ""
+            if state == "saved":
+                self._status_saved_at = time.strftime("%H:%M")
+            elif state in ("open", ""):
+                self._status_saved_at = ""
+            self._update_status_bar(patient_id)
+        except Exception:
+            log.debug_exc(logger)
+
+    def _update_status_bar(self, patient_id=None) -> None:
+        try:
+            bar = getattr(self, "_status_bar", None)
+            if bar is None or not bar.winfo_exists():
+                return
+            if patient_id is None:
+                patient_id = self.selected_patient_id
+            name = ""
+            panel = getattr(self, "patient_panels", {}).get(patient_id)
+            if panel is not None:
+                name = (getattr(panel, "patient", None) or {}).get("name", "") or ""
+            state = getattr(self, "_status_state", "")
+            if state == "saved":
+                saved_at = getattr(self, "_status_saved_at", "")
+                text = lang.t("ui_last_saved", time=saved_at) if saved_at else lang.t("ui_saved")
+            elif state == "saving":
+                text = lang.t("ui_saving")
+            elif state == "unsaved":
+                text = lang.t("ui_unsaved")
+            else:
+                text = ""
+            self._status_patient_lbl.configure(
+                text=(lang.t("ui_patient_label", name=name) if name else lang.t("ui_no_patient"))
+            )
+            self._status_state_lbl.configure(text=text)
+            self._status_count_lbl.configure(
+                text=lang.t("ui_patients_count", n=getattr(self, "_patient_total", 0))
+            )
         except Exception:
             log.debug_exc(logger)
 
@@ -2147,6 +2224,7 @@ class App(ctk.CTk):
             patients = get_patient_service().list_patients(
                 sort_by=self.sort_by, sort_dir=self.sort_dir
             )
+            self._patient_total = len(patients)
             search_raw = ""
             entry = getattr(self, "search_entry", None)
             try:
@@ -2199,6 +2277,7 @@ class App(ctk.CTk):
                 self._show_list_empty(lang.t("empty_no_patients"))
             elif not self._visible_patient_ids:
                 self._show_list_empty(lang.t("empty_no_match", q=search_raw.strip()))
+            self._update_status_bar()
         except Exception as e:
             report_error(str(e))
         try:
@@ -2527,22 +2606,37 @@ class App(ctk.CTk):
                 w.destroy()
             self.patient_panels = {}
             panel = PatientFilePanel(
-                self.file_host, None, on_close=self.refresh_patients_db, new=True
+                self.file_host,
+                None,
+                on_close=self.refresh_patients_db,
+                on_status=self._on_patient_status,
+                new=True,
             )
             panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=0)
             self.patient_panels[None] = panel
             self.selected_patient_id = None
+            self._status_state = ""
+            self._status_saved_at = ""
+            self._update_status_bar(None)
             return
         self._save_open_files()
         self.selected_patient_id = patient_id
         for w in self.file_host.winfo_children():
             w.destroy()
         self.patient_panels = {}
-        panel = PatientFilePanel(self.file_host, patient_id, on_close=self.refresh_patients_db)
+        panel = PatientFilePanel(
+            self.file_host,
+            patient_id,
+            on_close=self.refresh_patients_db,
+            on_status=self._on_patient_status,
+        )
         # show immediately (no slide-in clip)
         panel.place(relx=0, rely=0, relwidth=1, relheight=1, x=0)
         self.patient_panels[patient_id] = panel
         self._set_selected_card(patient_id)
+        self._status_state = ""
+        self._status_saved_at = ""
+        self._update_status_bar(patient_id)
 
     def _open_patient_file(self):
         if self.selected_patient_id is None:
@@ -2634,6 +2728,7 @@ class App(ctk.CTk):
             getattr(self, "_header", None),
             getattr(self, "_sidebar", None),
             getattr(self, "_content", None),
+            getattr(self, "_status_bar", None),
         ):
             try:
                 if w is not None and w.winfo_exists():
@@ -2643,14 +2738,17 @@ class App(ctk.CTk):
         self._header = None
         self._sidebar = None
         self._content = None
+        self._status_bar = None
         ttk_style.apply(self)
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=0)
         self._build_header_bar()
         self._build_sidebar()
         self._build_content()
+        self._build_status_bar()
         self._search_text = search_text
         self._search_scope_text = search_scope
         try:

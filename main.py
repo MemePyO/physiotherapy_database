@@ -429,6 +429,7 @@ class App(ctk.CTk):
             self.geometry("1200x800")
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
         ttk_style.apply(self)
+        self._apply_window_icon()
 
         # Initialize database
         get_database_service().init()
@@ -516,6 +517,35 @@ class App(ctk.CTk):
         self.bind("<Control-p>", self._print_current_panel)
         self.bind("<Escape>", self._handle_escape)
 
+    def _apply_window_icon(self):
+        """Give the window a taskbar icon and a stable Windows app identity.
+
+        Every step is best-effort: a missing asset or a Tcl build without
+        ``iconphoto`` support must never stop the app from starting.
+        """
+        if os.name == "nt":
+            try:
+                import ctypes
+
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("MediDashboard.Pro")
+            except Exception:
+                log.debug_exc(logger)
+        for name in ("icon.png", "logo.png"):
+            path = os.path.join(_asset_dir(), "assets", name)
+            if not os.path.exists(path):
+                continue
+            try:
+                self.iconphoto(True, tk.PhotoImage(file=path))
+                return
+            except Exception:
+                log.debug_exc(logger)
+        ico = os.path.join(_asset_dir(), "assets", "icon.ico")
+        try:
+            if os.path.exists(ico):
+                self.iconbitmap(ico)
+        except Exception:
+            log.debug_exc(logger)
+
     def _on_app_close(self):
         self._closing = True
         try:
@@ -570,7 +600,7 @@ class App(ctk.CTk):
                     return
             except Exception:
                 log.debug_exc(logger)
-        # medidash theme has no inline search box
+        # No inline search box (e.g. a dialog-only layout): fall back to asking.
         try:
             self._search_patients_dialog()
         except Exception:
@@ -738,7 +768,7 @@ class App(ctk.CTk):
             fg_color="transparent",
             text_color=theme.MUTED,
             hover_color=theme.ACCENT_LIGHT,
-            command=self._search_patients_dialog,
+            command=self._focus_search,
         ).pack(side="left", padx=2)
         ctk.CTkButton(
             right,
@@ -1115,53 +1145,10 @@ class App(ctk.CTk):
         elif view == "diagnostics":
             self._view_diagnostics()
 
-    def _view_patients(self):
-        f = self.overview_content
-        medidash = theme.active().startswith("medidash")
-        if medidash:
-            f.grid_rowconfigure(1, weight=1)
-            top = ctk.CTkFrame(f, fg_color="transparent")
-            top.grid(row=0, column=0, sticky="ew", pady=(0, 2))
-            top.grid_columnconfigure(0, weight=1)
-            self.count_label = ctk.CTkLabel(
-                top, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
-            )
-            self.count_label.grid(row=0, column=0, sticky="w")
-            self.sort_btn = ctk.CTkButton(
-                top, text="\u21c5", width=30, command=self._show_sort_menu
-            )
-            self.sort_btn.grid(row=0, column=1, padx=(6, 2))
-            attach_tooltip(self.sort_btn, lang.t("tip_sort"))
-            clear_btn = ctk.CTkButton(top, text="\u00d7", width=26, command=self._clear_search)
-            clear_btn.grid(row=0, column=2, padx=(2, 0))
-            attach_tooltip(clear_btn, lang.t("tip_clear_search"))
-            self.search_entry = None
-
-            self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
-            self.card_list.grid(row=1, column=0, sticky="nsew", pady=(0, 2))
-            self.card_list.grid_columnconfigure(0, weight=1)
-            utils._patch_scrollable(self.card_list)
-
-            ctk.CTkButton(
-                f,
-                text=lang.t("ui_new_patient"),
-                height=32,
-                fg_color=theme.ACCENT,
-                hover_color=theme.ACCENT_DARK,
-                font=theme.FONT_BOLD,
-                command=lambda: self._open_patient_by_id(None),
-            ).grid(row=2, column=0, sticky="ew", pady=(2, 0))
-            self.refresh_patients_db()
-            return
-
-        f.grid_rowconfigure(2, weight=1)
-        search_frame = ctk.CTkFrame(
-            f, fg_color=theme.INPUT_BG, corner_radius=9, border_width=1, border_color=theme.BORDER
-        )
-        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
-        search_frame.grid_columnconfigure(1, weight=1)
+    def _build_search_controls(self, parent):
+        """Build the inline search row shared by both dashboard layouts."""
         self.search_scope_menu = ctk.CTkOptionMenu(
-            search_frame,
+            parent,
             values=[lang.t("search_scope_name"), lang.t("search_scope_everything")],
             width=95,
             command=self._on_search_scope_change,
@@ -1174,9 +1161,7 @@ class App(ctk.CTk):
         )
         self.search_scope_menu.pack(side="left", padx=(0, 6))
         self.search_scope = saved_scope
-        self.search_entry = ctk.CTkEntry(
-            search_frame, placeholder_text=lang.t("ui_search_patients")
-        )
+        self.search_entry = ctk.CTkEntry(parent, placeholder_text=lang.t("ui_search_patients"))
         self.search_entry.pack(side="left", fill="x", expand=True)
         if getattr(self, "_search_text", ""):
             self.search_entry.insert(0, self._search_text)
@@ -1187,14 +1172,59 @@ class App(ctk.CTk):
             "<Return>", lambda e: (self._navigate_patient(1, open_first=True), "break")[1]
         )
         self.search_entry.bind("<Escape>", lambda e: (self._clear_search(), "break")[1])
-        ctk.CTkButton(search_frame, text="\u00d7", width=26, command=self._clear_search).pack(
-            side="left", padx=2
-        )
-        self.sort_btn = ctk.CTkButton(
-            search_frame, text="\u21c5", width=30, command=self._show_sort_menu
-        )
+        clear_btn = ctk.CTkButton(parent, text="\u00d7", width=26, command=self._clear_search)
+        clear_btn.pack(side="left", padx=2)
+        attach_tooltip(clear_btn, lang.t("tip_clear_search"))
+        self.sort_btn = ctk.CTkButton(parent, text="\u21c5", width=30, command=self._show_sort_menu)
         self.sort_btn.pack(side="left", padx=(2, 0))
         attach_tooltip(self.sort_btn, lang.t("tip_sort"))
+        return self.search_entry
+
+    def _view_patients(self):
+        f = self.overview_content
+        medidash = theme.active().startswith("medidash")
+        if medidash:
+            f.grid_rowconfigure(2, weight=1)
+            search_frame = ctk.CTkFrame(
+                f,
+                fg_color=theme.INPUT_BG,
+                corner_radius=9,
+                border_width=1,
+                border_color=theme.BORDER,
+            )
+            search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+            search_frame.grid_columnconfigure(1, weight=1)
+            self._build_search_controls(search_frame)
+
+            self.count_label = ctk.CTkLabel(
+                f, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"
+            )
+            self.count_label.grid(row=1, column=0, sticky="ew", pady=(0, 2))
+
+            self.card_list = ctk.CTkScrollableFrame(f, fg_color="transparent")
+            self.card_list.grid(row=2, column=0, sticky="nsew", pady=(0, 2))
+            self.card_list.grid_columnconfigure(0, weight=1)
+            utils._patch_scrollable(self.card_list)
+
+            ctk.CTkButton(
+                f,
+                text=lang.t("ui_new_patient"),
+                height=32,
+                fg_color=theme.ACCENT,
+                hover_color=theme.ACCENT_DARK,
+                font=theme.FONT_BOLD,
+                command=lambda: self._open_patient_by_id(None),
+            ).grid(row=3, column=0, sticky="ew", pady=(2, 0))
+            self.refresh_patients_db()
+            return
+
+        f.grid_rowconfigure(2, weight=1)
+        search_frame = ctk.CTkFrame(
+            f, fg_color=theme.INPUT_BG, corner_radius=9, border_width=1, border_color=theme.BORDER
+        )
+        search_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        search_frame.grid_columnconfigure(1, weight=1)
+        self._build_search_controls(search_frame)
 
         self.count_label = ctk.CTkLabel(
             f, text="", font=theme.FONT_SMALL, text_color=theme.MUTED, anchor="w"

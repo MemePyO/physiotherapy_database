@@ -50,3 +50,41 @@ def test_tooltip_lifecycle(app):
     # hiding without any state is safe
     tooltip.hide_tooltip()
     win.destroy()
+
+
+def test_tooltip_state_is_per_toplevel(app):
+    win_a = ctk.CTkToplevel(app)
+    win_b = ctk.CTkToplevel(app)
+    widget_a = tk.Button(win_a, text="a")
+    widget_a.pack()
+    widget_b = tk.Button(win_b, text="b")
+    widget_b.pack()
+    win_a.update()
+    win_b.update()
+
+    handlers_a = {}
+    handlers_b = {}
+    widget_a.bind = lambda sequence, func, add=None: handlers_a.__setitem__(sequence, func)
+    widget_b.bind = lambda sequence, func, add=None: handlers_b.__setitem__(sequence, func)
+    tooltip.attach_tooltip(widget_a, "text a")
+    tooltip.attach_tooltip(widget_b, "text b")
+
+    handlers_a["<Enter>"]()
+    app.update()
+    label_a = tooltip._state["label"]
+    assert label_a is not None
+
+    handlers_b["<Enter>"]()
+    app.update()
+    assert not label_a.winfo_exists()
+    label_b = tooltip._state["label"]
+    assert label_b is not None
+
+    # hiding window A must leave window B's tooltip alone
+    tooltip.hide_tooltip(win_a)
+    assert tooltip._state["label"] is label_b
+
+    tooltip.hide_tooltip(win_b)
+    assert tooltip._state["label"] is None
+    win_a.destroy()
+    win_b.destroy()

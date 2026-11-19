@@ -1,8 +1,10 @@
 """Single, in-window hover tooltips.
 
-Only one tooltip can exist at a time, and it is a label placed inside the app
-window instead of a separate top-level window, so it can never be left behind
-on the desktop when the pointer moves away quickly.
+Only one tooltip is visible at a time per top-level window, and it is a label
+placed inside that window instead of a separate top-level window, so it can
+never be left behind on the desktop when the pointer moves away quickly.
+State is kept per toplevel so a dialog and the main window never cancel each
+other's timers.
 """
 
 import tkinter as tk
@@ -18,29 +20,62 @@ class _TooltipState(t.TypedDict):
     job: tuple[tk.Misc, str] | None
 
 
-# Currently visible tooltip and its auto-hide timer.
-_state: _TooltipState = {"label": None, "job": None}
+def _empty_state() -> _TooltipState:
+    return {"label": None, "job": None}
 
 
-def hide_tooltip() -> None:
-    """Remove the visible tooltip and cancel its auto-hide timer, if any."""
-    job = _state.get("job")
+_states: dict[str, _TooltipState] = {}
+# Backwards-compatible handle for tests and callers: the most recent state.
+_state: _TooltipState = _empty_state()
+
+
+def _state_for(window: tk.Misc) -> _TooltipState:
+    try:
+        key = str(window)
+    except Exception:
+        key = ""
+    state = _states.get(key)
+    if state is None:
+        state = _empty_state()
+        _states[key] = state
+    return state
+
+
+def _clear_state(state: _TooltipState) -> None:
+    job = state.get("job")
     if job is not None:
         window, job_id = job
         try:
             window.after_cancel(job_id)
         except Exception:
             pass
-        _state["job"] = None
+        state["job"] = None
 
-    label = _state.get("label")
+    label = state.get("label")
     if label is not None:
         try:
             if label.winfo_exists():
                 label.destroy()
         except Exception:
             pass
-        _state["label"] = None
+        state["label"] = None
+
+
+def hide_tooltip(window: tk.Misc | None = None) -> None:
+    """Remove visible tooltips and cancel their auto-hide timers.
+
+    Without *window* every known toplevel is cleared, which is what the app
+    uses on global events (click, unmap).  Passing a window only clears that
+    window's tooltip, so dialogs stay independent.
+    """
+    if window is None:
+        targets = list(_states.values())
+        if all(target is not _state for target in targets):
+            targets.append(_state)
+    else:
+        targets = [_state_for(window)]
+    for state in targets:
+        _clear_state(state)
 
 
 def attach_tooltip(widget: tk.Misc, text: str, delay: int = 0) -> None:
@@ -64,6 +99,9 @@ def attach_tooltip(widget: tk.Misc, text: str, delay: int = 0) -> None:
             )
         except Exception:
             return
+        state = _state_for(top)
+        global _state
+        _state = state
         try:
             x = widget.winfo_rootx() - top.winfo_rootx()
             y = widget.winfo_rooty() - top.winfo_rooty() + widget.winfo_height() + 4
@@ -73,14 +111,17 @@ def attach_tooltip(widget: tk.Misc, text: str, delay: int = 0) -> None:
             label.lift()
         except Exception:
             pass
-        _state["label"] = label
+        state["label"] = label
         try:
-            _state["job"] = (top, top.after(4000, hide_tooltip))
+            state["job"] = (top, top.after(4000, lambda: hide_tooltip(top)))
         except Exception:
-            _state["job"] = None
+            state["job"] = None
 
     def _hide(event=None):
-        hide_tooltip()
+        try:
+            hide_tooltip(widget.winfo_toplevel())
+        except Exception:
+            hide_tooltip()
 
     for sequence in ("<Enter>",):
         widget.bind(sequence, _show, add="+")

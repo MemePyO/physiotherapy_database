@@ -57,6 +57,27 @@ def _is_benign_tcl_error(exc_type, exc_value):
     return False
 
 
+def _ui_scale() -> float:
+    """Current widget scaling, resilient to missing CustomTkinter support."""
+    try:
+        return float(ctk.get_widget_scaling())
+    except Exception:
+        return 1.0
+
+
+def _option_button(parent, text, active, command, width=90):
+    """Settings button that shows whether its option is currently active."""
+    return ctk.CTkButton(
+        parent,
+        text=text,
+        width=width,
+        fg_color=theme.ACCENT if active else theme.MUTED_BTN,
+        hover_color=theme.ACCENT_DARK if active else theme.MUTED_BTN_HOVER,
+        text_color=theme.ON_ACCENT,
+        command=command,
+    )
+
+
 def _log_uncaught(exc_type, exc_value, exc_tb):
     logger.error("Unhandled exception: %s", exc_value, exc_info=(exc_type, exc_value, exc_tb))
     _write_crash_dump(exc_type, exc_value, exc_tb)
@@ -1448,12 +1469,14 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=(8, 2))
         sf = ctk.CTkFrame(scroll, fg_color="transparent")
         sf.pack(anchor="w", pady=(0, 10))
+        current_scale = _ui_scale()
         for pct in (100, 125, 150):
-            ctk.CTkButton(
+            _option_button(
                 sf,
-                text=str(pct) + "%",
+                str(pct) + "%",
+                abs(current_scale - pct / 100.0) < 0.01,
+                lambda p=pct: self._set_ui_scale(p / 100.0),
                 width=70,
-                command=lambda p=pct: self._set_ui_scale(p / 100.0),
             ).pack(side="left", padx=2)
 
         ctk.CTkLabel(
@@ -1461,28 +1484,37 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=(0, 2))
         tf = ctk.CTkFrame(scroll, fg_color="transparent")
         tf.pack(anchor="w", pady=(0, 10))
-        ctk.CTkButton(
-            tf, text=lang.t("ui_light"), width=90, command=lambda: self._apply_appearance("Light")
+        mode = theme.appearance()
+        _option_button(
+            tf,
+            lang.t("ui_light"),
+            mode != "Dark",
+            lambda: self._apply_appearance("Light"),
         ).pack(side="left", padx=2)
-        ctk.CTkButton(
-            tf, text=lang.t("ui_dark"), width=90, command=lambda: self._apply_appearance("Dark")
+        _option_button(
+            tf,
+            lang.t("ui_dark"),
+            mode == "Dark",
+            lambda: self._apply_appearance("Dark"),
         ).pack(side="left", padx=2)
         ctk.CTkLabel(
             scroll, text=lang.t("ui_interface_theme"), font=theme.FONT_BOLD, text_color=theme.TEXT
         ).pack(anchor="w", pady=(8, 2))
         itf = ctk.CTkFrame(scroll, fg_color="transparent")
         itf.pack(anchor="w", pady=(0, 10))
-        ctk.CTkButton(
+        base = theme.base()
+        _option_button(
             itf,
-            text=lang.t("ui_theme_classic"),
-            width=90,
-            command=lambda: self.after(50, lambda: self._apply_ui_theme("classic")),
+            lang.t("ui_theme_classic"),
+            base == "classic",
+            lambda: self.after(50, lambda: self._apply_ui_theme("classic")),
         ).pack(side="left", padx=2)
-        ctk.CTkButton(
+        _option_button(
             itf,
-            text=lang.t("ui_theme_medidash"),
+            lang.t("ui_theme_medidash"),
+            base == "medidash",
+            lambda: self.after(50, lambda: self._apply_ui_theme("medidash")),
             width=120,
-            command=lambda: self.after(50, lambda: self._apply_ui_theme("medidash")),
         ).pack(side="left", padx=2)
         ctk.CTkLabel(
             scroll, text=lang.t("ui_data"), font=theme.FONT_BOLD, text_color=theme.TEXT
@@ -2351,32 +2383,19 @@ class App(ctk.CTk):
         )
         preview.grid(row=2, column=1, sticky="w", pady=(0, 2))
 
-        if selected:
-            open_btn = ctk.CTkButton(
-                card,
-                text=lang.t("ui_open_file") + " \u203a",
-                width=80,
-                height=24,
-                corner_radius=8,
-                fg_color=theme.ACCENT,
-                hover_color=theme.ACCENT_DARK,
-                font=theme.FONT_SMALL,
-                command=lambda pid=p["id"]: self._open_patient_by_id(pid),
-            )
-            open_btn.grid(row=0, column=2, rowspan=3, padx=10)
-        else:
-            open_btn = ctk.CTkButton(
-                card,
-                text=lang.t("ui_open_file") + " \u203a",
-                width=80,
-                height=24,
-                corner_radius=8,
-                fg_color=theme.ACCENT,
-                hover_color=theme.ACCENT_DARK,
-                font=theme.FONT_SMALL,
-                command=lambda pid=p["id"]: self._open_patient_by_id(pid),
-            )
-            open_btn.grid(row=0, column=2, rowspan=3, padx=10)
+        open_btn = ctk.CTkButton(
+            card,
+            text=lang.t("ui_open_file") + " \u203a",
+            width=80,
+            height=24,
+            corner_radius=8,
+            fg_color=theme.ACCENT,
+            hover_color=theme.ACCENT_DARK,
+            font=theme.FONT_SMALL,
+            command=lambda pid=p["id"]: self._open_patient_by_id(pid),
+        )
+        open_btn.grid(row=0, column=2, rowspan=3, padx=10)
+        if not selected:
             open_btn.grid_remove()
 
         try:

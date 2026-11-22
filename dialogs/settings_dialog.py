@@ -1,4 +1,6 @@
-from .common import LANG_LABELS, ctk, lang, theme
+from ui import recolor
+
+from .common import LANG_LABELS, ctk, lang, logger, theme
 
 
 def _option_button(parent, text, active, command, width=90):
@@ -17,6 +19,7 @@ def _option_button(parent, text, active, command, width=90):
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
+        self._master = master
         self.title(lang.t("ui_settings"))
         self.geometry("420x460")
         self.resizable(False, False)
@@ -25,6 +28,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.grid_columnconfigure(0, weight=1)
         self.scale_buttons = {}
         self.theme_buttons = {}
+        self.appearance_buttons = {}
 
         ctk.CTkLabel(
             self, text=lang.t("ui_settings"), font=theme.FONT_TITLE, text_color=theme.TEXT
@@ -46,17 +50,13 @@ class SettingsDialog(ctk.CTkToplevel):
         ).grid(row=3, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         scale_frame = ctk.CTkFrame(self, fg_color="transparent")
         scale_frame.grid(row=4, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
-        try:
-            current_scale = float(ctk.get_widget_scaling())
-        except Exception:
-            current_scale = 1.0
         for pct in (100, 125, 150):
-            active = abs(current_scale - pct / 100.0) < 0.01
+            active = self._scale_active(pct)
             btn = _option_button(
                 scale_frame,
                 str(pct) + "%",
                 active,
-                lambda p=pct: master._set_ui_scale(p / 100.0),
+                lambda p=pct: self._choose_scale(p),
                 width=70,
             )
             btn.pack(side="left", padx=2)
@@ -73,14 +73,14 @@ class SettingsDialog(ctk.CTkToplevel):
             itf_frame,
             lang.t("ui_theme_classic"),
             base == "classic",
-            lambda: (master._apply_ui_theme("classic"), self.destroy()),
+            lambda: self._choose_theme("classic"),
         )
         classic_btn.pack(side="left", padx=2)
         medidash_btn = _option_button(
             itf_frame,
             lang.t("ui_theme_medidash"),
             base == "medidash",
-            lambda: (master._apply_ui_theme("medidash"), self.destroy()),
+            lambda: self._choose_theme("medidash"),
             width=120,
         )
         medidash_btn.pack(side="left", padx=2)
@@ -95,18 +95,16 @@ class SettingsDialog(ctk.CTkToplevel):
         ).grid(row=7, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         theme_frame = ctk.CTkFrame(self, fg_color="transparent")
         theme_frame.grid(row=8, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
-        _option_button(
-            theme_frame,
-            lang.t("ui_light"),
-            theme.appearance() != "Dark",
-            lambda: master._apply_appearance("Light"),
-        ).pack(side="left", padx=2)
-        _option_button(
-            theme_frame,
-            lang.t("ui_dark"),
-            theme.appearance() == "Dark",
-            lambda: master._apply_appearance("Dark"),
-        ).pack(side="left", padx=2)
+        for mode, label in (("Light", lang.t("ui_light")), ("Dark", lang.t("ui_dark"))):
+            active = (theme.appearance() == "Dark") == (mode == "Dark")
+            btn = _option_button(
+                theme_frame,
+                label,
+                active,
+                lambda m=mode: self._choose_appearance(m),
+            )
+            btn.pack(side="left", padx=2)
+            self.appearance_buttons[mode] = (btn, active)
 
         # Backup / Restore / Import
         ctk.CTkLabel(
@@ -132,3 +130,66 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkButton(self, text=lang.t("ui_close"), width=90, command=self.destroy).grid(
             row=12, column=0, sticky="e", padx=theme.PADDING, pady=(8, theme.PADDING)
         )
+
+    # -- live option handling ------------------------------------------------
+
+    @staticmethod
+    def _scale_active(pct):
+        try:
+            current = float(ctk.get_widget_scaling())
+        except Exception:
+            current = 1.0
+        return abs(current - pct / 100.0) < 0.01
+
+    @staticmethod
+    def _paint(button, active):
+        try:
+            button.configure(
+                fg_color=theme.ACCENT if active else theme.MUTED_BTN,
+                hover_color=theme.ACCENT_DARK if active else theme.MUTED_BTN_HOVER,
+                text_color=theme.ON_ACCENT,
+            )
+        except Exception:
+            logger.debug("could not refresh settings button", exc_info=True)
+
+    def _refresh_highlights(self):
+        """Re-read the live app state and repaint the active option buttons."""
+        try:
+            for pct, (button, _active) in list(self.scale_buttons.items()):
+                active = self._scale_active(pct)
+                self.scale_buttons[pct] = (button, active)
+                self._paint(button, active)
+            for name, (button, _active) in list(self.theme_buttons.items()):
+                active = theme.base() == name
+                self.theme_buttons[name] = (button, active)
+                self._paint(button, active)
+            for mode, (button, _active) in list(self.appearance_buttons.items()):
+                active = (theme.appearance() == "Dark") == (mode == "Dark")
+                self.appearance_buttons[mode] = (button, active)
+                self._paint(button, active)
+        except Exception:
+            logger.debug("could not refresh settings dialog", exc_info=True)
+
+    def _choose_scale(self, pct):
+        try:
+            self._master._set_ui_scale(pct / 100.0)
+        except Exception:
+            logger.debug("could not change ui scale", exc_info=True)
+        self._refresh_highlights()
+
+    def _choose_theme(self, name):
+        old_palette = recolor.snapshot()
+        try:
+            self._master._apply_ui_theme(name)
+        except Exception:
+            logger.debug("could not change interface theme", exc_info=True)
+        # A layout change rebuilds the app, not this dialog: recolour it here.
+        recolor.apply(self, old_palette)
+        self._refresh_highlights()
+
+    def _choose_appearance(self, mode):
+        try:
+            self._master._apply_appearance(mode)
+        except Exception:
+            logger.debug("could not change appearance", exc_info=True)
+        self._refresh_highlights()

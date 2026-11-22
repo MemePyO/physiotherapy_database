@@ -117,6 +117,57 @@ PALETTES = {
         "RIGHT_BG": "#ffffff",
         "ICON_STYLE": "emoji",
     },
+    "classic-dark": {
+        "BG": "#111a24",
+        "PANEL": "#1b2634",
+        "BORDER": "#2c3b4c",
+        "TEXT": "#e9eff6",
+        "MUTED": "#9aabbd",
+        "CARD_META": "#c6d2de",
+        "ACCENT": "#4f93d1",
+        "ACCENT_DARK": "#3b7cba",
+        "ACCENT_LIGHT": "#22405c",
+        "SELECTED": "#1d3550",
+        "DANGER": "#e05a4a",
+        "DANGER_HOVER": "#c0392b",
+        "MUTED_BTN": "#3a4a5c",
+        "MUTED_BTN_HOVER": "#2c3b4c",
+        "ON_ACCENT": "#ffffff",
+        "SEC_DIAG": "#4f93d1",
+        "SEC_OBJ": "#3d7ba8",
+        "SEC_EVAL": "#2f5f80",
+        "SEC_OBS": "#3a4a5c",
+        "SIDEBAR_BG": "#16202c",
+        "SIDEBAR_ACTIVE": "#22405c",
+        "FONT_TITLE": _CLASSIC_FONT_TITLE,
+        "FONT_SUB": _CLASSIC_FONT_SUB,
+        "FONT_BODY": _CLASSIC_FONT_BODY,
+        "FONT_BOLD": _CLASSIC_FONT_BOLD,
+        "FONT_SMALL": _CLASSIC_FONT_SMALL,
+        "FONT_SECTION": _CLASSIC_FONT_SECTION,
+        "ICON_FONT": (_EMOJI, 22),
+        "ICON_FONT_SMALL": (_EMOJI, 18),
+        "SIDEBAR_W": 72,
+        "AVATAR_SIZE": 40,
+        "CARD_RADIUS": 10,
+        "PANEL_RADIUS": 12,
+        "PADDING": 16,
+        "RAIL_W": 64,
+        "TOPBAR_H": 56,
+        "LIST_W": 0,
+        "PANE_PAD": 16,
+        "BTN_RADIUS": 8,
+        "TOPBAR_BG": "#16202c",
+        "RAIL_BG": "#16202c",
+        "INPUT_BG": "#233040",
+        "HEAD_DIAG": "#4f93d1",
+        "HEAD_OBJ": "#3d7ba8",
+        "HEAD_EVAL": "#2f5f80",
+        "HEAD_OBS": "#3a4a5c",
+        "HEAD_TEXT_DARK": False,
+        "RIGHT_BG": "#1b2634",
+        "ICON_STYLE": "emoji",
+    },
     "medidash": {
         "BG": "#f4f7fa",
         "PANEL": "#ffffff",
@@ -285,8 +336,10 @@ _active = "medidash"
 
 
 def _resolve_name() -> str:
-    if _base == "medidash" and _appearance == "Dark" and "medidash-dark" in PALETTES:
-        return "medidash-dark"
+    if _appearance == "Dark":
+        dark = _base + "-dark"
+        if dark in PALETTES:
+            return dark
     return _base
 
 

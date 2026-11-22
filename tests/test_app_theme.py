@@ -43,3 +43,50 @@ def test_settings_dialog_highlights_active_options(patient_app):
         assert inactive_btn.cget("fg_color") == main.theme.MUTED_BTN
     finally:
         dialog.destroy()
+
+
+def test_settings_dialog_stays_open_when_theme_changes(patient_app):
+    from dialogs import SettingsDialog
+
+    app, _pid = patient_app
+    dialog = SettingsDialog(app)
+    try:
+        dialog._choose_theme("medidash")
+        app.update()
+        assert dialog.winfo_exists()
+        assert main.theme.active() == "medidash"
+        assert dialog.theme_buttons["medidash"][1] is True
+        assert dialog.theme_buttons["classic"][1] is False
+        assert dialog.theme_buttons["medidash"][0].cget("fg_color") == main.theme.ACCENT
+        assert dialog.theme_buttons["classic"][0].cget("fg_color") == main.theme.MUTED_BTN
+    finally:
+        dialog.destroy()
+
+
+def test_settings_dialog_appearance_highlight_refreshes(patient_app):
+    from dialogs import SettingsDialog
+
+    app, _pid = patient_app
+    dialog = SettingsDialog(app)
+    try:
+        dialog._choose_appearance("Dark")
+        app.update()
+        assert main.theme.active() == "classic-dark"
+        assert dialog.appearance_buttons["Dark"][1] is True
+        assert dialog.appearance_buttons["Light"][1] is False
+        assert dialog.appearance_buttons["Dark"][0].cget("fg_color") == main.theme.ACCENT
+    finally:
+        dialog.destroy()
+        app._apply_appearance("Light")
+
+
+def test_view_switch_keeps_search_and_list(patient_app):
+    app, _pid = patient_app
+    app._show_view("settings")
+    app.update()
+    assert app._current_view == "settings"
+    app._show_view("patients")
+    app.update()
+    assert app._current_view == "patients"
+    assert app.search_entry.winfo_exists()
+    assert app.card_list.winfo_exists()

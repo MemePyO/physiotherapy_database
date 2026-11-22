@@ -27,7 +27,7 @@ from services.backup_service import get_backup_service
 from services.database_service import get_database_service
 from services.patient_service import get_patient_service
 from services.physio_service import SESSION_STATUSES
-from ui import ttk_style
+from ui import recolor, ttk_style
 from version import __version__
 from workers import BackgroundTask
 
@@ -1201,47 +1201,65 @@ class App(ctk.CTk):
                 self._search_scope_text = self.search_scope
         except Exception:
             log.debug_exc(logger)
-        for w in self.overview_content.winfo_children():
+        content = getattr(self, "overview_content", None)
+        if content is None:
+            return
+        # Cover the pane while its children are swapped so the rebuild never
+        # shows as a blank flash.  The veil is a sibling of the pane, so it
+        # survives the child destruction below.
+        veil = self._veil(host=getattr(content, "master", self), target=content, colour=theme.PANEL)
+        try:
+            for w in content.winfo_children():
+                try:
+                    w.destroy()
+                except Exception:
+                    pass
+            # reset any row/column weights left over from the previous view
+            for i in range(6):
+                try:
+                    content.grid_rowconfigure(i, weight=0)
+                    content.grid_columnconfigure(i, weight=0 if i else 1)
+                except Exception:
+                    log.debug_exc(logger)
+            self._current_view = view
+            self._maybe_check_integrity()
+            titles = {
+                "patients": lang.t("ui_patient_overview"),
+                "trash": lang.t("ui_trash"),
+                "settings": lang.t("ui_settings"),
+                "saveas": lang.t("ui_save_as"),
+                "backup": lang.t("view_backup_restore"),
+                "new": lang.t("ui_new_patient"),
+                "calendar": lang.t("ui_calendar"),
+                "diagnostics": lang.t("ui_diagnostics"),
+            }
+            self.overview_title.configure(text=titles.get(view, view))
+            if view == "patients":
+                self._view_patients()
+            elif view == "trash":
+                self._view_trash()
+            elif view == "settings":
+                self._view_settings()
+            elif view == "saveas":
+                self._view_saveas()
+            elif view == "backup":
+                self._view_backup()
+            elif view == "new":
+                self._view_new_patient()
+            elif view == "calendar":
+                self._view_calendar()
+            elif view == "diagnostics":
+                self._view_diagnostics()
+        finally:
             try:
-                w.destroy()
-            except Exception:
-                pass
-        # reset any row/column weights left over from the previous view
-        for i in range(6):
-            try:
-                self.overview_content.grid_rowconfigure(i, weight=0)
-                self.overview_content.grid_columnconfigure(i, weight=0 if i else 1)
+                self.update_idletasks()
             except Exception:
                 log.debug_exc(logger)
-        self._current_view = view
-        self._maybe_check_integrity()
-        titles = {
-            "patients": lang.t("ui_patient_overview"),
-            "trash": lang.t("ui_trash"),
-            "settings": lang.t("ui_settings"),
-            "saveas": lang.t("ui_save_as"),
-            "backup": lang.t("view_backup_restore"),
-            "new": lang.t("ui_new_patient"),
-            "calendar": lang.t("ui_calendar"),
-            "diagnostics": lang.t("ui_diagnostics"),
-        }
-        self.overview_title.configure(text=titles.get(view, view))
-        if view == "patients":
-            self._view_patients()
-        elif view == "trash":
-            self._view_trash()
-        elif view == "settings":
-            self._view_settings()
-        elif view == "saveas":
-            self._view_saveas()
-        elif view == "backup":
-            self._view_backup()
-        elif view == "new":
-            self._view_new_patient()
-        elif view == "calendar":
-            self._view_calendar()
-        elif view == "diagnostics":
-            self._view_diagnostics()
+            if veil is not None:
+                try:
+                    veil.destroy()
+                except Exception:
+                    log.debug_exc(logger)
 
     def _build_search_controls(self, parent):
         """Build the inline search row shared by both dashboard layouts."""
@@ -2712,78 +2730,119 @@ class App(ctk.CTk):
             save_settings(data)
         except Exception:
             log.debug_exc(logger)
+        # CustomTkinter rescales live, but rebuilding behind the veil keeps the
+        # fonts, geometry and ttk styling of every view consistent.
+        self._rebuild_ui()
 
     def _toggle_theme(self):
         cur = ctk.get_appearance_mode()
-        new_mode = "Dark" if cur == "Light" else "Light"
-        ctk.set_appearance_mode(new_mode)
+        self._apply_appearance("Dark" if cur == "Light" else "Light")
+
+    def _recolour(self, old_palette, old_active=None):
+        """Translate palette colours in place; rebuild only as a fallback."""
+        if old_active is None:
+            old_active = theme.active()
         try:
-            theme.set_appearance(new_mode)
+            changed = recolor.apply(self, old_palette)
         except Exception:
             log.debug_exc(logger)
-        if theme.base() == "medidash":
+            changed = 0
+        if changed == 0 and theme.active() != old_active:
+            # Nothing matched the old palette: a rebuild is safer than leaving
+            # the window half-recoloured.
             self._rebuild_ui()
+        return changed
+
+    def _veil(self, host=None, target=None, colour=None):
+        """Opaque cover drawn while widgets are destroyed and rebuilt.
+
+        Returns the veil so the caller can destroy it once the new widgets are
+        laid out.  Best effort: a failure simply means no veil.
+        """
+        host = host if host is not None else self
         try:
-            data = load_settings()
-            data["appearance"] = new_mode
-            save_settings(data)
+            veil = ctk.CTkFrame(
+                host,
+                fg_color=colour if colour is not None else theme.BG,
+                corner_radius=0,
+            )
+            if target is not None and target.winfo_exists():
+                veil.place(in_=target, relx=0, rely=0, relwidth=1, relheight=1)
+            else:
+                veil.place(relx=0, rely=0, relwidth=1, relheight=1)
+            veil.lift()
+            self.update_idletasks()
+            return veil
         except Exception:
             log.debug_exc(logger)
+            return None
 
     def _rebuild_ui(self):
         self._rebuilding = True
-        self._save_open_files()
-        view = getattr(self, "_current_view", "patients")
-        pid = self.selected_patient_id
-        search_text = getattr(self, "_search_text", "")
-        search_scope = getattr(self, "_search_scope_text", "everything")
-        # Move focus away before destroying widgets to avoid "bad window path"
-        # TclErrors from Tk trying to refocus a destroyed child.
+        veil = self._veil(colour=theme.BG)
         try:
-            self.focus_set()
-        except Exception:
-            pass
-        for w in (
-            getattr(self, "_header", None),
-            getattr(self, "_sidebar", None),
-            getattr(self, "_content", None),
-            getattr(self, "_status_bar", None),
-        ):
+            self._save_open_files()
+            view = getattr(self, "_current_view", "patients")
+            pid = self.selected_patient_id
+            search_text = getattr(self, "_search_text", "")
+            search_scope = getattr(self, "_search_scope_text", "everything")
+            # Move focus away before destroying widgets to avoid "bad window path"
+            # TclErrors from Tk trying to refocus a destroyed child.
             try:
-                if w is not None and w.winfo_exists():
-                    w.destroy()
+                self.focus_set()
+            except Exception:
+                pass
+            for w in (
+                getattr(self, "_header", None),
+                getattr(self, "_sidebar", None),
+                getattr(self, "_content", None),
+                getattr(self, "_status_bar", None),
+            ):
+                try:
+                    if w is not None and w.winfo_exists():
+                        w.destroy()
+                except Exception:
+                    log.debug_exc(logger)
+            self._header = None
+            self._sidebar = None
+            self._content = None
+            self._status_bar = None
+            ttk_style.apply(self)
+            self.grid_columnconfigure(0, weight=0)
+            self.grid_columnconfigure(1, weight=1)
+            self.grid_rowconfigure(0, weight=0)
+            self.grid_rowconfigure(1, weight=1)
+            self.grid_rowconfigure(2, weight=0)
+            self._build_header_bar()
+            self._build_sidebar()
+            self._build_content()
+            self._build_status_bar()
+            self._search_text = search_text
+            self._search_scope_text = search_scope
+            try:
+                self._show_view(view if view else "patients")
+            except Exception:
+                self._show_view("patients")
+            if pid is not None:
+                try:
+                    self._open_patient_by_id(pid)
+                except Exception:
+                    log.debug_exc(logger)
+            self._sidebar_visible = True
+            try:
+                self._on_configure_responsive()
             except Exception:
                 log.debug_exc(logger)
-        self._header = None
-        self._sidebar = None
-        self._content = None
-        self._status_bar = None
-        ttk_style.apply(self)
-        self.grid_columnconfigure(0, weight=0)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_rowconfigure(2, weight=0)
-        self._build_header_bar()
-        self._build_sidebar()
-        self._build_content()
-        self._build_status_bar()
-        self._search_text = search_text
-        self._search_scope_text = search_scope
-        try:
-            self._show_view(view if view else "patients")
-        except Exception:
-            self._show_view("patients")
-        if pid is not None:
+        finally:
             try:
-                self._open_patient_by_id(pid)
+                self.update_idletasks()
             except Exception:
                 log.debug_exc(logger)
-        self._sidebar_visible = True
-        try:
-            self._on_configure_responsive()
-        except Exception:
-            log.debug_exc(logger)
+            if veil is not None:
+                try:
+                    veil.destroy()
+                except Exception:
+                    log.debug_exc(logger)
 
     def _show_account_menu(self):
         menu = tk.Menu(self, tearoff=0)
@@ -2822,13 +2881,16 @@ class App(ctk.CTk):
 
     def _apply_appearance(self, mode):
         mode = "Dark" if str(mode).lower().startswith("d") else "Light"
+        old_palette = recolor.snapshot()
+        old_active = theme.active()
         ctk.set_appearance_mode(mode)
         try:
             theme.set_appearance(mode)
         except Exception:
             log.debug_exc(logger)
-        if theme.base() == "medidash":
-            self._rebuild_ui()
+        # Light/dark keeps the same layout, so recolour in place instead of
+        # destroying and recreating the whole window.
+        self._recolour(old_palette, old_active)
         try:
             data = load_settings()
             data["appearance"] = mode
@@ -2846,8 +2908,15 @@ class App(ctk.CTk):
             save_settings(data)
         except Exception:
             log.debug_exc(logger)
+        old_palette = recolor.snapshot()
+        old_base = theme.base()
+        old_active = theme.active()
         theme.set_theme(name)
-        self._rebuild_ui()
+        if theme.base() == old_base:
+            # Same layout, different palette (e.g. classic-dark -> classic).
+            self._recolour(old_palette, old_active)
+        else:
+            self._rebuild_ui()
 
     def _export_csv(self):
         try:

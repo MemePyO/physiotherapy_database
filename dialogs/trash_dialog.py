@@ -2,13 +2,13 @@ from error_ui import report_error
 from services.patient_service import get_patient_service
 from ui import ttk_style
 
-from .common import ctk, lang, messagebox, theme, ttk
+from .common import ctk, dialog_scale, fit_to_content, lang, messagebox, theme, ttk
 
 
 class TrashDialog(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
-        ttk_style.apply(self)
+        ttk_style.apply(self, scale=dialog_scale(master))
         self.title(lang.t("dlg_trash_title"))
         self.geometry("520x360")
         self.transient(master)
@@ -92,3 +92,7 @@ class TrashDialog(ctk.CTkToplevel):
         ctk.CTkButton(btns, text=lang.t("ui_close"), width=70, command=self.destroy).pack(
             side="left", padx=2
         )
+        try:
+            self.after_idle(lambda: fit_to_content(self, 520, 360))
+        except Exception:
+            pass

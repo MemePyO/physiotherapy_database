@@ -6,13 +6,17 @@ import lang
 import theme
 from ui import ttk_style
 
+from .common import dialog_scale, fit_to_content
+
 
 class BaseDialog(ctk.CTkToplevel):
     """Common scaffolding for modal themed dialogs."""
 
     def __init__(self, master, title, width=400, height=200):
         super().__init__(master)
-        ttk_style.apply(self)
+        self._min_width = width
+        self._min_height = height
+        ttk_style.apply(self, scale=dialog_scale(master))
         self.title(title)
         self.geometry("%dx%d" % (width, height))
         self.transient(master)
@@ -24,6 +28,12 @@ class BaseDialog(ctk.CTkToplevel):
             x = master.winfo_rootx() + (master.winfo_width() - width) // 2
             y = master.winfo_rooty() + (master.winfo_height() - height) // 2
             self.geometry("+%d+%d" % (x, y))
+        except Exception:
+            pass
+        # Children are added by the subclass after this __init__, so grow to
+        # fit them once the event loop has built the layout.
+        try:
+            self.after_idle(lambda: fit_to_content(self, width, height))
         except Exception:
             pass
 

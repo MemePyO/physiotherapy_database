@@ -3,9 +3,15 @@
 All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-23
 
 ### Added
+- Live language switching: window, menus, views and an open Settings dialog re-render immediately (no restart).
+- Menu accelerators for save-as, backup, restore, import, open file, theme, diagnostics, quit and help.
+- Zoom shortcuts `Ctrl+=` / `Ctrl+-` / `Ctrl+0` over 100/125/150 %, plus a View > Zoom submenu.
+- Language menu entries show a check mark on the active language.
+- About dialog now shows build time, schema version, theme, language and the data folder.
+- Windows executable version resource (`version_info.txt`) for product/file metadata.
 - Diagnostics view (View > Diagnostics) with recent errors, health checks, startup self-test.
 - Crash dumps (`crash_*.log`) with traceback, version, theme, and language.
 - In-memory error ring buffer (last 50) in `log.py`.
@@ -35,6 +41,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Runtime data accidentally tracked in git (`.coverage`, `patients.db`, `backup/*.db`).
 
 ### Fixed
+- Crash dumps (`crash_*.log`) are written to the writable data folder instead of beside the executable.
+- Patient panel key handler no longer raises when Tk invokes it without an event.
+- Test suite no longer writes to the real per-user data folder (settings, logs, backups, crash dumps).
 - Pre-operation and pre-migration backups silently failed (`datetime.datetime.now()` on a `from datetime import datetime` import).
 - `utils._exists` missing function definition (caused AttributeError in delayed callbacks).
 - `patient_panel._now` NameError when adding VAS.
@@ -47,7 +56,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Benign Tk focus/destroy TclErrors on theme switch (suppressed + guarded).
 
 ### Changed
-- Theme switch rebuilds UI with focus moved to main window first.
+- Theme switch recolours the window in place; layout switches and view changes are covered by a veil so no blank frame is visible.
+- `classic` now has a real dark palette (`classic-dark`) instead of mixing light colours with a dark title bar.
+- UI scale is tracked explicitly; `ttk` tables scale row height and heading font with the rest of the interface.
+- Dialogs grow to fit their content instead of clipping it at 125 % / 150 %.
+- Restored window geometry is clamped to the visible screen so the window cannot open off-screen.
 - `_backup_now` / `_auto_backup` use `db.backup_to()` instead of `shutil.copy2`.
 
 ## [1.0.0] - 2026-10-31

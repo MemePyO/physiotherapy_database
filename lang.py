@@ -835,6 +835,19 @@ STRINGS = {
         "en": "{app}\nVersion {version}\nSQLite-backed patient records.",
         "ro": "{app}\nVersiune {version}\nEvidență pacienți în SQLite.",
     },
+    "about_details": {
+        "en": (
+            "\n\nBuild: {build}\nSchema: v{schema}\nTheme: {theme}\n"
+            "Language: {language}\nData folder: {data}"
+        ),
+        "ro": (
+            "\n\nCompilare: {build}\nSchemă: v{schema}\nTemă: {theme}\n"
+            "Limbă: {language}\nFolder date: {data}"
+        ),
+    },
+    "menu_zoom_in": {"en": "Zoom In", "ro": "Mărește"},
+    "menu_zoom_out": {"en": "Zoom Out", "ro": "Micșorează"},
+    "menu_zoom_reset": {"en": "Reset Zoom", "ro": "Resetează zoom"},
     # ---- calendar ----
     "cal_weekday_1": {"en": "Mon", "ro": "L"},
     "cal_weekday_2": {"en": "Tue", "ro": "Ma"},

@@ -7,6 +7,7 @@ import paths
 
 
 def test_app_data_dir_windows_uses_appdata(monkeypatch, tmp_path):
+    monkeypatch.delenv("PHYSIO_DATA_DIR", raising=False)
     monkeypatch.setattr(os, "name", "nt")
     monkeypatch.setenv("APPDATA", str(tmp_path))
     result = paths.app_data_dir()
@@ -15,6 +16,7 @@ def test_app_data_dir_windows_uses_appdata(monkeypatch, tmp_path):
 
 
 def test_app_data_dir_windows_falls_back_to_home(monkeypatch, tmp_path):
+    monkeypatch.delenv("PHYSIO_DATA_DIR", raising=False)
     monkeypatch.setattr(os, "name", "nt")
     monkeypatch.delenv("APPDATA", raising=False)
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
@@ -23,6 +25,7 @@ def test_app_data_dir_windows_falls_back_to_home(monkeypatch, tmp_path):
 
 
 def test_app_data_dir_darwin(monkeypatch, tmp_path):
+    monkeypatch.delenv("PHYSIO_DATA_DIR", raising=False)
     monkeypatch.setattr(os, "name", "posix")
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -32,6 +35,7 @@ def test_app_data_dir_darwin(monkeypatch, tmp_path):
 
 
 def test_app_data_dir_linux_prefers_xdg(monkeypatch, tmp_path):
+    monkeypatch.delenv("PHYSIO_DATA_DIR", raising=False)
     monkeypatch.setattr(os, "name", "posix")
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))

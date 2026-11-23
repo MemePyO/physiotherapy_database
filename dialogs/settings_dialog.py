@@ -1,6 +1,9 @@
 from ui import recolor
 
-from .common import LANG_LABELS, ctk, lang, logger, theme
+from .common import LANG_LABELS, ctk, dialog_scale, fit_to_content, lang, logger, theme
+
+MIN_WIDTH = 420
+MIN_HEIGHT = 460
 
 
 def _option_button(parent, text, active, command, width=90):
@@ -21,10 +24,65 @@ class SettingsDialog(ctk.CTkToplevel):
         super().__init__(master)
         self._master = master
         self.title(lang.t("ui_settings"))
-        self.geometry("420x460")
+        self.geometry("%dx%d" % (MIN_WIDTH, MIN_HEIGHT))
         self.resizable(False, False)
         self.transient(master)
         self.grab_set()
+        self.grid_columnconfigure(0, weight=1)
+        self._register_with_app()
+        self._build_ui()
+
+    # -- lifecycle -----------------------------------------------------------
+
+    def _register_with_app(self):
+        """Track this window so the app can refresh it after language changes."""
+        try:
+            dialogs = getattr(self._master, "_settings_dialogs", None)
+            if dialogs is None:
+                dialogs = []
+                self._master._settings_dialogs = dialogs
+            if self not in dialogs:
+                dialogs.append(self)
+            self.bind("<Destroy>", self._on_destroy, add="+")
+        except Exception:
+            logger.debug("could not register settings dialog", exc_info=True)
+
+    def _on_destroy(self, event=None):
+        if event is not None and getattr(event, "widget", None) is not self:
+            return
+        try:
+            dialogs = getattr(self._master, "_settings_dialogs", None)
+            if dialogs is not None and self in dialogs:
+                dialogs.remove(self)
+        except Exception:
+            logger.debug("could not unregister settings dialog", exc_info=True)
+
+    def refresh_language(self):
+        """Re-render the labels after the application language changed."""
+        try:
+            self.after_idle(self._rebuild_safely)
+        except Exception:
+            logger.debug("could not schedule settings refresh", exc_info=True)
+
+    def _rebuild_safely(self):
+        try:
+            if not self.winfo_exists():
+                return
+            self._build_ui()
+            fit_to_content(self, MIN_WIDTH, MIN_HEIGHT)
+            self._refresh_highlights()
+        except Exception:
+            logger.debug("could not rebuild settings dialog", exc_info=True)
+
+    # -- layout --------------------------------------------------------------
+
+    def _build_ui(self):
+        for child in self.winfo_children():
+            try:
+                child.destroy()
+            except Exception:
+                logger.debug("could not clear settings dialog", exc_info=True)
+        self.title(lang.t("ui_settings"))
         self.grid_columnconfigure(0, weight=1)
         self.scale_buttons = {}
         self.theme_buttons = {}
@@ -39,7 +97,10 @@ class SettingsDialog(ctk.CTkToplevel):
             self, text=lang.t("ui_language"), font=theme.FONT_BOLD, text_color=theme.TEXT
         ).grid(row=1, column=0, sticky="w", padx=theme.PADDING, pady=(4, 2))
         self.lang_menu = ctk.CTkOptionMenu(
-            self, values=list(LANG_LABELS.values()), width=200, command=master._on_language_change
+            self,
+            values=list(LANG_LABELS.values()),
+            width=200,
+            command=self._choose_language,
         )
         self.lang_menu.set(LANG_LABELS.get(lang.get_language(), "English"))
         self.lang_menu.grid(row=2, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
@@ -113,33 +174,42 @@ class SettingsDialog(ctk.CTkToplevel):
         data_frame = ctk.CTkFrame(self, fg_color="transparent")
         data_frame.grid(row=10, column=0, sticky="w", padx=theme.PADDING, pady=(0, 8))
         ctk.CTkButton(
-            data_frame, text=lang.t("ui_backup_now"), width=110, command=master._backup_now
+            data_frame, text=lang.t("ui_backup_now"), width=110, command=self._master._backup_now
         ).pack(side="left", padx=2)
         ctk.CTkButton(
-            data_frame, text=lang.t("ui_restore_backup"), width=110, command=master._restore_backup
+            data_frame,
+            text=lang.t("ui_restore_backup"),
+            width=110,
+            command=self._master._restore_backup,
         ).pack(side="left", padx=2)
         ctk.CTkButton(
-            data_frame, text=lang.t("ui_import"), width=110, command=master._import_data
+            data_frame, text=lang.t("ui_import"), width=110, command=self._master._import_data
         ).pack(side="left", padx=2)
 
         # Trash
         ctk.CTkButton(
-            self, text=lang.t("ui_open_trash"), width=220, command=master._show_trash
+            self, text=lang.t("ui_open_trash"), width=220, command=self._master._show_trash
         ).grid(row=11, column=0, sticky="w", padx=theme.PADDING, pady=(8, 8))
 
         ctk.CTkButton(self, text=lang.t("ui_close"), width=90, command=self.destroy).grid(
             row=12, column=0, sticky="e", padx=theme.PADDING, pady=(8, theme.PADDING)
         )
 
+        try:
+            self.after_idle(lambda: fit_to_content(self, MIN_WIDTH, MIN_HEIGHT))
+        except Exception:
+            logger.debug("could not schedule settings fit", exc_info=True)
+
     # -- live option handling ------------------------------------------------
 
-    @staticmethod
-    def _scale_active(pct):
+    def _current_scale(self):
         try:
-            current = float(ctk.get_widget_scaling())
+            return float(self._master.current_ui_scale())
         except Exception:
-            current = 1.0
-        return abs(current - pct / 100.0) < 0.01
+            return dialog_scale(self._master)
+
+    def _scale_active(self, pct):
+        return abs(self._current_scale() - pct / 100.0) < 0.01
 
     @staticmethod
     def _paint(button, active):
@@ -169,6 +239,12 @@ class SettingsDialog(ctk.CTkToplevel):
                 self._paint(button, active)
         except Exception:
             logger.debug("could not refresh settings dialog", exc_info=True)
+
+    def _choose_language(self, choice):
+        try:
+            self._master._on_language_change(choice)
+        except Exception:
+            logger.debug("could not change language", exc_info=True)
 
     def _choose_scale(self, pct):
         try:

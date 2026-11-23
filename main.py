@@ -7,6 +7,7 @@ import glob
 import importlib
 import json
 import os
+import re
 import shutil
 import socket
 import sys
@@ -57,12 +58,33 @@ def _is_benign_tcl_error(exc_type, exc_value):
     return False
 
 
-def _ui_scale() -> float:
-    """Current widget scaling, resilient to missing CustomTkinter support."""
-    try:
-        return float(ctk.get_widget_scaling())
-    except Exception:
-        return 1.0
+_GEOMETRY_RE = re.compile(r"^(\d+)x(\d+)(?:([+-]\d+)([+-]\d+))?$")
+
+
+def _clamp_geometry(geometry: str, screen_w: int, screen_h: int, min_visible: int = 120) -> str:
+    """Clamp a restored window geometry so it cannot end up off-screen.
+
+    ``geometry`` is a Tk geometry string such as ``1200x800+2400+100``.  The
+    size is limited to the visible screen and the position is pulled back until
+    at least ``min_visible`` pixels of the window remain reachable.  Strings
+    that cannot be parsed are returned unchanged.
+    """
+    if not geometry:
+        return geometry
+    match = _GEOMETRY_RE.match(str(geometry).strip())
+    if match is None:
+        return geometry
+    width = max(400, min(int(match.group(1)), max(400, int(screen_w))))
+    height = max(300, min(int(match.group(2)), max(300, int(screen_h))))
+    if match.group(3) is None or match.group(4) is None:
+        return f"{width}x{height}"
+    x = int(match.group(3))
+    y = int(match.group(4))
+    x = min(x, int(screen_w) - min_visible)
+    x = max(x, min_visible - width)
+    y = min(y, int(screen_h) - min_visible)
+    y = max(y, min_visible - height)
+    return f"{width}x{height}{x:+d}{y:+d}"
 
 
 def _option_button(parent, text, active, command, width=90):
@@ -88,7 +110,7 @@ def _write_crash_dump(exc_type, exc_value, exc_tb):
     try:
         import traceback as _tb
 
-        folder = _base_dir()
+        folder = _data_dir()
         stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         path = os.path.join(folder, f"crash_{stamp}.log")
         lines = [
@@ -423,21 +445,32 @@ class App(ctk.CTk):
         super().__init__()
         self._closing = False
         self._rebuilding = False
+        self._ui_scale = 1.0
+        self._lang_var = tk.StringVar(master=self, value=lang.get_language())
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         lang.set_language(load_language())
+        self._lang_var.set(lang.get_language())
         self.title(lang.t("app_name"))
         self.minsize(1100, 700)
         # Restore window geometry / theme from settings
         try:
             settings = load_settings()
+            try:
+                scale = float(settings.get("ui_scale", 1.0))
+            except (TypeError, ValueError):
+                scale = 1.0
+            if scale not in (1.0, 1.25, 1.5):
+                scale = 1.0
+            self._ui_scale = scale
             geom = settings.get("geometry")
             if geom:
-                self.geometry(geom)
+                self.geometry(
+                    _clamp_geometry(geom, self.winfo_screenwidth(), self.winfo_screenheight())
+                )
             else:
                 self.geometry("1200x800")
             mode = settings.get("appearance", "Light")
-            scale = settings.get("ui_scale", 1.0)
             try:
                 ctk.set_widget_scaling(scale)
                 ctk.set_window_scaling(scale)
@@ -449,7 +482,7 @@ class App(ctk.CTk):
         except Exception:
             self.geometry("1200x800")
         self.protocol("WM_DELETE_WINDOW", self._on_app_close)
-        ttk_style.apply(self)
+        ttk_style.apply(self, scale=self._ui_scale)
         self._apply_window_icon()
 
         # Initialize database
@@ -542,6 +575,26 @@ class App(ctk.CTk):
         self.bind("<Control-Y>", self._handle_ctrl_y)
         self.bind("<Control-s>", self._save_current_panel)
         self.bind("<Control-p>", self._print_current_panel)
+        # Menu accelerators that have no other binding yet.
+        for sequence in ("<Control-Shift-S>", "<Control-Shift-s>"):
+            self.bind(sequence, lambda e: (self._save_as(), "break")[1])
+        for sequence in ("<Control-Shift-B>", "<Control-Shift-b>"):
+            self.bind(sequence, lambda e: (self._backup_now(), "break")[1])
+        for sequence in ("<Control-Shift-R>", "<Control-Shift-r>"):
+            self.bind(sequence, lambda e: (self._restore_backup(), "break")[1])
+        for sequence in ("<Control-Shift-I>", "<Control-Shift-i>"):
+            self.bind(sequence, lambda e: (self._import_data(), "break")[1])
+        self.bind("<Control-o>", lambda e: (self._open_patient_file(), "break")[1])
+        self.bind("<Control-t>", lambda e: (self._toggle_theme(), "break")[1])
+        self.bind("<Control-d>", lambda e: (self._show_view("diagnostics"), "break")[1])
+        self.bind("<Control-q>", lambda e: (self._on_app_close(), "break")[1])
+        self.bind("<F1>", lambda e: (self._show_shortcuts(), "break")[1])
+        # Zoom: Ctrl+= / Ctrl+- / Ctrl+0.
+        for sequence in ("<Control-equal>", "<Control-plus>", "<Control-KP_Add>"):
+            self.bind(sequence, lambda e: (self._zoom(1), "break")[1])
+        for sequence in ("<Control-minus>", "<Control-KP_Subtract>"):
+            self.bind(sequence, lambda e: (self._zoom(-1), "break")[1])
+        self.bind("<Control-0>", lambda e: (self._zoom_reset(), "break")[1])
         self.bind("<Escape>", self._handle_escape)
 
     def _apply_window_icon(self):
@@ -717,51 +770,114 @@ class App(ctk.CTk):
         return "break"
 
     def _build_menubar(self):
+        try:
+            self._lang_var.set(lang.get_language())
+        except Exception:
+            self._lang_var = tk.StringVar(master=self, value=lang.get_language())
         menubar = tk.Menu(self)
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label=lang.t("menu_save_as"), command=self._save_as)
+        file_menu.add_command(
+            label=lang.t("menu_save_as"), accelerator="Ctrl+Shift+S", command=self._save_as
+        )
         file_menu.add_separator()
-        file_menu.add_command(label=lang.t("ui_backup_now"), command=self._backup_now)
-        file_menu.add_command(label=lang.t("ui_restore_backup"), command=self._restore_backup)
+        file_menu.add_command(
+            label=lang.t("ui_backup_now"), accelerator="Ctrl+Shift+B", command=self._backup_now
+        )
+        file_menu.add_command(
+            label=lang.t("ui_restore_backup"),
+            accelerator="Ctrl+Shift+R",
+            command=self._restore_backup,
+        )
         file_menu.add_separator()
-        file_menu.add_command(label=lang.t("ui_import"), command=self._import_data)
+        file_menu.add_command(
+            label=lang.t("ui_import"), accelerator="Ctrl+Shift+I", command=self._import_data
+        )
         file_menu.add_separator()
-        file_menu.add_command(label=lang.t("menu_exit"), command=self._on_app_close)
+        file_menu.add_command(
+            label=lang.t("menu_exit"), accelerator="Ctrl+Q", command=self._on_app_close
+        )
         menubar.add_cascade(label=lang.t("menu_file"), menu=file_menu)
         edit_menu = tk.Menu(menubar, tearoff=0)
-        edit_menu.add_command(label=lang.t("menu_add_patient"), command=self._add_patient_db)
         edit_menu.add_command(
-            label=lang.t("menu_open_patient_file"), command=self._open_patient_file
+            label=lang.t("menu_add_patient"), accelerator="Ctrl+N", command=self._add_patient_db
+        )
+        edit_menu.add_command(
+            label=lang.t("menu_open_patient_file"),
+            accelerator="Ctrl+O",
+            command=self._open_patient_file,
         )
         edit_menu.add_command(label=lang.t("menu_delete_patient"), command=self._delete_patient_db)
         edit_menu.add_separator()
         edit_menu.add_command(label=lang.t("ui_trash"), command=self._show_trash)
         menubar.add_cascade(label=lang.t("menu_edit"), menu=edit_menu)
         view_menu = tk.Menu(menubar, tearoff=0)
-        view_menu.add_command(label=lang.t("menu_toggle_theme"), command=self._toggle_theme)
+        view_menu.add_command(
+            label=lang.t("menu_toggle_theme"), accelerator="Ctrl+T", command=self._toggle_theme
+        )
+        zoom_menu = tk.Menu(view_menu, tearoff=0)
+        zoom_menu.add_command(
+            label=lang.t("menu_zoom_in"), accelerator="Ctrl++", command=lambda: self._zoom(1)
+        )
+        zoom_menu.add_command(
+            label=lang.t("menu_zoom_out"), accelerator="Ctrl+-", command=lambda: self._zoom(-1)
+        )
+        zoom_menu.add_command(
+            label=lang.t("menu_zoom_reset"), accelerator="Ctrl+0", command=self._zoom_reset
+        )
+        view_menu.add_cascade(label=lang.t("ui_ui_scale"), menu=zoom_menu)
         lang_submenu = tk.Menu(view_menu, tearoff=0)
         for code, label in LANG_LABELS.items():
 
             def _pick_language(c: str = code) -> None:
                 self._on_language_change("Română" if c == "ro" else "English")
 
-            lang_submenu.add_command(label=label, command=_pick_language)
+            lang_submenu.add_radiobutton(
+                label=label,
+                value=code,
+                variable=self._lang_var,
+                command=_pick_language,
+            )
         view_menu.add_cascade(label=lang.t("menu_language"), menu=lang_submenu)
         view_menu.add_separator()
         view_menu.add_command(
-            label=lang.t("ui_diagnostics"), command=lambda: self._show_view("diagnostics")
+            label=lang.t("ui_diagnostics"),
+            accelerator="Ctrl+D",
+            command=lambda: self._show_view("diagnostics"),
         )
         menubar.add_cascade(label=lang.t("menu_view"), menu=view_menu)
         help_menu = tk.Menu(menubar, tearoff=0)
-        help_menu.add_command(label=lang.t("menu_shortcuts"), command=self._show_shortcuts)
+        help_menu.add_command(
+            label=lang.t("menu_shortcuts"), accelerator="F1", command=self._show_shortcuts
+        )
         help_menu.add_command(label=lang.t("ui_about"), command=self._show_about)
         menubar.add_cascade(label=lang.t("menu_help"), menu=help_menu)
         self.config(menu=menubar)
 
     def _show_about(self):
+        try:
+            schema = str(get_database_service().schema_version())
+        except Exception:
+            schema = "?"
+        try:
+            if getattr(sys, "frozen", False):
+                build = datetime.datetime.fromtimestamp(os.path.getmtime(sys.executable)).strftime(
+                    "%d.%m.%Y %H:%M"
+                )
+            else:
+                build = "source"
+        except Exception:
+            build = "?"
+        details = lang.t(
+            "about_details",
+            build=build,
+            schema=schema,
+            theme=theme.active(),
+            language=lang.get_language().upper(),
+            data=_data_dir(),
+        )
         messagebox.showinfo(
             lang.t("app_name"),
-            lang.t("about_text", app=lang.t("app_name"), version=__version__),
+            lang.t("about_text", app=lang.t("app_name"), version=__version__) + details,
         )
 
     def _show_shortcuts(self):
@@ -773,8 +889,16 @@ class App(ctk.CTk):
             return
         lang.set_language(code)
         save_language(code)
-        self.refresh_patients_db()
+        try:
+            self._lang_var.set(code)
+        except Exception:
+            log.debug_exc(logger)
+        # Rebuild behind the veil: header, sidebar, views, menus and the window
+        # title all pick up the new language.  The current view, search text and
+        # the open patient are restored by _rebuild_ui().
         self.title(lang.t("app_name"))
+        self._rebuild_ui()
+        self._refresh_settings_dialogs()
 
     def _build_header_bar(self):
         if theme.active().startswith("medidash"):
@@ -1487,7 +1611,7 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=(8, 2))
         sf = ctk.CTkFrame(scroll, fg_color="transparent")
         sf.pack(anchor="w", pady=(0, 10))
-        current_scale = _ui_scale()
+        current_scale = self.current_ui_scale()
         for pct in (100, 125, 150):
             _option_button(
                 sf,
@@ -2718,7 +2842,36 @@ class App(ctk.CTk):
         self.search_scope = "name" if value == lang.t("search_scope_name") else "everything"
         self.refresh_patients_db()
 
+    def current_ui_scale(self) -> float:
+        """User-selected interface scale (1.0, 1.25 or 1.5)."""
+        return float(getattr(self, "_ui_scale", 1.0))
+
+    def _zoom_steps(self):
+        return (1.0, 1.25, 1.5)
+
+    def _zoom(self, direction):
+        steps = self._zoom_steps()
+        current = self.current_ui_scale()
+        if current not in steps:
+            index = 0
+        else:
+            index = steps.index(current)
+        index = max(0, min(len(steps) - 1, index + direction))
+        if steps[index] != current:
+            self._set_ui_scale(steps[index])
+
+    def _zoom_reset(self):
+        if self.current_ui_scale() != 1.0:
+            self._set_ui_scale(1.0)
+
     def _set_ui_scale(self, scale):
+        try:
+            scale = float(scale)
+        except (TypeError, ValueError):
+            return
+        if scale not in self._zoom_steps():
+            return
+        self._ui_scale = scale
         try:
             ctk.set_widget_scaling(scale)
             ctk.set_window_scaling(scale)
@@ -2733,10 +2886,21 @@ class App(ctk.CTk):
         # CustomTkinter rescales live, but rebuilding behind the veil keeps the
         # fonts, geometry and ttk styling of every view consistent.
         self._rebuild_ui()
+        self._refresh_settings_dialogs()
+
+    def _refresh_settings_dialogs(self):
+        """Ask any open settings windows to re-render their labels."""
+        for dialog in list(getattr(self, "_settings_dialogs", [])):
+            try:
+                if dialog.winfo_exists():
+                    dialog.refresh_language()
+            except Exception:
+                log.debug_exc(logger)
 
     def _toggle_theme(self):
         cur = ctk.get_appearance_mode()
         self._apply_appearance("Dark" if cur == "Light" else "Light")
+        self._refresh_settings_dialogs()
 
     def _recolour(self, old_palette, old_active=None):
         """Translate palette colours in place; rebuild only as a fallback."""
@@ -2782,6 +2946,7 @@ class App(ctk.CTk):
         veil = self._veil(colour=theme.BG)
         try:
             self._save_open_files()
+            self._build_menubar()
             view = getattr(self, "_current_view", "patients")
             pid = self.selected_patient_id
             search_text = getattr(self, "_search_text", "")
@@ -2807,7 +2972,7 @@ class App(ctk.CTk):
             self._sidebar = None
             self._content = None
             self._status_bar = None
-            ttk_style.apply(self)
+            ttk_style.apply(self, scale=self.current_ui_scale())
             self.grid_columnconfigure(0, weight=0)
             self.grid_columnconfigure(1, weight=1)
             self.grid_rowconfigure(0, weight=0)
@@ -2917,6 +3082,7 @@ class App(ctk.CTk):
             self._recolour(old_palette, old_active)
         else:
             self._rebuild_ui()
+        self._refresh_settings_dialogs()
 
     def _export_csv(self):
         try:

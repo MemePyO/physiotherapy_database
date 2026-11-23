@@ -192,7 +192,11 @@ def apply(root: object, old: Mapping[str, str], new: Mapping[str, str] | None = 
         fill_map, text_map = build_maps(old, new)
         changed = recolour_tree(root, fill_map, text_map)
         try:
-            ttk_style.apply(root)  # type: ignore[arg-type]
+            scale = None
+            getter = getattr(root, "current_ui_scale", None)
+            if callable(getter):
+                scale = getter()
+            ttk_style.apply(root, scale=scale)  # type: ignore[arg-type]
         except Exception:
             pass
         return changed

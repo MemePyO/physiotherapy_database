@@ -427,11 +427,7 @@ class PatientFilePanel(ctk.CTkFrame):
             utils._apply_inline_formatting(txt)
             txt.bind(
                 "<KeyRelease>",
-                lambda e, f=field, t=txt: (
-                    self._on_text_change(f, t),
-                    self.mark_dirty(),
-                    self._schedule_format(t),
-                ),
+                lambda e=None, f=field, t=txt: self._on_key_release(e, f, t),
             )
             setattr(self, field + "_text", txt)
             self._update_count(field, txt)
@@ -551,11 +547,7 @@ class PatientFilePanel(ctk.CTkFrame):
             utils._apply_inline_formatting(txt)
             txt.bind(
                 "<KeyRelease>",
-                lambda e, f=field, t=txt: (
-                    self._on_text_change(f, t),
-                    self.mark_dirty(),
-                    self._schedule_format(t),
-                ),
+                lambda e=None, f=field, t=txt: self._on_key_release(e, f, t),
             )
             setattr(self, field + "_text", txt)
             self._update_count(field, txt)
@@ -718,6 +710,13 @@ class PatientFilePanel(ctk.CTkFrame):
             txt.insert(line_start, prefix)
         except Exception:
             txt.insert("insert", prefix)
+
+    def _on_key_release(self, event, field, txt):
+        """Handle typing; tolerant of being invoked without a Tk event."""
+        self._on_text_change(field, txt)
+        self.mark_dirty()
+        self._schedule_format(txt)
+        return None
 
     def _on_text_change(self, field, txt):
         self._dirty = True
